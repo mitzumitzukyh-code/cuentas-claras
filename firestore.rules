@@ -43,13 +43,28 @@ service cloud.firestore {
       return esMiembro(negocioId) && rolEn(negocioId) == 'dueno';
     }
 
+    // ¿Este usuario fundó el negocio? Es lo único que autoriza a concederse a
+    // uno mismo la membresía de dueño.
+    function esFundador(negocioId) {
+      return estaAutenticado() &&
+             exists(/databases/$(database)/documents/negocios/$(negocioId)) &&
+             get(/databases/$(database)/documents/negocios/$(negocioId))
+               .data.get('creadoPor', '') == request.auth.uid;
+    }
+
     // ----- Negocios -----
     match /negocios/{negocioId} {
       allow read: if esMiembro(negocioId);
-      // Al crear un negocio el usuario debe, en la misma sesión, crear su
-      // membresía de dueño (ver colección membresias más abajo).
-      allow create: if estaAutenticado();
-      allow update: if esDueno(negocioId);
+      // `creadoPor` debe ser uno mismo: es la prueba que luego permite crear la
+      // membresía de dueño. Por eso el negocio se escribe ANTES que la
+      // membresía, y no en el mismo batch (ver NegocioRepository.crearNegocio).
+      allow create: if estaAutenticado() &&
+                       request.resource.data.creadoPor == request.auth.uid;
+      // `creadoPor` es inmutable: si se pudiera reescribir, un dueño podría
+      // regalar (o robar) la capacidad de fundar membresías sobre el negocio.
+      allow update: if esDueno(negocioId) &&
+                       !('creadoPor' in request.resource.data
+                           .diff(resource.data).affectedKeys());
       allow delete: if esDueno(negocioId);
 
       // --- Productos ---
@@ -86,15 +101,52 @@ service cloud.firestore {
     }
 
     // ----- Membresías -----
-    // Un usuario puede leer y crear su PROPIA membresía (al fundar un negocio
-    // como dueño, o al aceptar una invitación como empleado). El dueño puede
-    // leer/eliminar membresías de su negocio (gestión de empleados).
+    // La membresía ES el permiso: `esMiembro()` no comprueba otra cosa que la
+    // existencia de este documento. Por eso crear una membresía tiene que ser
+    // más difícil que declararse miembro — antes bastaba con poner el propio
+    // uid en `usuarioId`, lo que permitía a cualquier usuario autenticado
+    // escribir `membresias/{suUid}_{negocioAjeno}` con rol 'dueno' y quedarse
+    // con el inventario, las ventas y los gastos de un negocio que no era suyo.
+    //
+    // Ahora solo hay dos caminos, y ambos exigen una prueba externa:
+    //   1. Fundador — el negocio ya existe y su `creadoPor` es este usuario.
+    //   2. Invitado — presenta un código vivo, sin usar, del mismo negocio y rol.
     match /membresias/{membresiaId} {
+      // La invitación que respalda una membresía nueva: tiene que existir,
+      // seguir sin usar, no haber caducado, y coincidir en negocio y rol con lo
+      // que el usuario pretende escribir.
+      function invitacionRespalda(datos) {
+        return datos.get('codigoInvitacion', '') is string &&
+               datos.get('codigoInvitacion', '') != '' &&
+               exists(/databases/$(database)/documents/invitaciones/$(datos.codigoInvitacion)) &&
+               invitacionCuadra(
+                 get(/databases/$(database)/documents/invitaciones/$(datos.codigoInvitacion)).data,
+                 datos
+               );
+      }
+
+      function invitacionCuadra(inv, datos) {
+        return inv.usado == false &&
+               inv.expiraEn > request.time &&
+               inv.negocioId == datos.negocioId &&
+               inv.rol == datos.rol;
+      }
+
       allow read: if estaAutenticado() &&
                      (resource.data.usuarioId == request.auth.uid ||
                       esDueno(resource.data.negocioId));
+
+      // El ID del documento es lo que consulta `esMiembro()`, así que validar
+      // solo el campo `usuarioId` no serviría de nada: hay que atar el ID.
       allow create: if estaAutenticado() &&
-                       request.resource.data.usuarioId == request.auth.uid;
+                       membresiaId == request.auth.uid + '_' +
+                                      request.resource.data.negocioId &&
+                       request.resource.data.usuarioId == request.auth.uid &&
+                       (
+                         (request.resource.data.rol == 'dueno' &&
+                          esFundador(request.resource.data.negocioId)) ||
+                         invitacionRespalda(request.resource.data)
+                       );
 
       // El dueño cambia el rol de su equipo (pantalla Empleados). Solo puede
       // tocar `rol`: si pudiera reescribir `usuarioId` o `negocioId` movería
@@ -113,17 +165,24 @@ service cloud.firestore {
     // El dueño genera códigos; un invitado autenticado puede leer para validar
     // y marcar como usado al aceptar.
     match /invitaciones/{codigo} {
-      // Cualquiera autenticado puede leer un código para validarlo: sin esto no
-      // podría comprobar si es válido antes de aceptarlo. El código es un
-      // secreto de 6 caracteres y de un solo uso.
-      allow read:   if estaAutenticado();
-      allow create: if esDueno(request.resource.data.negocioId);
+      // `get` (un código concreto, por ID) sí: quien recibe la invitación
+      // necesita validarla antes de aceptarla, y para eso ya tiene que conocer
+      // el código. `list` no: con la colección abierta, cualquier usuario
+      // autenticado podía descargar TODOS los códigos vivos con su negocioId y
+      // su rol, y el secreto de 6 caracteres dejaba de ser secreto.
+      allow get:    if estaAutenticado();
+      allow list:   if false;
+      allow create: if esDueno(request.resource.data.negocioId) &&
+                       request.resource.data.usado == false;
 
       // Aceptar una invitación solo puede marcarla como usada. Antes esto era
       // `if estaAutenticado()`, lo que dejaba a cualquiera reescribir el rol
       // del código y colarse como dueño.
+      // La caducidad de 24 h se comprobaba solo en el cliente, así que a nivel
+      // de servidor un código vencido seguía siendo aceptable.
       allow update: if estaAutenticado() &&
                        resource.data.usado == false &&
+                       resource.data.expiraEn > request.time &&
                        request.resource.data.usado == true &&
                        request.resource.data.negocioId == resource.data.negocioId &&
                        request.resource.data.rol == resource.data.rol &&

@@ -29,12 +29,21 @@ class Membresia {
     required this.rol,
     this.nombre,
     this.correo,
+    this.codigoInvitacion,
   });
 
   final String id;
   final String usuarioId;
   final String negocioId;
   final RolMembresia rol;
+
+  /// Código de invitación con el que se creó esta membresía, o `null` si quien
+  /// la tiene fundó el negocio.
+  ///
+  /// Las reglas de Firestore lo exigen para dar de alta a un miembro que no es
+  /// el fundador: sin un código vivo, sin usar y del mismo negocio y rol, la
+  /// escritura se rechaza. Es lo que impide colarse en un negocio ajeno.
+  final String? codigoInvitacion;
 
   /// Nombre visible del miembro. Se copia al crear la membresía porque
   /// Firestore no puede leer la tabla de usuarios de Firebase Auth.
@@ -68,6 +77,7 @@ class Membresia {
       rol: RolMembresia.fromId(data['rol'] as String?),
       nombre: data['nombre'] as String?,
       correo: data['correo'] as String?,
+      codigoInvitacion: data['codigoInvitacion'] as String?,
     );
   }
 
@@ -77,5 +87,9 @@ class Membresia {
         'rol': rol.id,
         'nombre': nombre,
         'correo': correo,
+        // Se omite si no hay código: las reglas distinguen "sin código" (=
+        // fundador) de "código presente", y un null explícito no es ninguno
+        // de los dos.
+        if (codigoInvitacion != null) 'codigoInvitacion': codigoInvitacion,
       };
 }

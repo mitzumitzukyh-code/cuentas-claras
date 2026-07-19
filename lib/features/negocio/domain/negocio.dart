@@ -19,6 +19,7 @@ class Negocio {
     this.proveedorWhatsapp,
     this.fotoUrl,
     this.metodosPago = const [],
+    this.creadoPor,
   });
 
   final String id;
@@ -51,6 +52,13 @@ class Negocio {
   /// Formas de pago aceptadas y sus datos (pantalla Métodos de pago).
   final List<MetodoPagoConfig> metodosPago;
 
+  /// UID de quien fundó el negocio.
+  ///
+  /// No es decorativo: las reglas de Firestore lo usan para decidir quién puede
+  /// crearse a sí mismo la membresía de dueño. Sin este campo, cualquier usuario
+  /// autenticado podría declararse dueño de un negocio ajeno.
+  final String? creadoPor;
+
   /// Solo las activas, que son las que se ofrecen al cobrar.
   List<MetodoPagoConfig> get metodosActivos =>
       metodosPago.where((m) => m.activo).toList();
@@ -75,6 +83,7 @@ class Negocio {
       metaMensualUsd: (data['metaMensualUsd'] as num?)?.toDouble() ?? 0,
       proveedorWhatsapp: data['proveedorWhatsapp'] as String?,
       fotoUrl: data['fotoUrl'] as String?,
+      creadoPor: data['creadoPor'] as String?,
       metodosPago: MetodoPagoConfig.listaDesdeMapa(
         data['metodosPago'] as Map<String, dynamic>?,
       ),
@@ -104,6 +113,7 @@ class Negocio {
         'metaMensualUsd': metaMensualUsd,
         'proveedorWhatsapp': proveedorWhatsapp,
         'fotoUrl': fotoUrl,
+        'creadoPor': creadoPor,
         'metodosPago': MetodoPagoConfig.listaAMapa(metodosPago),
       };
 }
