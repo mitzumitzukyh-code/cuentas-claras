@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "1037970882198",
+    "project_id": "cuenta-clara-5002c",
+    "storage_bucket": "cuenta-clara-5002c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1037970882198:android:f55ef0dbd99d1fcb494cb7",
+        "android_client_info": {
+          "package_name": "com.mitzukyhsdev.cuentaclara"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1037970882198-rk4ner1heoq1n4647r8eelsouojn8br5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mitzukyhsdev.cuentaclara",
+            "certificate_hash": "cafbbfc91d7533782474c15a9db02b2788505a92"
+          }
+        },
+        {
+          "client_id": "1037970882198-sckvjvv7h0qru86n0c3d0cgv2n1lb885.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCccPlUrPY6QVRpDkGbwwjHoD1i-QZoAx8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1037970882198-sckvjvv7h0qru86n0c3d0cgv2n1lb885.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1037970882198-58ua7ieg449im522vcf4sgkkq7jlrd65.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mitzukyhsdev.cuentaclara"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

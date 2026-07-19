@@ -1,0 +1,23 @@
+{
+  "indexes": [
+    {
+      "//": "Ventas del negocio ordenadas por fecha (dashboard, historial).",
+      "collectionGroup": "ventas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "anulada", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Productos por categoria dentro de un negocio (pantalla Productos).",
+      "collectionGroup": "productos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoria", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

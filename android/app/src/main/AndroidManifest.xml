@@ -1,0 +1,72 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Firebase / API de tasa BCV -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Escaneo de codigo de barras (mobile_scanner) y fotos (image_picker) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Recordatorios locales (flutter_local_notifications) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Impresora termica Bluetooth. En Android 12+ basta CONNECT porque solo
+         usamos dispositivos ya emparejados: asi no hay que pedir ubicacion. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <!-- Android 11 y anteriores usaban estos dos permisos, ahora obsoletos. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
+
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
+
+    <application
+        android:label="Cuenta Clara"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Requerido por url_launcher para abrir la app de correo con el
+             esquema mailto: (visibilidad de paquetes, Android 11+). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="mailto"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
+    </queries>
+</manifest>

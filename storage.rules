@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// =============================================================================
+// Cuenta Clara — Reglas de Cloud Storage
+// -----------------------------------------------------------------------------
+// Mismo principio que Firestore (CLAUDE.md §4): los archivos de un negocio solo
+// son accesibles para quien tenga membresía en ese negocio. La membresía vive en
+// Firestore, así que se consulta desde aquí con firestore.exists().
+//
+// Rutas usadas por la app:
+//   negocios/{negocioId}/productos/{archivo}  — fotos de producto
+//   negocios/{negocioId}/gastos/{archivo}     — fotos de recibo
+//   negocios/{negocioId}/perfil/{archivo}     — foto del negocio
+// =============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    // ID de membresía = "<usuarioId>_<negocioId>".
+    function esMiembro(negocioId) {
+      return estaAutenticado() &&
+             firestore.exists(
+               /databases/(default)/documents/membresias/$(request.auth.uid + '_' + negocioId)
+             );
+    }
+
+    // Las imágenes se limitan a 8 MB para no reventar la cuota gratuita.
+    function esImagenValida() {
+      return request.resource.size < 8 * 1024 * 1024 &&
+             request.resource.contentType.matches('image/.*');
+    }
+
+    match /negocios/{negocioId}/{carpeta}/{archivo} {
+      allow read:  if esMiembro(negocioId);
+      allow write: if esMiembro(negocioId) && esImagenValida();
+      allow delete: if esMiembro(negocioId);
+    }
+  }
+}

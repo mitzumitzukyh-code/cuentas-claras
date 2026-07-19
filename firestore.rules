@@ -1,0 +1,135 @@
+rules_version = '2';
+
+// =============================================================================
+// Cuenta Clara — Reglas de seguridad de Firestore
+// -----------------------------------------------------------------------------
+// Principio central (CLAUDE.md §4): NINGÚN usuario puede leer/escribir datos de
+// un negocio donde no tenga una membresía. Esto se aplica aquí, a nivel de
+// servidor — nunca solo en la UI.
+//
+// Roles (CLAUDE.md §6):
+//   - dueno:    ve/edita todo, anula ventas, elimina productos, ve finanzas.
+//   - empleado: registra ventas y ve inventario; NO ve gastos/finanzas, NO
+//               anula ventas, NO elimina productos.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----- Helpers -----
+
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    // ID de membresía = "<usuarioId>_<negocioId>" (CLAUDE.md §4).
+    function membresiaId(negocioId) {
+      return request.auth.uid + '_' + negocioId;
+    }
+
+    function docMembresia(negocioId) {
+      return /databases/$(database)/documents/membresias/$(membresiaId(negocioId));
+    }
+
+    function esMiembro(negocioId) {
+      return estaAutenticado() && exists(docMembresia(negocioId));
+    }
+
+    function rolEn(negocioId) {
+      return get(docMembresia(negocioId)).data.rol;
+    }
+
+    function esDueno(negocioId) {
+      return esMiembro(negocioId) && rolEn(negocioId) == 'dueno';
+    }
+
+    // ----- Negocios -----
+    match /negocios/{negocioId} {
+      allow read: if esMiembro(negocioId);
+      // Al crear un negocio el usuario debe, en la misma sesión, crear su
+      // membresía de dueño (ver colección membresias más abajo).
+      allow create: if estaAutenticado();
+      allow update: if esDueno(negocioId);
+      allow delete: if esDueno(negocioId);
+
+      // --- Productos ---
+      // Empleado puede actualizar stock (una venta descuenta cantidad), pero no
+      // crear catálogo ni eliminar productos.
+      match /productos/{productoId} {
+        allow read:   if esMiembro(negocioId);
+        allow create: if esDueno(negocioId);
+        allow update: if esMiembro(negocioId);
+        allow delete: if esDueno(negocioId);
+      }
+
+      // --- Insumos (solo comida_rapida) ---
+      match /insumos/{insumoId} {
+        allow read:   if esMiembro(negocioId);
+        allow create: if esDueno(negocioId);
+        allow update: if esMiembro(negocioId); // una venta descuenta insumos
+        allow delete: if esDueno(negocioId);
+      }
+
+      // --- Ventas ---
+      // Empleado registra ventas. Anular = update (solo dueño). Nunca se borran.
+      match /ventas/{ventaId} {
+        allow read:   if esMiembro(negocioId);
+        allow create: if esMiembro(negocioId);
+        allow update: if esDueno(negocioId);
+        allow delete: if false;
+      }
+
+      // --- Gastos (información financiera: solo dueño) ---
+      match /gastos/{gastoId} {
+        allow read, write: if esDueno(negocioId);
+      }
+    }
+
+    // ----- Membresías -----
+    // Un usuario puede leer y crear su PROPIA membresía (al fundar un negocio
+    // como dueño, o al aceptar una invitación como empleado). El dueño puede
+    // leer/eliminar membresías de su negocio (gestión de empleados).
+    match /membresias/{membresiaId} {
+      allow read: if estaAutenticado() &&
+                     (resource.data.usuarioId == request.auth.uid ||
+                      esDueno(resource.data.negocioId));
+      allow create: if estaAutenticado() &&
+                       request.resource.data.usuarioId == request.auth.uid;
+
+      // El dueño cambia el rol de su equipo (pantalla Empleados). Solo puede
+      // tocar `rol`: si pudiera reescribir `usuarioId` o `negocioId` movería
+      // membresías entre negocios o suplantaría a otro usuario.
+      allow update: if esDueno(resource.data.negocioId) &&
+                       request.resource.data.usuarioId == resource.data.usuarioId &&
+                       request.resource.data.negocioId == resource.data.negocioId &&
+                       request.resource.data.rol in ['dueno', 'empleado'];
+
+      allow delete: if estaAutenticado() &&
+                       (resource.data.usuarioId == request.auth.uid ||
+                        esDueno(resource.data.negocioId));
+    }
+
+    // ----- Invitaciones -----
+    // El dueño genera códigos; un invitado autenticado puede leer para validar
+    // y marcar como usado al aceptar.
+    match /invitaciones/{codigo} {
+      // Cualquiera autenticado puede leer un código para validarlo: sin esto no
+      // podría comprobar si es válido antes de aceptarlo. El código es un
+      // secreto de 6 caracteres y de un solo uso.
+      allow read:   if estaAutenticado();
+      allow create: if esDueno(request.resource.data.negocioId);
+
+      // Aceptar una invitación solo puede marcarla como usada. Antes esto era
+      // `if estaAutenticado()`, lo que dejaba a cualquiera reescribir el rol
+      // del código y colarse como dueño.
+      allow update: if estaAutenticado() &&
+                       resource.data.usado == false &&
+                       request.resource.data.usado == true &&
+                       request.resource.data.negocioId == resource.data.negocioId &&
+                       request.resource.data.rol == resource.data.rol &&
+                       request.resource.data.expiraEn == resource.data.expiraEn;
+
+      allow delete: if esDueno(resource.data.negocioId);
+    }
+  }
+}

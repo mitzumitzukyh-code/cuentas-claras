@@ -1,0 +1,29 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "cuenta-clara-5002c",
+          "appId": "1:1037970882198:android:f55ef0dbd99d1fcb494cb7",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "cuenta-clara-5002c",
+          "configurations": {
+            "android": "1:1037970882198:android:f55ef0dbd99d1fcb494cb7",
+            "ios": "1:1037970882198:ios:987268e670260523494cb7"
+          }
+        }
+      }
+    }
+  }
+}
