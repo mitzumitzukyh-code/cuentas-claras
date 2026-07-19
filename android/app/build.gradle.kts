@@ -1,3 +1,13 @@
+import java.util.Properties
+
+// Credenciales de firma. Viven en android/key.properties, que no se versiona;
+// el propio .jks esta fuera del repositorio (ver ese archivo).
+val propiedadesFirma = Properties().apply {
+    val archivo = rootProject.file("key.properties")
+    if (archivo.exists()) archivo.inputStream().use { load(it) }
+}
+val hayClaveDeFirma = propiedadesFirma.getProperty("storeFile") != null
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -12,7 +22,10 @@ android {
     namespace = "com.mitzukyhsdev.cuentaclara"
     // mobile_scanner requiere compileSdk >= 36.
     compileSdk = 36
-    ndkVersion = flutter.ndkVersion
+    // Fijado a mano: 18 de los plugins (Firebase, mobile_scanner, image_picker...)
+    // piden esta version y `flutter.ndkVersion` se queda corta, lo que llenaba
+    // cada build de avisos de desajuste.
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         // Requerido por flutter_local_notifications (APIs de java.time via desugaring)
@@ -37,11 +50,35 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hayClaveDeFirma) {
+            create("release") {
+                storeFile = file(propiedadesFirma.getProperty("storeFile"))
+                storePassword = propiedadesFirma.getProperty("storePassword")
+                keyAlias = propiedadesFirma.getProperty("keyAlias")
+                keyPassword = propiedadesFirma.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Antes se firmaba con la clave de debug, lo que hacia el AAB
+            // impublicable: Google Play rechaza cualquier artefacto firmado con
+            // ella. Ahora se usa la clave de subida real.
+            //
+            // Si key.properties no esta (otra maquina, un CI sin secretos), el
+            // build FALLA a proposito. La alternativa —caer de vuelta a debug—
+            // es peor: produce en silencio un artefacto que parece publicable y
+            // no lo es, y solo te enteras al subirlo.
+            signingConfig = if (hayClaveDeFirma) {
+                signingConfigs.getByName("release")
+            } else {
+                throw GradleException(
+                    "Falta android/key.properties: no se puede firmar el release. " +
+                    "Copia el archivo y el .jks desde tu respaldo."
+                )
+            }
         }
     }
 }

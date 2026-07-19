@@ -46,3 +46,8 @@ app.*.map.json
 
 # Dependencias de las pruebas de reglas (test_rules)
 node_modules/
+
+# Credenciales de firma de Android — nunca se versionan
+android/key.properties
+*.jks
+*.keystore
