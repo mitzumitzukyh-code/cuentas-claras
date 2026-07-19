@@ -96,6 +96,9 @@ class NegocioRepository {
       rol: invitacion.rol,
       nombre: nombre,
       correo: correo,
+      // Las reglas leen este código para comprobar que la invitación sigue
+      // viva, sin usar, y es de este negocio y este rol.
+      codigoInvitacion: invitacion.codigo,
     );
 
     final batch = _db.batch();
@@ -139,8 +142,17 @@ class NegocioRepository {
     return _negocios.doc(negocioId).update(cambios);
   }
 
-  /// Crea un negocio y, atómicamente, la membresía de dueño del creador
-  /// (CLAUDE.md §6). Devuelve el negocio creado.
+  /// Crea un negocio y la membresía de dueño de quien lo funda (CLAUDE.md §6).
+  ///
+  /// Las dos escrituras van **en orden, no en batch**. Las reglas de Firestore
+  /// solo aceptan una membresía de dueño autoconcedida si el negocio ya existe
+  /// y su `creadoPor` es el propio usuario; dentro de un batch las reglas se
+  /// evalúan contra el estado anterior, así que el negocio todavía no estaría
+  /// ahí y la membresía se rechazaría.
+  ///
+  /// El precio de perder la atomicidad es que un fallo entre ambas escrituras
+  /// deja un negocio sin miembros. Es inofensivo —nadie puede leerlo ni
+  /// escribirlo, ni siquiera quien lo creó— y el usuario simplemente reintenta.
   Future<Negocio> crearNegocio({
     required String usuarioId,
     required String nombre,
@@ -154,6 +166,7 @@ class NegocioRepository {
       nombre: nombre,
       rubro: rubro,
       configuracion: rubro.config,
+      creadoPor: usuarioId,
     );
 
     final membresiaId = FirestorePaths.membresiaId(usuarioId, negocioRef.id);
@@ -166,10 +179,8 @@ class NegocioRepository {
       correo: correoUsuario,
     );
 
-    final batch = _db.batch();
-    batch.set(negocioRef, negocio.toMap());
-    batch.set(_membresias.doc(membresiaId), membresia.toMap());
-    await batch.commit();
+    await negocioRef.set(negocio.toMap());
+    await _membresias.doc(membresiaId).set(membresia.toMap());
 
     return negocio;
   }
