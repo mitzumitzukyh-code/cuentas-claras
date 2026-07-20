@@ -39,11 +39,7 @@ Future<void> main() async {
     await push.iniciar();
     // Reconcilia al arrancar: el permiso pudo revocarse desde los ajustes del
     // sistema con la app cerrada, y las suscripciones deben reflejarlo.
-    final preferencias = push.leerPreferencias();
-    await push.sincronizarTopics(
-      preferencias,
-      topicsPrevios: preferencias.topicsDeseados,
-    );
+    await push.sincronizarTopics(push.leerPreferencias());
   }
 
   runApp(

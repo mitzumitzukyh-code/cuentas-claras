@@ -21,6 +21,21 @@ class AvisosTasaSeccion extends ConsumerWidget {
     final prefs = ref.watch(preferenciasTasaProvider);
     final notifier = ref.read(preferenciasTasaProvider.notifier);
 
+    // `alternar`/`cambiarUmbral`/`pedirPermiso` pueden fallar si Google no
+    // confirma la suscripción a tiempo (ver PushSyncException). El interruptor
+    // ya se movió de forma optimista; esto solo avisa de que quizás no se
+    // sincronizó de verdad, en vez de dejar al usuario creyendo que sí.
+    Future<void> conAviso(Future<void> Function() accion) async {
+      try {
+        await accion();
+      } on PushSyncException catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: AppColors.peligro),
+        );
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -39,20 +54,18 @@ class AvisosTasaSeccion extends ConsumerWidget {
             children: [
               if (!prefs.permisoConcedido)
                 _PedirPermiso(
-                  onPedir: () async {
+                  onPedir: () => conAviso(() async {
                     final ok = await notifier.pedirPermiso();
-                    if (!context.mounted) return;
-                    if (!ok) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Sin permiso no podemos avisarte. Puedes '
-                            'concederlo en los ajustes del teléfono.',
-                          ),
+                    if (!context.mounted || ok) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Sin permiso no podemos avisarte. Puedes '
+                          'concederlo en los ajustes del teléfono.',
                         ),
-                      );
-                    }
-                  },
+                      ),
+                    );
+                  }),
                 ),
 
               for (final tipo in TipoAvisoTasa.values)
@@ -60,7 +73,7 @@ class AvisosTasaSeccion extends ConsumerWidget {
                   tipo: tipo,
                   activo: prefs.estaActivo(tipo),
                   habilitado: prefs.permisoConcedido,
-                  onChanged: (v) => notifier.alternar(tipo, v),
+                  onChanged: (v) => conAviso(() => notifier.alternar(tipo, v)),
                 ),
 
               // El umbral solo importa si hay algún aviso que dependa de él.
@@ -70,7 +83,7 @@ class AvisosTasaSeccion extends ConsumerWidget {
                       .any(prefs.estaActivo))
                 _SelectorUmbral(
                   umbral: prefs.umbral,
-                  onCambiar: notifier.cambiarUmbral,
+                  onCambiar: (u) => conAviso(() => notifier.cambiarUmbral(u)),
                   tasaActual: ref.watch(bcvRateProvider).valueOrNull?.tasa,
                 ),
             ],
