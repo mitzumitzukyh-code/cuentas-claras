@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,6 +13,7 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
+import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -397,20 +401,86 @@ class _BannerStockBajo extends StatelessWidget {
 }
 
 /// Modal de importación masiva: una línea por producto.
-class _DialogoImportar extends StatefulWidget {
+///
+/// Las líneas pueden teclearse, pegarse, o leerse con IA de la foto de una
+/// libreta manuscrita. La IA solo RELLENA el cuadro de texto: el dueño ve
+/// exactamente lo que se va a importar, lo corrige, y nada entra al
+/// inventario hasta que toca "Importar" — la misma vista previa de siempre.
+class _DialogoImportar extends ConsumerStatefulWidget {
   const _DialogoImportar();
 
   @override
-  State<_DialogoImportar> createState() => _DialogoImportarState();
+  ConsumerState<_DialogoImportar> createState() => _DialogoImportarState();
 }
 
-class _DialogoImportarState extends State<_DialogoImportar> {
+class _DialogoImportarState extends ConsumerState<_DialogoImportar> {
   final _texto = TextEditingController();
+  bool _leyendo = false;
 
   @override
   void dispose() {
     _texto.dispose();
     super.dispose();
+  }
+
+  Future<void> _leerLibreta(ImageSource fuente) async {
+    final x = await ImagePicker().pickImage(
+      source: fuente,
+      imageQuality: 80,
+      maxWidth: 1600,
+    );
+    if (x == null || !mounted) return;
+
+    setState(() => _leyendo = true);
+    try {
+      final filas = await ref
+          .read(lectorEtiquetaServiceProvider)
+          .leerLibreta(File(x.path));
+      if (!mounted) return;
+
+      // Lo que falte en la libreta queda como "?" para que la línea no pase
+      // desapercibida: el importador la omite hasta que el dueño la complete.
+      // Los números van con punto decimal: la coma es el separador de la
+      // línea y una cantidad "23,5" partiría el renglón en cuatro.
+      final lineas = filas.map((f) {
+        final precio = f.precio?.toStringAsFixed(2) ?? '?';
+        final c = f.cantidad;
+        final cantidad = c == null
+            ? '?'
+            : (c == c.roundToDouble()
+                ? c.toStringAsFixed(0)
+                : c.toStringAsFixed(2));
+        return '${f.nombre}, $precio, $cantidad';
+      }).join('\n');
+
+      setState(() {
+        _texto.text = _texto.text.trim().isEmpty
+            ? lineas
+            : '${_texto.text.trim()}\n$lineas';
+        _leyendo = false;
+      });
+      _avisar(
+        '${filas.length} renglones leídos. Revisa precios y cantidades — '
+        'los "?" hay que completarlos.',
+      );
+    } on SinReconocer {
+      if (!mounted) return;
+      setState(() => _leyendo = false);
+      _avisar('No reconocimos una lista de productos en la foto.');
+    } on LimiteDiarioIA {
+      if (!mounted) return;
+      setState(() => _leyendo = false);
+      _avisar('Se agotaron las lecturas con IA por hoy. Vuelve mañana.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _leyendo = false);
+      _avisar('No se pudo leer la libreta: $e');
+    }
+  }
+
+  void _avisar(String mensaje) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
@@ -428,7 +498,7 @@ class _DialogoImportarState extends State<_DialogoImportar> {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 120,
+            height: 140,
             child: NeuInset(
               radius: 14,
               color: t.pageBg,
@@ -448,6 +518,39 @@ class _DialogoImportarState extends State<_DialogoImportar> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          Text(
+            '📓 ¿Llevas el inventario en una libreta? Fotografíala y la IA '
+            'transcribe los renglones aquí para que los revises.',
+            style: TextStyle(fontSize: 12, color: t.textSec),
+          ),
+          const SizedBox(height: 6),
+          if (_leyendo)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              ),
+            )
+          else
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => _leerLibreta(ImageSource.camera),
+                  icon: const Text('📷'),
+                  label: const Text('Cámara'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _leerLibreta(ImageSource.gallery),
+                  icon: const Text('🖼️'),
+                  label: const Text('Galería'),
+                ),
+              ],
+            ),
         ],
       ),
       actions: [
@@ -456,7 +559,8 @@ class _DialogoImportarState extends State<_DialogoImportar> {
           child: const Text('Cancelar'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(_texto.text),
+          onPressed:
+              _leyendo ? null : () => Navigator.of(context).pop(_texto.text),
           child: const Text('Importar'),
         ),
       ],

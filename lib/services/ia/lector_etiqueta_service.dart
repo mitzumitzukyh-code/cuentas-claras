@@ -7,30 +7,76 @@ import 'package:http/http.dart' as http;
 
 import '../../core/providers/firebase_providers.dart';
 
-const String _endpoint =
-    'https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev/leer-etiqueta';
+const String _baseUrl = 'https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev';
 
-/// Sugerencia de nombre que la IA extrajo de la foto de un producto.
+/// Sugerencia que la IA extrajo de la foto de un producto.
 class SugerenciaEtiqueta {
-  const SugerenciaEtiqueta({required this.nombre, required this.confianza});
+  const SugerenciaEtiqueta({
+    required this.nombre,
+    required this.confianza,
+    this.categoria,
+    this.presentacion,
+  });
 
   final String nombre;
+
+  /// Categoría sugerida. Solo llega si coincide con una de las categorías de
+  /// la tienda (el Worker descarta las inventadas), así que se puede
+  /// seleccionar el chip directamente.
+  final String? categoria;
+
+  /// "1kg", "2L", "12 uds"… o `null` si la foto no la muestra.
+  final String? presentacion;
 
   /// `alta` | `media` | `baja`. Se usa para avisar cuando conviene revisar
   /// bien antes de aceptar la sugerencia, nunca para bloquearla.
   final String confianza;
 }
 
-/// No se reconoció ningún producto en la foto (borrosa, no es un producto).
+/// Una fila leída de la foto de una libreta de inventario.
+class FilaLibreta {
+  const FilaLibreta({required this.nombre, this.precio, this.cantidad});
+
+  final String nombre;
+  final double? precio;
+  final double? cantidad;
+}
+
+/// Datos extraídos de la foto de un recibo de compra.
+class DatosRecibo {
+  const DatosRecibo({
+    this.monto,
+    this.moneda = 'USD',
+    this.fecha,
+    this.descripcion,
+    this.categoria,
+  });
+
+  final double? monto;
+
+  /// `USD` o `VES`: los recibos venezolanos suelen venir en bolívares y el
+  /// gasto se registra en dólares, así que la app convierte con la tasa BCV.
+  final String moneda;
+  final DateTime? fecha;
+  final String? descripcion;
+
+  /// `mercancia` | `transporte` | `servicios` | `otro`, o `null`.
+  final String? categoria;
+}
+
+/// No se reconoció nada útil en la foto (borrosa, no es lo esperado).
 class SinReconocer implements Exception {}
 
-/// Lee la foto de un producto y sugiere un nombre para el inventario.
+/// Se agotó la cuota diaria de lecturas con IA (el Worker devuelve 429).
+class LimiteDiarioIA implements Exception {}
+
+/// Lecturas con IA (vía el Worker; la clave de Gemini nunca viaja en el APK).
 ///
-/// La sugerencia NUNCA se guarda sola: solo rellena el campo de nombre para
-/// que el dueño la revise y confirme al guardar, igual que si la hubiera
-/// tecleado él mismo. Un modelo de visión se equivoca con etiquetas
-/// borrosas, en mal ángulo o en productos poco comunes, y un inventario con
-/// nombres inventados es peor que uno vacío.
+/// La sugerencia NUNCA se guarda sola: solo rellena campos para que el dueño
+/// los revise y confirme al guardar, igual que si los hubiera tecleado él
+/// mismo. Un modelo de visión se equivoca con fotos borrosas, en mal ángulo o
+/// con letra difícil, y un registro con datos inventados es peor que uno
+/// vacío.
 class LectorEtiquetaService {
   LectorEtiquetaService(this._auth, {http.Client? cliente})
       : _cliente = cliente ?? http.Client();
@@ -38,7 +84,59 @@ class LectorEtiquetaService {
   final FirebaseAuth _auth;
   final http.Client _cliente;
 
-  Future<SugerenciaEtiqueta> leer(File foto) async {
+  /// Lee la etiqueta de un producto: nombre, presentación y categoría.
+  Future<SugerenciaEtiqueta> leer(
+    File foto, {
+    List<String> categorias = const [],
+  }) async {
+    final datos = await _llamar('/leer-etiqueta', foto, extras: {
+      'categorias': categorias,
+    });
+    if (datos['reconocido'] != true) throw SinReconocer();
+
+    return SugerenciaEtiqueta(
+      nombre: datos['nombreSugerido'] as String,
+      categoria: datos['categoriaSugerida'] as String?,
+      presentacion: datos['presentacion'] as String?,
+      confianza: datos['confianza'] as String? ?? 'media',
+    );
+  }
+
+  /// Lee una libreta de inventario manuscrita y devuelve sus filas.
+  Future<List<FilaLibreta>> leerLibreta(File foto) async {
+    final datos = await _llamar('/leer-libreta', foto);
+    if (datos['reconocido'] != true) throw SinReconocer();
+
+    return ((datos['filas'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((f) => FilaLibreta(
+              nombre: (f['nombre'] as String?) ?? '',
+              precio: (f['precio'] as num?)?.toDouble(),
+              cantidad: (f['cantidad'] as num?)?.toDouble(),
+            ))
+        .where((f) => f.nombre.isNotEmpty)
+        .toList();
+  }
+
+  /// Lee un recibo de compra: monto, moneda, fecha, descripción y categoría.
+  Future<DatosRecibo> leerRecibo(File foto) async {
+    final datos = await _llamar('/leer-recibo', foto);
+    if (datos['reconocido'] != true) throw SinReconocer();
+
+    return DatosRecibo(
+      monto: (datos['monto'] as num?)?.toDouble(),
+      moneda: datos['moneda'] == 'VES' ? 'VES' : 'USD',
+      fecha: DateTime.tryParse((datos['fecha'] as String?) ?? ''),
+      descripcion: datos['descripcion'] as String?,
+      categoria: datos['categoria'] as String?,
+    );
+  }
+
+  Future<Map<String, dynamic>> _llamar(
+    String ruta,
+    File foto, {
+    Map<String, Object?> extras = const {},
+  }) async {
     final usuario = _auth.currentUser;
     if (usuario == null) {
       throw StateError('Sin sesión: no se puede pedir la lectura con IA.');
@@ -55,7 +153,7 @@ class LectorEtiquetaService {
 
     final respuesta = await _cliente
         .post(
-          Uri.parse(_endpoint),
+          Uri.parse('$_baseUrl$ruta'),
           headers: {
             'Authorization': 'Bearer $idToken',
             'Content-Type': 'application/json',
@@ -63,23 +161,19 @@ class LectorEtiquetaService {
           body: jsonEncode({
             'imagenBase64': base64Encode(bytes),
             'mimeType': mimeType,
+            ...extras,
           }),
         )
-        .timeout(const Duration(seconds: 25));
+        .timeout(const Duration(seconds: 30));
 
+    if (respuesta.statusCode == 429) throw LimiteDiarioIA();
     if (respuesta.statusCode != 200) {
       throw Exception(
-        'No se pudo leer la etiqueta (código ${respuesta.statusCode}).',
+        'No se pudo leer la foto (código ${respuesta.statusCode}).',
       );
     }
 
-    final datos = jsonDecode(respuesta.body) as Map<String, dynamic>;
-    if (datos['reconocido'] != true) throw SinReconocer();
-
-    return SugerenciaEtiqueta(
-      nombre: datos['nombreSugerido'] as String,
-      confianza: datos['confianza'] as String? ?? 'media',
-    );
+    return jsonDecode(respuesta.body) as Map<String, dynamic>;
   }
 }
 

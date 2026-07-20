@@ -15,10 +15,14 @@
  * `firebase_options.dart`, publicada en el propio APK. Identifica el
  * proyecto, no autoriza nada por sí sola.
  */
+/**
+ * Devuelve el uid del usuario si el token es válido, o `null` si no lo es.
+ * El uid además de autenticar sirve para el límite diario de usos de IA.
+ */
 export async function usuarioAutenticado(peticion, apiKeyFirebase) {
   const cabecera = peticion.headers.get('authorization') || '';
   const idToken = cabecera.startsWith('Bearer ') ? cabecera.slice(7) : null;
-  if (!idToken) return false;
+  if (!idToken) return null;
 
   const resp = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKeyFirebase}`,
@@ -28,8 +32,9 @@ export async function usuarioAutenticado(peticion, apiKeyFirebase) {
       body: JSON.stringify({ idToken }),
     },
   );
-  if (!resp.ok) return false;
+  if (!resp.ok) return null;
 
   const datos = await resp.json();
-  return Array.isArray(datos.users) && datos.users.length > 0;
+  const uid = datos.users?.[0]?.localId;
+  return typeof uid === 'string' && uid ? uid : null;
 }

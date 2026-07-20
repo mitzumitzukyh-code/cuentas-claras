@@ -105,24 +105,45 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   /// nombre, que es lo que una foto puede sugerir con algo de confianza.
   Future<void> _leerConIA() async {
     if (_foto == null) return;
+    final config = (ref.read(negocioActivoProvider).valueOrNull?.rubro ??
+            Rubro.otro)
+        .config;
     setState(() => _leyendoIA = true);
     try {
-      final sugerencia =
-          await ref.read(lectorEtiquetaServiceProvider).leer(_foto!);
+      // Se le mandan las categorías del rubro para que la sugerencia sea una
+      // de ellas (el Worker descarta las inventadas por el modelo).
+      final sugerencia = await ref
+          .read(lectorEtiquetaServiceProvider)
+          .leer(_foto!, categorias: config.categoriasSugeridas);
       if (!mounted) return;
+
+      // El nombre ya suele traer la presentación ("Harina PAN 1kg"); si el
+      // modelo la devolvió aparte y no está en el nombre, se añade.
+      var nombre = sugerencia.nombre;
+      final presentacion = sugerencia.presentacion;
+      if (presentacion != null &&
+          !nombre.toLowerCase().contains(presentacion.toLowerCase())) {
+        nombre = '$nombre $presentacion';
+      }
+
       setState(() {
-        _nombre.text = sugerencia.nombre;
+        _nombre.text = nombre;
+        if (sugerencia.categoria != null) _categoria = sugerencia.categoria;
         _leyendoIA = false;
       });
       _mostrar(
         sugerencia.confianza == 'alta'
-            ? 'Nombre sugerido — revísalo antes de guardar'
-            : 'Nombre sugerido, con dudas — revísalo bien antes de guardar',
+            ? 'Datos sugeridos — revísalos antes de guardar'
+            : 'Datos sugeridos, con dudas — revísalos bien antes de guardar',
       );
     } on SinReconocer {
       if (!mounted) return;
       setState(() => _leyendoIA = false);
       _mostrar('No reconocimos un producto claro en la foto.');
+    } on LimiteDiarioIA {
+      if (!mounted) return;
+      setState(() => _leyendoIA = false);
+      _mostrar('Se agotaron las lecturas con IA por hoy. Vuelve mañana.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _leyendoIA = false);

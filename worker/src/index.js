@@ -11,11 +11,18 @@
 
 import { usuarioAutenticado } from './auth.js';
 import { enviarATopic, obtenerToken } from './fcm.js';
-import { leerEtiqueta } from './gemini.js';
+import { leerEtiqueta, leerLibreta, leerRecibo } from './gemini.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
 
 /** Una foto de celular comprimida no debería pasar de esto. Corta abusos. */
 const MAX_BYTES_IMAGEN = 6 * 1024 * 1024;
+
+/**
+ * Usos de IA por usuario y por día. Corta un bucle descontrolado o un abuso
+ * sin estorbar el uso real (nadie fotografía 40 etiquetas al día a mano);
+ * cuando exista el plan Premium, este número puede depender del plan.
+ */
+const MAX_USOS_IA_POR_DIA = 40;
 
 const API_TASA = 'https://ve.dolarapi.com/v1/dolares/oficial';
 
@@ -155,8 +162,16 @@ export default {
     const url = new URL(peticion.url);
 
     if (url.pathname === '/revisar') return manejarRevisar(peticion, env, url);
-    if (url.pathname === '/leer-etiqueta' && peticion.method === 'POST') {
-      return manejarLeerEtiqueta(peticion, env);
+
+    // Lecturas con Gemini. Comparten autenticación, límite diario y
+    // validación de imagen; solo cambia el prompt (ver gemini.js).
+    const lectores = {
+      '/leer-etiqueta': (args) => leerEtiqueta(args),
+      '/leer-libreta': (args) => leerLibreta(args),
+      '/leer-recibo': (args) => leerRecibo(args),
+    };
+    if (lectores[url.pathname] && peticion.method === 'POST') {
+      return manejarLecturaIA(peticion, env, lectores[url.pathname]);
     }
 
     return new Response('Worker de Cuenta Clara\n', { status: 200 });
@@ -186,19 +201,27 @@ async function manejarRevisar(peticion, env, url) {
 }
 
 /**
- * Lee la foto de un producto y sugiere un nombre para el inventario.
+ * Camino común de las lecturas con Gemini (etiqueta, libreta, recibo).
  *
- * Protegido por sesión de Firebase (ver auth.js), no por un token fijo: este
- * endpoint lo llama la app en cada alta de producto, así que un secreto
- * compartido tendría el mismo problema que se quiso evitar con la clave de
- * Gemini — solo que embebido en el propio APK en vez de en el Worker.
+ * Protegido por sesión de Firebase (ver auth.js), no por un token fijo: estos
+ * endpoints los llama la app en el día a día, así que un secreto compartido
+ * tendría el mismo problema que se quiso evitar con la clave de Gemini —
+ * solo que embebido en el propio APK en vez de en el Worker.
  */
-async function manejarLeerEtiqueta(peticion, env) {
-  if (!(await usuarioAutenticado(peticion, env.FIREBASE_WEB_API_KEY))) {
+async function manejarLecturaIA(peticion, env, lector) {
+  const uid = await usuarioAutenticado(peticion, env.FIREBASE_WEB_API_KEY);
+  if (!uid) {
     return new Response('No autorizado\n', { status: 401 });
   }
   if (!env.GEMINI_API_KEY) {
     return new Response('Falta configurar GEMINI_API_KEY\n', { status: 500 });
+  }
+
+  if (!(await bajoElLimiteDiario(env, uid))) {
+    return new Response(
+      'Límite diario de lecturas con IA alcanzado. Vuelve mañana.\n',
+      { status: 429 },
+    );
   }
 
   let cuerpo;
@@ -208,7 +231,7 @@ async function manejarLeerEtiqueta(peticion, env) {
     return new Response('Cuerpo inválido: se esperaba JSON\n', { status: 400 });
   }
 
-  const { imagenBase64, mimeType } = cuerpo;
+  const { imagenBase64, mimeType, categorias } = cuerpo;
   if (!imagenBase64 || !mimeType) {
     return new Response('Faltan imagenBase64 o mimeType\n', { status: 400 });
   }
@@ -219,14 +242,35 @@ async function manejarLeerEtiqueta(peticion, env) {
   }
 
   try {
-    const resultado = await leerEtiqueta({
+    const resultado = await lector({
       apiKey: env.GEMINI_API_KEY,
       modelo: env.GEMINI_MODELO,
       imagenBase64,
       mimeType,
+      categorias: Array.isArray(categorias)
+        ? categorias.filter((c) => typeof c === 'string').slice(0, 30)
+        : [],
     });
     return Response.json(resultado);
   } catch (e) {
     return new Response(`Error: ${e.message}\n`, { status: 500 });
   }
+}
+
+/**
+ * Cuenta el uso de hoy en KV y dice si todavía queda cuota.
+ *
+ * KV es de consistencia eventual, así que el conteo puede quedarse corto en
+ * ráfagas — para un tope de cortesía contra abusos es más que suficiente, no
+ * hace falta un contador exacto.
+ */
+async function bajoElLimiteDiario(env, uid) {
+  const hoy = hoyEnVenezuela();
+  const clave = `ia:${uid}:${hoy}`;
+  const usados = Number((await env.TASAS.get(clave)) ?? 0);
+  if (usados >= MAX_USOS_IA_POR_DIA) return false;
+
+  // 2 días de TTL: la clave de ayer muere sola, sin tarea de limpieza.
+  await env.TASAS.put(clave, String(usados + 1), { expirationTtl: 2 * 86400 });
+  return true;
 }

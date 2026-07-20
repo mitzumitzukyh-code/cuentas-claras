@@ -12,6 +12,7 @@ import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../catalogo/presentation/catalogo_screen.dart';
+import '../../gastos/presentation/gastos_screen.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../planes/presentation/planes_screen.dart';
 import '../../reportes/presentation/reportes_screen.dart';
@@ -191,6 +192,15 @@ class PerfilScreen extends ConsumerWidget {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => const ReportesScreen(),
+                    ),
+                  ),
+                ),
+                _Fila(
+                  emoji: '💸',
+                  etiqueta: 'Gastos',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const GastosScreen(),
                     ),
                   ),
                 ),
