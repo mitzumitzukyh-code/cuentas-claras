@@ -11,7 +11,7 @@ crons = ["0 * * * *"]
 #   wrangler kv namespace create TASAS
 [[kv_namespaces]]
 binding = "TASAS"
-id = "PENDIENTE"
+id = "3f64d5a11c704dc0837d0933f4a6cd81"
 
 # Secretos (NO van aqui, se cargan aparte y quedan cifrados en Cloudflare):
 #   wrangler secret put FIREBASE_SERVICE_ACCOUNT   <- el JSON de la cuenta
