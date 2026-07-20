@@ -61,30 +61,92 @@ class VentaRepository {
     return ResultadoVenta.confirmada;
   }
 
+  /// Agrupa las líneas por producto: con variantes, una misma venta puede
+  /// llevar dos tallas del mismo producto, y su documento debe leerse y
+  /// escribirse una sola vez por transacción.
+  Map<String, List<ItemVenta>> _porProducto(List<ItemVenta> items) {
+    final grupos = <String, List<ItemVenta>>{};
+    for (final item in items) {
+      grupos.putIfAbsent(item.productoId, () => []).add(item);
+    }
+    return grupos;
+  }
+
+  /// Copia editable del arreglo `variantes` del documento, o `null` si el
+  /// producto no maneja variantes.
+  List<Map<String, dynamic>>? _variantesDe(Map<String, dynamic>? data) {
+    final lista = data?['variantes'] as List?;
+    if (lista == null || lista.isEmpty) return null;
+    return lista
+        .whereType<Map<String, dynamic>>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+  }
+
+  /// `true` si el mapa de variante del documento corresponde a la variante
+  /// que se vendió. `talla`/`tono` son nombres viejos del mismo campo.
+  bool _mismaVariante(Map<String, dynamic> v, ItemVenta item) {
+    final valor = (v['valor'] ?? v['talla'] ?? v['tono'] ?? '').toString();
+    final color = (v['color'] as String?) ?? '';
+    return valor == item.varianteValor && color == (item.varianteColor ?? '');
+  }
+
   /// Camino normal: todo o nada, y bloquea si no queda stock. Requiere hablar
   /// con el servidor porque solo él conoce el valor verdadero y simultáneo
   /// entre todos los vendedores del negocio.
   Future<void> _registrarConTransaccion(String negocioId, Venta venta) {
     return _db.runTransaction((tx) async {
+      final grupos = _porProducto(venta.items).entries.toList();
+
       // Lecturas primero (requisito de las transacciones de Firestore).
-      final refs = venta.items
-          .map((i) => _productos(negocioId).doc(i.productoId))
-          .toList();
+      final refs =
+          grupos.map((g) => _productos(negocioId).doc(g.key)).toList();
       final snaps = <DocumentSnapshot<Map<String, dynamic>>>[];
       for (final ref in refs) {
         snaps.add(await tx.get(ref));
       }
 
-      for (var i = 0; i < venta.items.length; i++) {
-        final item = venta.items[i];
-        final actual = (snaps[i].data()?['cantidad'] as num?)?.toDouble() ?? 0;
-        final restante = actual - item.cantidad;
+      for (var i = 0; i < grupos.length; i++) {
+        final items = grupos[i].value;
+        final data = snaps[i].data();
+        final actual = (data?['cantidad'] as num?)?.toDouble() ?? 0;
+        final vendido = items.fold<double>(0, (s, x) => s + x.cantidad);
+        final restante = actual - vendido;
         // Margen mínimo para que la aritmética de coma flotante no bloquee una
         // venta que agota justo el stock (49,5 − 49,5 puede dar −1e-15).
         if (restante < -0.0001) {
-          throw Exception('Stock insuficiente para "${item.nombre}".');
+          throw Exception('Stock insuficiente para "${items.first.nombre}".');
         }
-        tx.update(refs[i], {'cantidad': restante < 0 ? 0.0 : restante});
+        final cambios = <String, dynamic>{
+          'cantidad': restante < 0 ? 0.0 : restante,
+        };
+
+        // Las líneas de variante también descuentan su casilla del arreglo,
+        // no solo el total: es lo que hace útil el inventario por talla.
+        final conVariante =
+            items.where((x) => x.varianteValor != null).toList();
+        if (conVariante.isNotEmpty) {
+          final variantes = _variantesDe(data);
+          if (variantes != null) {
+            for (final item in conVariante) {
+              final idx = variantes.indexWhere((v) => _mismaVariante(v, item));
+              // Una variante borrada después de armar el carrito ya no puede
+              // descontarse; el total del producto sí bajó.
+              if (idx == -1) continue;
+              final queda = ((variantes[idx]['cantidad'] as num?)?.toInt() ??
+                      0) -
+                  item.cantidad.round();
+              if (queda < 0) {
+                throw Exception(
+                  'Stock insuficiente de "${item.nombreCompleto}".',
+                );
+              }
+              variantes[idx]['cantidad'] = queda;
+            }
+            cambios['variantes'] = variantes;
+          }
+        }
+        tx.update(refs[i], cambios);
       }
 
       tx.set(_ventas(negocioId).doc(), venta.toMap());
@@ -104,10 +166,42 @@ class VentaRepository {
   /// tiene cualquier punto de venta físico sin conexión.
   Future<void> _registrarSinConexion(String negocioId, Venta venta) async {
     final batch = _db.batch();
-    for (final item in venta.items) {
-      batch.update(_productos(negocioId).doc(item.productoId), {
-        'cantidad': FieldValue.increment(-item.cantidad),
-      });
+    for (final g in _porProducto(venta.items).entries) {
+      final ref = _productos(negocioId).doc(g.key);
+      final vendido = g.value.fold<double>(0, (s, x) => s + x.cantidad);
+      final cambios = <String, dynamic>{
+        'cantidad': FieldValue.increment(-vendido),
+      };
+
+      // El arreglo de variantes no admite un increment relativo: hay que
+      // reescribirlo desde la copia local en caché. Si dos vendedores sin
+      // señal tocan variantes del mismo producto a la vez, gana el último en
+      // sincronizar — el total sí queda bien porque usa increment. Sin caché
+      // del producto, solo baja el total.
+      final conVariante =
+          g.value.where((x) => x.varianteValor != null).toList();
+      if (conVariante.isNotEmpty) {
+        try {
+          final snap =
+              await ref.get(const GetOptions(source: Source.cache));
+          final variantes = _variantesDe(snap.data());
+          if (variantes != null) {
+            for (final item in conVariante) {
+              final idx =
+                  variantes.indexWhere((v) => _mismaVariante(v, item));
+              if (idx == -1) continue;
+              final queda = ((variantes[idx]['cantidad'] as num?)?.toInt() ??
+                      0) -
+                  item.cantidad.round();
+              variantes[idx]['cantidad'] = queda < 0 ? 0 : queda;
+            }
+            cambios['variantes'] = variantes;
+          }
+        } catch (_) {
+          // Producto sin copia en caché: no hay desde dónde reescribir.
+        }
+      }
+      batch.update(ref, cambios);
     }
     batch.set(_ventas(negocioId).doc(), venta.toMap());
 
@@ -141,6 +235,20 @@ class VentaRepository {
         .map((s) => s.docs.map(Venta.fromDoc).toList());
   }
 
+  /// Todas las ventas desde [desde], más reciente primero, sin límite.
+  ///
+  /// Es la consulta de los reportes: el filtro de fecha va en el servidor
+  /// para que "Mes" y "Año" sumen el periodo completo y no lo que quepa en
+  /// una página del historial. Incluye las anuladas — el reporte las
+  /// descarta, pero decidirlo es asunto de quien consume la lista.
+  Stream<List<Venta>> ventasDesde(String negocioId, DateTime desde) {
+    return _ventas(negocioId)
+        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map(Venta.fromDoc).toList());
+  }
+
   /// Espera a que Firestore confirme con el servidor todo lo que el
   /// dispositivo tiene pendiente de subir.
   ///
@@ -170,19 +278,40 @@ class VentaRepository {
         throw Exception('Esta venta ya estaba anulada.');
       }
 
-      final refs = venta.items
-          .map((i) => _productos(negocioId).doc(i.productoId))
-          .toList();
+      final grupos = _porProducto(venta.items).entries.toList();
+      final refs =
+          grupos.map((g) => _productos(negocioId).doc(g.key)).toList();
       final snaps = <DocumentSnapshot<Map<String, dynamic>>>[];
       for (final ref in refs) {
         snaps.add(await tx.get(ref));
       }
 
-      for (var i = 0; i < venta.items.length; i++) {
+      for (var i = 0; i < grupos.length; i++) {
         // Un producto borrado después de la venta ya no puede recibir stock.
         if (!snaps[i].exists) continue;
-        final actual = (snaps[i].data()?['cantidad'] as num?)?.toDouble() ?? 0;
-        tx.update(refs[i], {'cantidad': actual + venta.items[i].cantidad});
+        final data = snaps[i].data();
+        final items = grupos[i].value;
+        final actual = (data?['cantidad'] as num?)?.toDouble() ?? 0;
+        final devuelto = items.fold<double>(0, (s, x) => s + x.cantidad);
+        final cambios = <String, dynamic>{'cantidad': actual + devuelto};
+
+        // Lo vendido por variante vuelve a su casilla, igual que el total.
+        final conVariante =
+            items.where((x) => x.varianteValor != null).toList();
+        if (conVariante.isNotEmpty) {
+          final variantes = _variantesDe(data);
+          if (variantes != null) {
+            for (final item in conVariante) {
+              final idx = variantes.indexWhere((v) => _mismaVariante(v, item));
+              if (idx == -1) continue;
+              variantes[idx]['cantidad'] =
+                  ((variantes[idx]['cantidad'] as num?)?.toInt() ?? 0) +
+                      item.cantidad.round();
+            }
+            cambios['variantes'] = variantes;
+          }
+        }
+        tx.update(refs[i], cambios);
       }
 
       tx.update(ventaRef, {'anulada': true});

@@ -53,6 +53,9 @@ class ItemVenta {
     required this.nombre,
     required this.cantidad,
     required this.precioUnitario,
+    this.costoUnitario,
+    this.varianteValor,
+    this.varianteColor,
     this.vendidoPorPeso = false,
   });
 
@@ -65,6 +68,15 @@ class ItemVenta {
   /// Precio unitario (o por kilo) en USD al momento de la venta.
   final double precioUnitario;
 
+  /// Costo unitario en USD al momento de la venta. Se congela aquí para que
+  /// la ganancia histórica no cambie cuando el dueño actualice el costo del
+  /// producto. `null` = el producto no tenía costo registrado.
+  final double? costoUnitario;
+
+  /// Variante vendida (talla/tono y color), si el producto las tiene.
+  final String? varianteValor;
+  final String? varianteColor;
+
   final bool vendidoPorPeso;
 
   double get subtotal => cantidad * precioUnitario;
@@ -72,11 +84,23 @@ class ItemVenta {
   String get cantidadLabel =>
       Producto.formatearCantidad(cantidad, vendidoPorPeso);
 
+  /// "Franela" o "Franela · M / Rojo" si es una variante.
+  String get nombreCompleto {
+    if (varianteValor == null || varianteValor!.isEmpty) return nombre;
+    final color = varianteColor == null || varianteColor!.isEmpty
+        ? ''
+        : ' / $varianteColor';
+    return '$nombre · $varianteValor$color';
+  }
+
   factory ItemVenta.fromMap(Map<String, dynamic> map) => ItemVenta(
         productoId: (map['productoId'] as String?) ?? '',
         nombre: (map['nombre'] as String?) ?? '',
         cantidad: (map['cantidad'] as num?)?.toDouble() ?? 0,
         precioUnitario: (map['precioUnitario'] as num?)?.toDouble() ?? 0,
+        costoUnitario: (map['costoUnitario'] as num?)?.toDouble(),
+        varianteValor: map['varianteValor'] as String?,
+        varianteColor: map['varianteColor'] as String?,
         vendidoPorPeso: (map['vendidoPorPeso'] as bool?) ?? false,
       );
 
@@ -85,6 +109,9 @@ class ItemVenta {
         'nombre': nombre,
         'cantidad': cantidad,
         'precioUnitario': precioUnitario,
+        'costoUnitario': costoUnitario,
+        'varianteValor': varianteValor,
+        'varianteColor': varianteColor,
         'vendidoPorPeso': vendidoPorPeso,
       };
 
@@ -93,6 +120,9 @@ class ItemVenta {
         nombre: nombre,
         cantidad: cantidad ?? this.cantidad,
         precioUnitario: precioUnitario,
+        costoUnitario: costoUnitario,
+        varianteValor: varianteValor,
+        varianteColor: varianteColor,
         vendidoPorPeso: vendidoPorPeso,
       );
 }
@@ -149,6 +179,25 @@ class Venta {
   double get subtotalUSD => items.fold<double>(0, (s, i) => s + i.subtotal);
 
   double get descuentoUSD => subtotalUSD * descuentoPct / 100;
+
+  /// Ganancia en USD de las líneas con costo conocido: lo cobrado (con el
+  /// descuento aplicado, sin el IVA — eso es del fisco) menos lo que costó.
+  ///
+  /// Las líneas sin costo no suman ni restan: mejor una ganancia parcial y
+  /// honesta ([itemsSinCosto] lo delata) que una inflada asumiendo costo cero.
+  double get gananciaUSD {
+    final factorDescuento = 1 - descuentoPct / 100;
+    return items
+        .where((i) => i.costoUnitario != null)
+        .fold<double>(0, (s, i) {
+      return s +
+          (i.precioUnitario * factorDescuento - i.costoUnitario!) * i.cantidad;
+    });
+  }
+
+  /// Cuántas líneas quedaron fuera de [gananciaUSD] por no tener costo.
+  int get itemsSinCosto =>
+      items.where((i) => i.costoUnitario == null).length;
 
   factory Venta.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const {};

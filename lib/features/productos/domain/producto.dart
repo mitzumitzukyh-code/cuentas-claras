@@ -9,6 +9,7 @@ class Producto {
     required this.nombre,
     required this.categoria,
     required this.precio,
+    this.costo,
     required this.cantidad,
     this.fotoUrl,
     this.variantes = const [],
@@ -24,6 +25,11 @@ class Producto {
 
   /// Precio en USD (CLAUDE.md §6: los precios se capturan en USD).
   final double precio;
+
+  /// Lo que costó reponer una unidad (o un kilo), en USD. `null` si el dueño
+  /// no lo ha registrado: la ganancia de ese producto no se puede calcular y
+  /// se dice así, en vez de inventar que costó cero.
+  final double? costo;
 
   /// Stock disponible. Si hay [variantes], es la suma de sus cantidades.
   ///
@@ -69,6 +75,7 @@ class Producto {
       nombre: (data['nombre'] as String?) ?? '',
       categoria: (data['categoria'] as String?) ?? '',
       precio: (data['precio'] as num?)?.toDouble() ?? 0,
+      costo: (data['costo'] as num?)?.toDouble(),
       cantidad: (data['cantidad'] as num?)?.toDouble() ?? 0,
       fotoUrl: data['fotoUrl'] as String?,
       variantes: ((data['variantes'] as List?) ?? const [])
@@ -86,6 +93,7 @@ class Producto {
         'nombre': nombre,
         'categoria': categoria,
         'precio': precio,
+        'costo': costo,
         'cantidad': cantidad,
         'fotoUrl': fotoUrl,
         'variantes': variantes.map((v) => v.toMap()).toList(),

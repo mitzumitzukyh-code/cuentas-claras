@@ -13,6 +13,7 @@ import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
+import '../../productos/domain/variante.dart';
 import '../../productos/presentation/widgets/escaner_codigo_barras.dart';
 import '../data/venta_repository.dart';
 import '../domain/venta.dart';
@@ -41,8 +42,35 @@ class _VentaEnEspera {
   int get lineas => carrito.length;
 }
 
+/// Una línea del carrito ya resuelta contra el inventario: el producto y, si
+/// aplica, la variante concreta (talla/color) que se está vendiendo.
+class _Linea {
+  const _Linea({
+    required this.clave,
+    required this.producto,
+    required this.cantidad,
+    this.variante,
+  });
+
+  final String clave;
+  final Producto producto;
+  final double cantidad;
+  final Variante? variante;
+
+  String get etiqueta {
+    final v = variante;
+    if (v == null) return producto.nombre;
+    final color = v.color == null || v.color!.isEmpty ? '' : ' / ${v.color}';
+    return '${producto.nombre} · ${v.valor}$color';
+  }
+}
+
 class _CobrarScreenState extends ConsumerState<CobrarScreen> {
-  /// productoId → cantidad (unidades o kilos).
+  /// Separa producto y variante dentro de la clave del carrito. Es un
+  /// carácter de control: no puede aparecer en una talla o un color reales.
+  static final _sep = String.fromCharCode(0);
+
+  /// clave (producto, o producto+variante) → cantidad (unidades o kilos).
   final Map<String, double> _carrito = {};
   final _busqueda = TextEditingController();
   final List<_VentaEnEspera> _enEspera = [];
@@ -62,7 +90,50 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
 
   // --- Carrito ---
 
+  String _clave(Producto p, [Variante? v]) =>
+      v == null ? p.id : '${p.id}$_sep${v.valor}$_sep${v.color ?? ''}';
+
+  /// Reconstruye las líneas del carrito contra el inventario vigente.
+  /// Un producto (o variante) borrado mientras estaba en el carrito
+  /// simplemente deja de aparecer.
+  List<_Linea> _lineasDe(List<Producto> productos) {
+    final lineas = <_Linea>[];
+    for (final e in _carrito.entries) {
+      final partes = e.key.split(_sep);
+      final p = productos.where((x) => x.id == partes[0]).firstOrNull;
+      if (p == null) continue;
+      Variante? v;
+      if (partes.length == 3) {
+        v = p.variantes
+            .where((x) =>
+                x.valor == partes[1] && (x.color ?? '') == partes[2])
+            .firstOrNull;
+        if (v == null) continue;
+      }
+      lineas.add(_Linea(
+        clave: e.key,
+        producto: p,
+        variante: v,
+        cantidad: e.value,
+      ));
+    }
+    return lineas;
+  }
+
   Future<void> _agregar(Producto p) async {
+    if (p.tieneVariantes) {
+      final v = await _pedirVariante(p);
+      if (v == null) return;
+      final clave = _clave(p, v);
+      final actual = _carrito[clave] ?? 0;
+      if (actual + 1 > v.cantidad) {
+        _avisarStock(p, v);
+        return;
+      }
+      setState(() => _carrito[clave] = actual + 1);
+      return;
+    }
+
     if (p.vendidoPorPeso) {
       final kg = await _pedirPeso(p);
       if (kg == null) return;
@@ -83,19 +154,78 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     setState(() => _carrito[p.id] = actual + 1);
   }
 
-  void _quitar(Producto p) {
-    final actual = _carrito[p.id] ?? 0;
+  void _quitar(_Linea l) {
+    final actual = _carrito[l.clave] ?? 0;
     // Por peso no tiene sentido restar de uno en uno: se quita la línea.
-    if (p.vendidoPorPeso || actual <= 1) {
-      setState(() => _carrito.remove(p.id));
+    if (l.producto.vendidoPorPeso || actual <= 1) {
+      setState(() => _carrito.remove(l.clave));
     } else {
-      setState(() => _carrito[p.id] = actual - 1);
+      setState(() => _carrito[l.clave] = actual - 1);
     }
   }
 
-  void _avisarStock(Producto p) {
+  void _masDeLinea(_Linea l) {
+    final actual = _carrito[l.clave] ?? 0;
+    final tope = l.variante?.cantidad.toDouble() ?? l.producto.cantidad;
+    if (actual + 1 > tope) {
+      _avisarStock(l.producto, l.variante);
+      return;
+    }
+    setState(() => _carrito[l.clave] = actual + 1);
+  }
+
+  void _avisarStock(Producto p, [Variante? v]) {
+    final restante = v == null
+        ? p.cantidadLabel
+        : Producto.formatearCantidad(v.cantidad.toDouble(), false);
+    final nombre = v == null
+        ? p.nombre
+        : '${p.nombre} ${v.valor}${v.color == null ? '' : ' ${v.color}'}';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Solo quedan ${p.cantidadLabel} de ${p.nombre}')),
+      SnackBar(content: Text('Solo quedan $restante de $nombre')),
+    );
+  }
+
+  /// Selector de variante: al tocar un producto con tallas/tonos hay que
+  /// saber cuál se está vendiendo, porque cada una descuenta su propio stock.
+  Future<Variante?> _pedirVariante(Producto p) {
+    return showDialog<Variante>(
+      context: context,
+      builder: (d) => SimpleDialog(
+        title: Text(p.nombre),
+        children: [
+          for (final v in p.variantes)
+            SimpleDialogOption(
+              onPressed:
+                  v.cantidad <= 0 ? null : () => Navigator.of(d).pop(v),
+              child: Opacity(
+                opacity: v.cantidad <= 0 ? 0.4 : 1,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${v.valor}${v.color == null || v.color!.isEmpty ? '' : ' / ${v.color}'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      v.cantidad <= 0 ? 'Agotada' : 'Quedan ${v.cantidad}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: v.cantidad <= 0
+                            ? AppColors.peligro
+                            : AppColors.marca,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -163,26 +293,30 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   // --- Cobro ---
 
   Future<void> _cobrar(
-    List<Producto> productos,
+    List<_Linea> lineas,
     double tasa,
     Negocio negocio,
   ) async {
     final membresia = ref.read(membresiaActivaProvider);
     final user = ref.read(authStateProvider).value;
-    if (membresia == null || user == null || _carrito.isEmpty) return;
+    if (membresia == null || user == null || lineas.isEmpty) return;
 
     setState(() => _cobrando = true);
 
     final items = <ItemVenta>[];
-    for (final p in productos) {
-      final cantidad = _carrito[p.id];
-      if (cantidad == null || cantidad == 0) continue;
+    for (final l in lineas) {
+      if (l.cantidad == 0) continue;
       items.add(ItemVenta(
-        productoId: p.id,
-        nombre: p.nombre,
-        cantidad: cantidad,
-        precioUnitario: p.precio,
-        vendidoPorPeso: p.vendidoPorPeso,
+        productoId: l.producto.id,
+        nombre: l.producto.nombre,
+        cantidad: l.cantidad,
+        precioUnitario: l.producto.precio,
+        // El costo viaja congelado en la venta: si el dueño lo cambia mañana,
+        // la ganancia de hoy no se reescribe sola.
+        costoUnitario: l.producto.costo,
+        varianteValor: l.variante?.valor,
+        varianteColor: l.variante?.color,
+        vendidoPorPeso: l.producto.vendidoPorPeso,
       ));
     }
 
@@ -273,11 +407,17 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                     .where((p) => p.nombre.toLowerCase().contains(texto))
                     .toList();
 
-            final enCarrito =
-                productos.where((p) => (_carrito[p.id] ?? 0) > 0).toList();
-            final subtotal = enCarrito.fold<double>(
+            final lineas = _lineasDe(productos);
+            // Cantidad total en carrito por producto, para la insignia del
+            // mosaico (dos tallas del mismo producto suman en una).
+            final porProducto = <String, double>{};
+            for (final l in lineas) {
+              porProducto[l.producto.id] =
+                  (porProducto[l.producto.id] ?? 0) + l.cantidad;
+            }
+            final subtotal = lineas.fold<double>(
               0,
-              (s, p) => s + (_carrito[p.id] ?? 0) * p.precio,
+              (s, l) => s + l.cantidad * l.producto.precio,
             );
             final conDescuento = subtotal - (subtotal * _descuentoPct / 100);
             final iva =
@@ -352,7 +492,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                         for (final p in visibles)
                           _MosaicoProducto(
                             producto: p,
-                            cantidad: _carrito[p.id] ?? 0,
+                            cantidad: porProducto[p.id] ?? 0,
                             onTap: () => _agregar(p),
                           ),
                       ],
@@ -373,8 +513,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                   right: 0,
                   bottom: 0,
                   child: _HojaCarrito(
-                    items: enCarrito,
-                    carrito: _carrito,
+                    lineas: lineas,
                     subtotal: subtotal,
                     iva: iva,
                     total: total,
@@ -384,7 +523,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                     expandido: _expandido,
                     cobrando: _cobrando,
                     onAlternar: () => setState(() => _expandido = !_expandido),
-                    onMas: _agregar,
+                    onMas: _masDeLinea,
                     onMenos: _quitar,
                     onVaciar: () => setState(() {
                       _carrito.clear();
@@ -397,7 +536,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                     descuentos: _descuentos,
                     onCobrar: tasa == null || _cobrando || negocio == null
                         ? null
-                        : () => _cobrar(productos, tasa, negocio),
+                        : () => _cobrar(lineas, tasa, negocio),
                   ),
                 ),
               ],
@@ -664,8 +803,7 @@ class _MosaicoProducto extends StatelessWidget {
 /// Hoja inferior del carrito.
 class _HojaCarrito extends StatelessWidget {
   const _HojaCarrito({
-    required this.items,
-    required this.carrito,
+    required this.lineas,
     required this.subtotal,
     required this.iva,
     required this.total,
@@ -685,8 +823,7 @@ class _HojaCarrito extends StatelessWidget {
     required this.onCobrar,
   });
 
-  final List<Producto> items;
-  final Map<String, double> carrito;
+  final List<_Linea> lineas;
   final double subtotal;
   final double iva;
   final double total;
@@ -696,8 +833,8 @@ class _HojaCarrito extends StatelessWidget {
   final bool expandido;
   final bool cobrando;
   final VoidCallback onAlternar;
-  final void Function(Producto) onMas;
-  final void Function(Producto) onMenos;
+  final void Function(_Linea) onMas;
+  final void Function(_Linea) onMenos;
   final VoidCallback onVaciar;
   final VoidCallback onEnEspera;
   final ValueChanged<MetodoPago> onMetodo;
@@ -708,7 +845,7 @@ class _HojaCarrito extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final vacio = items.isEmpty;
+    final vacio = lineas.isEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -754,8 +891,8 @@ class _HojaCarrito extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              '${items.length} '
-                              '${items.length == 1 ? "producto" : "productos"}',
+                              '${lineas.length} '
+                              '${lineas.length == 1 ? "producto" : "productos"}',
                               style: TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
@@ -806,12 +943,11 @@ class _HojaCarrito extends StatelessWidget {
                         child: ListView(
                           shrinkWrap: true,
                           children: [
-                            for (final p in items)
+                            for (final l in lineas)
                               _LineaCarrito(
-                                producto: p,
-                                cantidad: carrito[p.id] ?? 0,
-                                onMas: () => onMas(p),
-                                onMenos: () => onMenos(p),
+                                linea: l,
+                                onMas: () => onMas(l),
+                                onMenos: () => onMenos(l),
                               ),
                           ],
                         ),
@@ -969,27 +1105,26 @@ class _EtiquetaSeccion extends StatelessWidget {
 /// Línea del carrito con los botones − / +.
 class _LineaCarrito extends StatelessWidget {
   const _LineaCarrito({
-    required this.producto,
-    required this.cantidad,
+    required this.linea,
     required this.onMas,
     required this.onMenos,
   });
 
-  final Producto producto;
-  final double cantidad;
+  final _Linea linea;
   final VoidCallback onMas;
   final VoidCallback onMenos;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final producto = linea.producto;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              producto.nombre,
+              linea.etiqueta,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1006,7 +1141,10 @@ class _LineaCarrito extends StatelessWidget {
           SizedBox(
             width: 56,
             child: Text(
-              Producto.formatearCantidad(cantidad, producto.vendidoPorPeso),
+              Producto.formatearCantidad(
+                linea.cantidad,
+                producto.vendidoPorPeso,
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -1019,7 +1157,7 @@ class _LineaCarrito extends StatelessWidget {
           SizedBox(
             width: 60,
             child: Text(
-              MoneyFormatter.usd(producto.precio * cantidad),
+              MoneyFormatter.usd(producto.precio * linea.cantidad),
               textAlign: TextAlign.right,
               style: AppTypography.money(
                 fontSize: 13,

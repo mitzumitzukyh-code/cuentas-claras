@@ -8,35 +8,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
-
-/// Periodo del reporte.
-enum PeriodoReporte {
-  hoy,
-  semana,
-  mes,
-  ano;
-
-  String get etiqueta => switch (this) {
-        PeriodoReporte.hoy => 'Hoy',
-        PeriodoReporte.semana => 'Semana',
-        PeriodoReporte.mes => 'Mes',
-        PeriodoReporte.ano => 'Año',
-      };
-
-  /// Momento a partir del cual cuentan las ventas.
-  DateTime get desde {
-    final ahora = DateTime.now();
-    return switch (this) {
-      PeriodoReporte.hoy => DateTime(ahora.year, ahora.month, ahora.day),
-      PeriodoReporte.semana => DateTime(ahora.year, ahora.month, ahora.day)
-          .subtract(Duration(days: ahora.weekday - 1)),
-      PeriodoReporte.mes => DateTime(ahora.year, ahora.month),
-      PeriodoReporte.ano => DateTime(ahora.year),
-    };
-  }
-}
+import '../data/reportes_providers.dart';
+import '../domain/periodo_reporte.dart';
 
 /// Reportes de ventas (bloque `isReportes` del diseño).
 ///
@@ -56,6 +30,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
     List<Venta> ventas,
     double total,
     double ticket,
+    double? ganancia,
     List<_TopProducto> top,
   ) async {
     final texto = StringBuffer()
@@ -65,6 +40,9 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
       ..writeln('Ventas: ${ventas.length}')
       ..writeln('Total: ${MoneyFormatter.usd(total)}')
       ..writeln('Ticket promedio: ${MoneyFormatter.usd(ticket)}');
+    if (ganancia != null) {
+      texto.writeln('Ganancia: ${MoneyFormatter.usd(ganancia)}');
+    }
 
     if (top.isNotEmpty) {
       texto
@@ -85,7 +63,10 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
     final t = context.tokens;
     final esDueno = ref.watch(esDuenoProvider);
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
-    final historial = ref.watch(historialVentasProvider).valueOrNull ?? const [];
+    // Consulta por rango en el servidor: trae el periodo completo (más los
+    // últimos 7 días para el gráfico), no una página del historial.
+    final historial =
+        ref.watch(ventasReporteProvider(_periodo)).valueOrNull ?? const [];
 
     // Los reportes son información financiera: el empleado no los ve.
     if (!esDueno) {
@@ -123,10 +104,17 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
 
     final desde = _periodo.desde;
     final ventas = historial
-        .where((v) => !v.anulada && v.fecha.isAfter(desde))
+        .where((v) => !v.anulada && !v.fecha.isBefore(desde))
         .toList();
     final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
     final ticket = ventas.isEmpty ? 0.0 : total / ventas.length;
+
+    final ganancia = ventas.fold<double>(0, (s, v) => s + v.gananciaUSD);
+    final itemsPeriodo = ventas.fold<int>(0, (s, v) => s + v.items.length);
+    final sinCosto = ventas.fold<int>(0, (s, v) => s + v.itemsSinCosto);
+    // Sin ningún costo registrado no hay ganancia que mostrar; con costos
+    // parciales la cifra va con "≈" para no venderla como exacta.
+    final hayGanancia = itemsPeriodo > 0 && sinCosto < itemsPeriodo;
 
     final barras = _barrasSemana(historial);
     final top = _masVendidos(ventas);
@@ -211,6 +199,15 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _Kpi(
+              etiqueta: sinCosto > 0 && hayGanancia
+                  ? 'Ganancia (sin contar $sinCosto sin costo)'
+                  : 'Ganancia',
+              valor: hayGanancia
+                  ? '${sinCosto > 0 ? "≈" : ""}${MoneyFormatter.usd(ganancia)}'
+                  : 'Registra costos para verla',
+            ),
             const SizedBox(height: 16),
 
             // --- Gráfico ---
@@ -279,6 +276,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                         ventas,
                         total,
                         ticket,
+                        hayGanancia ? ganancia : null,
                         top,
                       ),
             ),

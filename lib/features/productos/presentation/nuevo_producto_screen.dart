@@ -39,6 +39,7 @@ class NuevoProductoScreen extends ConsumerStatefulWidget {
 class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   final _nombre = TextEditingController();
   final _precio = TextEditingController();
+  final _costo = TextEditingController();
   final _cantidad = TextEditingController();
   final _alertaEn = TextEditingController(text: '5');
 
@@ -60,6 +61,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     if (p == null) return;
     _nombre.text = p.nombre;
     _precio.text = p.precio.toString();
+    _costo.text = p.costo?.toString() ?? '';
     _cantidad.text = p.cantidad.toString();
     _alertaEn.text = (p.alertaEn ?? 5).toString();
     _categoria = p.categoria.isEmpty ? null : p.categoria;
@@ -73,6 +75,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   void dispose() {
     _nombre.dispose();
     _precio.dispose();
+    _costo.dispose();
     _cantidad.dispose();
     _alertaEn.dispose();
     super.dispose();
@@ -180,6 +183,21 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
             return;
           }
           avisoFoto = 'Se guardó sin la foto: ${e.mensaje}';
+        } catch (_) {
+          // Sin señal la foto no puede subirse (Cloudinary no tiene caché
+          // local como Firestore). El producto sí puede guardarse; la foto
+          // se añade después editándolo.
+          if (config.fotoObligatoria) {
+            setState(() => _guardando = false);
+            _mostrar(
+              'Sin conexión no se puede subir la foto, y este rubro '
+              'la exige. Intenta de nuevo cuando tengas señal.',
+            );
+            return;
+          }
+          avisoFoto =
+              'Se guardó sin la foto (sin señal). Edítalo con conexión '
+              'para añadirla.';
         }
       }
 
@@ -193,6 +211,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         nombre: _nombre.text.trim(),
         categoria: _categoria ?? '',
         precio: double.parse(_precio.text.replaceAll(',', '.')),
+        costo: double.tryParse(_costo.text.replaceAll(',', '.')),
         cantidad: cantidadTotal,
         // Sin foto nueva se conserva la que ya tenía.
         fotoUrl: fotoUrl ?? widget.producto?.fotoUrl,
@@ -203,15 +222,17 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         vendidoPorPeso: _vendidoPorPeso,
       );
 
-      if (_editando) {
-        await repo.actualizar(membresia.negocioId, producto);
-      } else {
-        await repo.crear(membresia.negocioId, producto);
-      }
+      final confirmado = _editando
+          ? await repo.actualizar(membresia.negocioId, producto)
+          : await repo.crear(membresia.negocioId, producto);
       if (!mounted) return;
       Navigator.of(context).pop();
       _mostrar(
-        avisoFoto ?? (_editando ? 'Producto actualizado' : 'Producto agregado'),
+        avisoFoto ??
+            (confirmado
+                ? (_editando ? 'Producto actualizado' : 'Producto agregado')
+                : 'Guardado sin señal. Se sube solo cuando vuelva '
+                    'la conexión.'),
       );
     } catch (e) {
       if (!mounted) return;
@@ -256,12 +277,17 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
 
     setState(() => _guardando = true);
     try {
-      await ref
+      final confirmado = await ref
           .read(productoRepositoryProvider)
           .eliminar(membresia.negocioId, producto.id);
       if (!mounted) return;
       Navigator.of(context).pop();
-      _mostrar('Producto eliminado');
+      _mostrar(
+        confirmado
+            ? 'Producto eliminado'
+            : 'Eliminado sin señal. Se sincroniza solo cuando vuelva '
+                'la conexión.',
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
@@ -403,6 +429,20 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            // El costo es opcional: sin él la app funciona igual, pero la
+            // ganancia de este producto no se puede calcular y los reportes
+            // lo dirán. Se pide aquí, al lado del precio, para que capturarlo
+            // sea natural y no un ajuste escondido.
+            NeuInput(
+              controller: _costo,
+              label: _vendidoPorPeso
+                  ? 'Costo por kg (USD) — para calcular tu ganancia'
+                  : 'Costo por unidad (USD) — para calcular tu ganancia',
+              hint: 'Opcional',
+              height: 48,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
             // Ajuste rápido de stock — solo al editar (merma o reposición).
             if (_editando) ...[

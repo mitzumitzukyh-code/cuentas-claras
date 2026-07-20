@@ -210,7 +210,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  venta.items[i].nombre,
+                                  venta.items[i].nombreCompleto,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(

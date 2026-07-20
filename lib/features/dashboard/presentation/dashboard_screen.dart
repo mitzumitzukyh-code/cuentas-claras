@@ -13,6 +13,8 @@ import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../notificaciones/presentation/notificaciones_screen.dart';
 import '../../productos/data/producto_repository.dart';
+import '../../reportes/data/reportes_providers.dart';
+import '../../reportes/domain/periodo_reporte.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
 import '../../ventas/presentation/historial_screen.dart';
@@ -44,6 +46,9 @@ class DashboardScreen extends ConsumerWidget {
     final pendientes = ref.watch(ventasPendientesProvider);
 
     final totalUsdHoy = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
+    final gananciaHoy = ventas.fold<double>(0, (s, v) => s + v.gananciaUSD);
+    final itemsHoy = ventas.fold<int>(0, (s, v) => s + v.items.length);
+    final itemsSinCosto = ventas.fold<int>(0, (s, v) => s + v.itemsSinCosto);
     final stockBajo = productos.where((p) => p.stockBajo).length;
     final nombre = negocio?.nombre ?? 'Mi negocio';
 
@@ -120,6 +125,14 @@ class DashboardScreen extends ConsumerWidget {
                 totalUsd: totalUsdHoy,
                 tasa: tasa?.tasa,
                 cobros: ventas.length,
+                // Sin ningún costo registrado la ganancia no existe: la
+                // tarjeta invita a registrarlos en vez de mostrar un cero
+                // falso o repetir el total como si todo fuera ganancia.
+                ganancia: itemsHoy > 0 && itemsSinCosto < itemsHoy
+                    ? gananciaHoy
+                    : null,
+                gananciaParcial: itemsSinCosto > 0,
+                invitarACostos: itemsHoy > 0 && itemsSinCosto == itemsHoy,
               ),
               const SizedBox(height: 18),
 
@@ -152,7 +165,15 @@ class DashboardScreen extends ConsumerWidget {
               if ((negocio?.metaMensualUsd ?? 0) > 0) ...[
                 const SizedBox(height: 18),
                 _MetaMensual(
-                  logrado: totalUsdHoy,
+                  // La meta es del MES: suma todas sus ventas con la consulta
+                  // por rango, no solo las de hoy. Mientras carga se muestra
+                  // lo de hoy, que es el piso conocido.
+                  logrado: ref
+                          .watch(ventasReporteProvider(PeriodoReporte.mes))
+                          .valueOrNull
+                          ?.where((v) => !v.anulada)
+                          .fold<double>(0, (s, v) => s + v.totalUSD) ??
+                      totalUsdHoy,
                   meta: negocio!.metaMensualUsd,
                 ),
               ],
@@ -447,11 +468,23 @@ class _TarjetaVentas extends StatelessWidget {
     required this.totalUsd,
     required this.tasa,
     required this.cobros,
+    this.ganancia,
+    this.gananciaParcial = false,
+    this.invitarACostos = false,
   });
 
   final double totalUsd;
   final double? tasa;
   final int cobros;
+
+  /// Ganancia del día, o `null` si no hay forma de calcularla.
+  final double? ganancia;
+
+  /// `true` si alguna línea vendida no tenía costo y quedó fuera del cálculo.
+  final bool gananciaParcial;
+
+  /// `true` si hubo ventas pero ningún producto tiene costo registrado.
+  final bool invitarACostos;
 
   @override
   Widget build(BuildContext context) {
@@ -483,21 +516,61 @@ class _TarjetaVentas extends StatelessWidget {
             style: const TextStyle(fontSize: 14, color: Color(0xD9FFFFFF)),
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0x26FFFFFF),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$cobros ${cobros == 1 ? "cobro" : "cobros"} hoy',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0x26FFFFFF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$cobros ${cobros == 1 ? "cobro" : "cobros"} hoy',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
+              if (ganancia != null) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x26FFFFFF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      // "≈" cuando alguna línea no tenía costo: la cifra es
+                      // parcial y se nota, no se disimula.
+                      'Ganancia: ${gananciaParcial ? "≈" : ""}'
+                      '${MoneyFormatter.usd(ganancia!)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
+          if (invitarACostos) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Registra el costo de tus productos para ver tu ganancia real.',
+              style: TextStyle(fontSize: 11.5, color: Color(0xD9FFFFFF)),
+            ),
+          ],
         ],
       ),
     );
