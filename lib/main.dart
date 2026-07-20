@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app.dart';
 import 'core/providers/firebase_providers.dart';
 import 'firebase_options.dart';
+import 'services/notificaciones/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,11 +27,28 @@ Future<void> main() async {
     initError = e.toString();
   }
 
+  final contenedor = ProviderContainer(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
+
+  // Las notificaciones solo se preparan si Firebase arrancó: sin él, pedir el
+  // canal o los topics lanzaría una excepción encima del error real.
+  if (initError == null) {
+    FirebaseMessaging.onBackgroundMessage(manejarPushEnSegundoPlano);
+    final push = contenedor.read(pushServiceProvider);
+    await push.iniciar();
+    // Reconcilia al arrancar: el permiso pudo revocarse desde los ajustes del
+    // sistema con la app cerrada, y las suscripciones deben reflejarlo.
+    final preferencias = push.leerPreferencias();
+    await push.sincronizarTopics(
+      preferencias,
+      topicsPrevios: preferencias.topicsDeseados,
+    );
+  }
+
   runApp(
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
+    UncontrolledProviderScope(
+      container: contenedor,
       child: CuentaClaraApp(initError: initError),
     ),
   );

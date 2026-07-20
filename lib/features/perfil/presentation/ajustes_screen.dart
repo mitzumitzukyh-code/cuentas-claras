@@ -9,6 +9,7 @@ import '../../../core/theme/theme_mode_provider.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
+import '../../notificaciones/presentation/avisos_tasa_seccion.dart';
 
 /// Ajustes de la cuenta (bloque `isAjustes` del diseño).
 ///
@@ -431,6 +432,9 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 18),
+            const AvisosTasaSeccion(),
 
             const SizedBox(height: 18),
             Text(
