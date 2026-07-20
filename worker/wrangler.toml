@@ -13,6 +13,16 @@ crons = ["0 * * * *"]
 binding = "TASAS"
 id = "3f64d5a11c704dc0837d0933f4a6cd81"
 
+# Web API key de Firebase: NO es secreta (identifica el proyecto, no
+# autoriza nada por si sola), es la misma que ya va en firebase_options.dart.
+# Se usa para verificar la sesion de quien llama a /leer-etiqueta.
+[vars]
+FIREBASE_WEB_API_KEY = "AIzaSyCccPlUrPY6QVRpDkGbwwjHoD1i-QZoAx8"
+# Modelo de Gemini para /leer-etiqueta. Cambiar aqui (y `wrangler deploy`) si
+# el modelo por defecto de gemini.js queda obsoleto, sin tocar la app.
+GEMINI_MODELO = "gemini-2.5-flash"
+
 # Secretos (NO van aqui, se cargan aparte y quedan cifrados en Cloudflare):
 #   wrangler secret put FIREBASE_SERVICE_ACCOUNT   <- el JSON de la cuenta
 #   wrangler secret put TOKEN_MANUAL               <- para el endpoint /revisar
+#   wrangler secret put GEMINI_API_KEY              <- clave de Google AI Studio

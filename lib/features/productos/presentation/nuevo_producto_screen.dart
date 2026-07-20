@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
+import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../onboarding/domain/rubro.dart';
@@ -48,6 +49,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   final List<Variante> _variantes = [];
   bool _vendidoPorPeso = false;
   bool _guardando = false;
+  bool _leyendoIA = false;
 
   bool get _editando => widget.producto != null;
 
@@ -90,6 +92,39 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
       MaterialPageRoute(builder: (_) => const EscanerCodigoBarras()),
     );
     if (codigo != null && mounted) setState(() => _codigoBarras = codigo);
+  }
+
+  /// Pide a la IA que sugiera un nombre a partir de la foto ya tomada.
+  ///
+  /// Solo rellena el campo: el dueño sigue teniendo que revisarlo y tocar
+  /// "Guardar producto" como siempre. El código de barras no pasa por aquí
+  /// —lo lee `_escanear()`, con el escáner real— esto es solo para el
+  /// nombre, que es lo que una foto puede sugerir con algo de confianza.
+  Future<void> _leerConIA() async {
+    if (_foto == null) return;
+    setState(() => _leyendoIA = true);
+    try {
+      final sugerencia =
+          await ref.read(lectorEtiquetaServiceProvider).leer(_foto!);
+      if (!mounted) return;
+      setState(() {
+        _nombre.text = sugerencia.nombre;
+        _leyendoIA = false;
+      });
+      _mostrar(
+        sugerencia.confianza == 'alta'
+            ? 'Nombre sugerido — revísalo antes de guardar'
+            : 'Nombre sugerido, con dudas — revísalo bien antes de guardar',
+      );
+    } on SinReconocer {
+      if (!mounted) return;
+      setState(() => _leyendoIA = false);
+      _mostrar('No reconocimos un producto claro en la foto.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _leyendoIA = false);
+      _mostrar('No se pudo leer la etiqueta: $e');
+    }
   }
 
   Future<void> _elegirVencimiento() async {
@@ -298,6 +333,15 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 ),
               ],
             ),
+            if (_foto != null) ...[
+              const SizedBox(height: 10),
+              NeuSecondaryButton(
+                label: _leyendoIA ? 'Leyendo la foto…' : '🤖 Sugerir nombre con IA',
+                height: 44,
+                radius: 16,
+                onPressed: _leyendoIA ? null : _leerConIA,
+              ),
+            ],
             const SizedBox(height: 18),
 
             NeuInput(

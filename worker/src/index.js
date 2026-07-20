@@ -9,8 +9,13 @@
  * cuenta de servicio, así que el plan gratuito de Firebase sigue bastando.
  */
 
+import { usuarioAutenticado } from './auth.js';
 import { enviarATopic, obtenerToken } from './fcm.js';
+import { leerEtiqueta } from './gemini.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
+
+/** Una foto de celular comprimida no debería pasar de esto. Corta abusos. */
+const MAX_BYTES_IMAGEN = 6 * 1024 * 1024;
 
 const API_TASA = 'https://ve.dolarapi.com/v1/dolares/oficial';
 
@@ -146,32 +151,82 @@ export default {
     );
   },
 
-  /**
-   * Endpoint manual, para probar sin esperar al cron.
-   *
-   * Pide un token compartido porque, si no, cualquiera que dé con la URL
-   * podría dispararte notificaciones a todos los dispositivos.
-   */
   async fetch(peticion, env) {
     const url = new URL(peticion.url);
-    if (url.pathname !== '/revisar') {
-      return new Response('Worker de avisos de tasa · Cuenta Clara\n', {
-        status: 200,
-      });
+
+    if (url.pathname === '/revisar') return manejarRevisar(peticion, env, url);
+    if (url.pathname === '/leer-etiqueta' && peticion.method === 'POST') {
+      return manejarLeerEtiqueta(peticion, env);
     }
 
-    const enviado = peticion.headers.get('x-token') ?? url.searchParams.get('token');
-    if (!env.TOKEN_MANUAL || enviado !== env.TOKEN_MANUAL) {
-      return new Response('No autorizado\n', { status: 401 });
-    }
-
-    try {
-      const resultado = await revisarTasa(env, {
-        validar: url.searchParams.get('validar') === '1',
-      });
-      return Response.json(resultado);
-    } catch (e) {
-      return new Response(`Error: ${e.message}\n`, { status: 500 });
-    }
+    return new Response('Worker de Cuenta Clara\n', { status: 200 });
   },
 };
+
+/**
+ * Endpoint manual de los avisos de tasa, para probar sin esperar al cron.
+ *
+ * Pide un token compartido porque, si no, cualquiera que dé con la URL
+ * podría dispararte notificaciones a todos los dispositivos.
+ */
+async function manejarRevisar(peticion, env, url) {
+  const enviado = peticion.headers.get('x-token') ?? url.searchParams.get('token');
+  if (!env.TOKEN_MANUAL || enviado !== env.TOKEN_MANUAL) {
+    return new Response('No autorizado\n', { status: 401 });
+  }
+
+  try {
+    const resultado = await revisarTasa(env, {
+      validar: url.searchParams.get('validar') === '1',
+    });
+    return Response.json(resultado);
+  } catch (e) {
+    return new Response(`Error: ${e.message}\n`, { status: 500 });
+  }
+}
+
+/**
+ * Lee la foto de un producto y sugiere un nombre para el inventario.
+ *
+ * Protegido por sesión de Firebase (ver auth.js), no por un token fijo: este
+ * endpoint lo llama la app en cada alta de producto, así que un secreto
+ * compartido tendría el mismo problema que se quiso evitar con la clave de
+ * Gemini — solo que embebido en el propio APK en vez de en el Worker.
+ */
+async function manejarLeerEtiqueta(peticion, env) {
+  if (!(await usuarioAutenticado(peticion, env.FIREBASE_WEB_API_KEY))) {
+    return new Response('No autorizado\n', { status: 401 });
+  }
+  if (!env.GEMINI_API_KEY) {
+    return new Response('Falta configurar GEMINI_API_KEY\n', { status: 500 });
+  }
+
+  let cuerpo;
+  try {
+    cuerpo = await peticion.json();
+  } catch {
+    return new Response('Cuerpo inválido: se esperaba JSON\n', { status: 400 });
+  }
+
+  const { imagenBase64, mimeType } = cuerpo;
+  if (!imagenBase64 || !mimeType) {
+    return new Response('Faltan imagenBase64 o mimeType\n', { status: 400 });
+  }
+  // Cada 4 caracteres base64 son 3 bytes; suficiente para descartar fotos
+  // gigantes sin decodificar la imagen entera primero.
+  if (imagenBase64.length * 0.75 > MAX_BYTES_IMAGEN) {
+    return new Response('La imagen es demasiado grande\n', { status: 413 });
+  }
+
+  try {
+    const resultado = await leerEtiqueta({
+      apiKey: env.GEMINI_API_KEY,
+      modelo: env.GEMINI_MODELO,
+      imagenBase64,
+      mimeType,
+    });
+    return Response.json(resultado);
+  } catch (e) {
+    return new Response(`Error: ${e.message}\n`, { status: 500 });
+  }
+}
