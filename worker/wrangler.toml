@@ -1,0 +1,18 @@
+name = "cuenta-clara-tasa"
+main = "src/index.js"
+compatibility_date = "2026-07-19"
+
+# Cada hora en punto. Los Cron Triggers estan incluidos en el plan gratuito.
+[triggers]
+crons = ["0 * * * *"]
+
+# Guarda la ultima tasa, el historial de 14 dias y el token OAuth cacheado.
+# El id real se rellena al crear el namespace:
+#   wrangler kv namespace create TASAS
+[[kv_namespaces]]
+binding = "TASAS"
+id = "PENDIENTE"
+
+# Secretos (NO van aqui, se cargan aparte y quedan cifrados en Cloudflare):
+#   wrangler secret put FIREBASE_SERVICE_ACCOUNT   <- el JSON de la cuenta
+#   wrangler secret put TOKEN_MANUAL               <- para el endpoint /revisar

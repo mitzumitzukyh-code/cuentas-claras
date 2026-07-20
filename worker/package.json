@@ -1,0 +1,16 @@
+{
+  "name": "cuenta-clara-tasa-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Avisos push de la tasa BCV para Cuenta Clara (Cloudflare Worker).",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "logs": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

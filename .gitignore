@@ -51,3 +51,7 @@ node_modules/
 android/key.properties
 *.jks
 *.keystore
+
+# Dependencias del Worker de avisos de tasa
+worker/node_modules/
+worker/.wrangler/
