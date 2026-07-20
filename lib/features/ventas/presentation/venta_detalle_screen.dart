@@ -266,6 +266,27 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                   ),
                 ),
               ),
+            ] else if (venta.pendiente) ...[
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.avisoSuave,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Text(
+                  '⏳ Guardada sin señal — se confirmará sola con conexión',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.aviso,
+                  ),
+                ),
+              ),
             ],
 
             const SizedBox(height: 18),
@@ -351,13 +372,22 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
             ),
 
             // Anular: solo el dueño, y solo si sigue activa (CLAUDE.md §6).
+            //
+            // Mientras la venta esté pendiente de sincronizar, anular exige
+            // una transacción con el servidor igual que registrarla — sin
+            // señal se quedaría esperando para siempre. Se deshabilita en vez
+            // de dejar al dueño con un botón que gira sin fin.
             if (esDueno && !venta.anulada) ...[
               const SizedBox(height: 12),
               NeuSecondaryButton(
-                label: _anulando ? 'Anulando…' : 'Anular venta',
+                label: venta.pendiente
+                    ? 'Espera a que se confirme para anular'
+                    : (_anulando ? 'Anulando…' : 'Anular venta'),
                 color: AppColors.peligro,
                 background: AppColors.peligroSuave,
-                onPressed: _anulando ? null : () => _anular(venta),
+                onPressed: (_anulando || venta.pendiente)
+                    ? null
+                    : () => _anular(venta),
               ),
             ],
           ],

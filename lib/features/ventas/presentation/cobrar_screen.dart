@@ -205,7 +205,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     );
 
     try {
-      await ref
+      final resultado = await ref
           .read(ventaRepositoryProvider)
           .registrarVenta(membresia.negocioId, venta);
       if (!mounted) return;
@@ -215,10 +215,18 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
         _expandido = false;
         _cobrando = false;
       });
+      final sinSenal = resultado == ResultadoVenta.pendienteDeSincronizar;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Venta registrada: ${MoneyFormatter.usd(total)}'),
-          backgroundColor: AppColors.marca,
+          // Sin señal, el dueño necesita saber que el cobro quedó guardado
+          // pero todavía no confirmado por el servidor — no que "ya está".
+          content: Text(
+            sinSenal
+                ? 'Venta guardada sin señal. Se sube sola cuando '
+                    'vuelva la conexión.'
+                : 'Venta registrada: ${MoneyFormatter.usd(total)}',
+          ),
+          backgroundColor: sinSenal ? AppColors.aviso : AppColors.marca,
         ),
       );
     } catch (e) {

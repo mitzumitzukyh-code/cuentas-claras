@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Firebase / API de tasa BCV -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- connectivity_plus: saber si hay señal antes de intentar cobrar,
+         para decidir el camino online/offline sin colgarse esperando. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Escaneo de codigo de barras (mobile_scanner) y fotos (image_picker) -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Recordatorios locales (flutter_local_notifications) -->

@@ -17,6 +17,7 @@ import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
 import '../../ventas/presentation/historial_screen.dart';
 import '../../ventas/presentation/venta_detalle_screen.dart';
+import '../../ventas/presentation/ventas_pendientes_screen.dart';
 
 /// Pantalla 4 — Inicio/Dashboard (bloque `isDashboard` del diseño).
 ///
@@ -40,6 +41,7 @@ class DashboardScreen extends ConsumerWidget {
     final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
     final productos = ref.watch(productosProvider).valueOrNull ?? const [];
     final tasa = ref.watch(bcvRateProvider).valueOrNull;
+    final pendientes = ref.watch(ventasPendientesProvider);
 
     final totalUsdHoy = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
     final stockBajo = productos.where((p) => p.stockBajo).length;
@@ -63,6 +65,11 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               if (falloDatos) ...[
                 const _BannerSinPermiso(),
+                const SizedBox(height: 16),
+              ],
+
+              if (pendientes.isNotEmpty) ...[
+                _BannerVentasPendientes(cantidad: pendientes.length),
                 const SizedBox(height: 16),
               ],
 
@@ -252,6 +259,54 @@ class _BannerSinPermiso extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Avisa de ventas hechas sin señal que todavía no confirma el servidor.
+///
+/// Se sincronizan solas; esto es solo visibilidad para que el dueño no tenga
+/// que confiar a ciegas, sobre todo con varios vendedores cobrando a la vez.
+class _BannerVentasPendientes extends StatelessWidget {
+  const _BannerVentasPendientes({required this.cantidad});
+
+  final int cantidad;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const VentasPendientesScreen(),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.avisoSuave,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Text('⏳', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                cantidad == 1
+                    ? '1 venta esperando señal para subirse'
+                    : '$cantidad ventas esperando señal para subirse',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.aviso,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.aviso, size: 18),
+          ],
+        ),
       ),
     );
   }

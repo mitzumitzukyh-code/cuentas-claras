@@ -221,6 +221,15 @@ class _FilaHistorial extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: AppColors.peligro,
                           ),
+                        )
+                      else if (venta.pendiente)
+                        const Text(
+                          ' · Sin confirmar ⏳',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.aviso,
+                          ),
                         ),
                     ],
                   ),

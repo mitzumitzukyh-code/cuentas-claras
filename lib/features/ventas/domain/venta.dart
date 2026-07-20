@@ -114,6 +114,7 @@ class Venta {
     this.metodoPago = MetodoPago.efectivo,
     this.descuentoPct = 0,
     this.ivaUSD = 0,
+    this.pendiente = false,
   });
 
   final String id;
@@ -136,6 +137,14 @@ class Venta {
   /// IVA cobrado en USD. `0` si el negocio no lo tiene activado.
   final double ivaUSD;
 
+  /// `true` si esta venta todavía vive solo en el teléfono y no se ha
+  /// confirmado con el servidor (venta hecha sin señal).
+  ///
+  /// No se guarda en Firestore: se calcula en cada lectura a partir de
+  /// `SnapshotMetadata.hasPendingWrites`, así que es tan real como pueda
+  /// serlo — no depende de que nadie lo actualice a mano.
+  final bool pendiente;
+
   /// Suma de las líneas, antes de descuento e IVA.
   double get subtotalUSD => items.fold<double>(0, (s, i) => s + i.subtotal);
 
@@ -145,6 +154,7 @@ class Venta {
     final data = doc.data() ?? const {};
     return Venta(
       id: doc.id,
+      pendiente: doc.metadata.hasPendingWrites,
       items: ((data['items'] as List?) ?? const [])
           .whereType<Map<String, dynamic>>()
           .map(ItemVenta.fromMap)
