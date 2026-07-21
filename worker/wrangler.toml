@@ -21,8 +21,13 @@ FIREBASE_WEB_API_KEY = "AIzaSyCccPlUrPY6QVRpDkGbwwjHoD1i-QZoAx8"
 # Modelo de Gemini para /leer-etiqueta. Cambiar aqui (y `wrangler deploy`) si
 # el modelo por defecto de gemini.js queda obsoleto, sin tocar la app.
 GEMINI_MODELO = "gemini-2.5-flash"
+# El nombre del cloud tampoco es secreto (ya iba embebido en el APK antes);
+# lo que nunca debe salir del Worker es la API Secret que lo firma.
+CLOUDINARY_CLOUD_NAME = "jwahaxid"
 
 # Secretos (NO van aqui, se cargan aparte y quedan cifrados en Cloudflare):
 #   wrangler secret put FIREBASE_SERVICE_ACCOUNT   <- el JSON de la cuenta
 #   wrangler secret put TOKEN_MANUAL               <- para el endpoint /revisar
 #   wrangler secret put GEMINI_API_KEY              <- clave de Google AI Studio
+#   wrangler secret put CLOUDINARY_API_KEY          <- panel de Cloudinary > Settings > API Keys
+#   wrangler secret put CLOUDINARY_API_SECRET       <- el mismo panel, junto a la API Key

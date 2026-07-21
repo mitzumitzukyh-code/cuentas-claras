@@ -317,6 +317,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
         varianteValor: l.variante?.valor,
         varianteColor: l.variante?.color,
         vendidoPorPeso: l.producto.vendidoPorPeso,
+        fotoUrl: l.producto.fotoUrl,
       ));
     }
 

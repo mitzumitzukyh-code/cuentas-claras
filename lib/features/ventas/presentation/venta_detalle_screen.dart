@@ -191,19 +191,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                       divider: i != venta.items.length - 1,
                       child: Row(
                         children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: t.pageBg,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              '📦',
-                              style: TextStyle(fontSize: 18),
-                            ),
-                          ),
+                          _FotoItem(url: venta.items[i].fotoUrl),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -393,6 +381,40 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Miniatura de un item de venta: la foto congelada al vender, o el
+/// paquete genérico si no había foto (o falló al cargar).
+class _FotoItem extends StatelessWidget {
+  const _FotoItem({required this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final tieneFoto = url != null && url!.isNotEmpty;
+    return Container(
+      width: 42,
+      height: 42,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: t.pageBg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: Alignment.center,
+      child: tieneFoto
+          ? Image.network(
+              url!,
+              fit: BoxFit.cover,
+              width: 42,
+              height: 42,
+              errorBuilder: (_, __, ___) =>
+                  const Text('📦', style: TextStyle(fontSize: 18)),
+            )
+          : const Text('📦', style: TextStyle(fontSize: 18)),
     );
   }
 }

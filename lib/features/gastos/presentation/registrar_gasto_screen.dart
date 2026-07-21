@@ -38,6 +38,13 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
   bool _leyendoIA = false;
   bool _guardando = false;
 
+  // Si el dueño ya tocó la categoría o la fecha a mano, la sugerencia de la
+  // IA no las pisa (a diferencia de monto/descripción, no hay forma de saber
+  // solo mirando el valor si "mercancia" o "hoy" son el default sin tocar o
+  // una elección real del dueño).
+  bool _categoriaTocada = false;
+  bool _fechaTocada = false;
+
   @override
   void dispose() {
     _monto.dispose();
@@ -86,16 +93,28 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
         }
       }
 
+      // Igual que con el nombre del producto: la sugerencia solo rellena lo
+      // que el dueño no había tocado, nunca pisa algo que ya escribió o
+      // eligió a mano.
+      final montoVacio = _monto.text.trim().isEmpty;
+      final descripcionVacia = _descripcion.text.trim().isEmpty;
+      final hoy = DateTime.now();
+      final limiteFecha = DateTime(hoy.year - 2);
       setState(() {
-        if (monto != null) _monto.text = monto.toStringAsFixed(2);
-        if (datos.fecha != null && !datos.fecha!.isAfter(DateTime.now())) {
+        if (monto != null && montoVacio) _monto.text = monto.toStringAsFixed(2);
+        if (!_fechaTocada &&
+            datos.fecha != null &&
+            !datos.fecha!.isAfter(hoy) &&
+            !datos.fecha!.isBefore(limiteFecha)) {
           _fecha = datos.fecha!;
         }
-        if (datos.categoria != null) {
+        if (!_categoriaTocada && datos.categoria != null) {
           _categoria = CategoriaGasto.fromId(datos.categoria);
           _subcategoria = null;
         }
-        if (datos.descripcion != null) _descripcion.text = datos.descripcion!;
+        if (datos.descripcion != null && descripcionVacia) {
+          _descripcion.text = datos.descripcion!;
+        }
         _leyendoIA = false;
       });
       _mostrar('Datos sugeridos del recibo — revísalos antes de guardar.$notaBs');
@@ -125,7 +144,12 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
       firstDate: limite,
       lastDate: hoy,
     );
-    if (fecha != null && mounted) setState(() => _fecha = fecha);
+    if (fecha != null && mounted) {
+      setState(() {
+        _fecha = fecha;
+        _fechaTocada = true;
+      });
+    }
   }
 
   Future<void> _guardar() async {
@@ -329,6 +353,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                     onTap: () => setState(() {
                       _categoria = c;
                       _subcategoria = null;
+                      _categoriaTocada = true;
                     }),
                   ),
               ],
@@ -344,9 +369,10 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                       label: s,
                       dense: true,
                       selected: _subcategoria == s,
-                      onTap: () => setState(
-                        () => _subcategoria = _subcategoria == s ? null : s,
-                      ),
+                      onTap: () => setState(() {
+                        _subcategoria = _subcategoria == s ? null : s;
+                        _categoriaTocada = true;
+                      }),
                     ),
                 ],
               ),

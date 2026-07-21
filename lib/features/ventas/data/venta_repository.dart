@@ -318,12 +318,19 @@ class VentaRepository {
     });
   }
 
-  /// Ventas del día actual (para el dashboard), excluyendo anuladas.
+  /// Ventas del día actual (para el dashboard), más reciente primero,
+  /// excluyendo anuladas.
+  ///
+  /// Sin el `orderBy` explícito, Firestore ordena por el campo del filtro de
+  /// desigualdad (`fecha`) de forma ascendente por defecto: la "Actividad
+  /// reciente" del dashboard, que solo toma las primeras 5, mostraba las
+  /// ventas MÁS VIEJAS del día en vez de las más nuevas.
   Stream<List<Venta>> ventasDelDia(String negocioId) {
     final ahora = DateTime.now();
     final inicio = DateTime(ahora.year, ahora.month, ahora.day);
     return _ventas(negocioId)
         .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(inicio))
+        .orderBy('fecha', descending: true)
         .snapshots()
         .map((s) => s.docs
             .map(Venta.fromDoc)

@@ -87,14 +87,53 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
       imageQuality: 70,
       maxWidth: 1200,
     );
-    if (x != null && mounted) setState(() => _foto = File(x.path));
+    if (x == null || !mounted) return;
+    setState(() => _foto = File(x.path));
+    _mostrar('Foto agregada — se sube al guardar el producto.');
   }
 
   Future<void> _escanear() async {
     final codigo = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const EscanerCodigoBarras()),
     );
-    if (codigo != null && mounted) setState(() => _codigoBarras = codigo);
+    if (codigo == null || !mounted) return;
+
+    // Mismo código en dos productos distintos suele ser un error de escaneo
+    // (o el dueño escaneando el producto equivocado), no algo intencional:
+    // se avisa y se deja decidir en vez de dejarlo pasar en silencio.
+    final productos = ref.read(productosProvider).valueOrNull ?? const [];
+    final duplicado = productos
+        .where((p) =>
+            p.codigoBarras == codigo && p.id != (widget.producto?.id ?? ''))
+        .firstOrNull;
+
+    if (duplicado != null) {
+      final usarIgual = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: const Text('Código ya registrado'),
+          content: Text(
+            'Este código ya lo tiene "${duplicado.nombre}". Si sigues, dos '
+            'productos distintos quedarán con el mismo código de barras.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(d).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(d).pop(true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.peligro),
+              child: const Text('Usar igual'),
+            ),
+          ],
+        ),
+      );
+      if (usarIgual != true || !mounted) return;
+    }
+
+    setState(() => _codigoBarras = codigo);
+    _mostrar('Código escaneado: $codigo');
   }
 
   /// Pide a la IA que sugiera un nombre a partir de la foto ya tomada.
@@ -126,16 +165,27 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         nombre = '$nombre $presentacion';
       }
 
+      // Si el dueño ya había escrito el nombre o elegido categoría a mano,
+      // la sugerencia no lo pisa: solo rellena lo que está vacío. Si no
+      // cambió nada, se avisa en vez de fingir que sí se sugirió algo.
+      final nombreVacio = _nombre.text.trim().isEmpty;
+      final categoriaVacia = _categoria == null;
       setState(() {
-        _nombre.text = nombre;
-        if (sugerencia.categoria != null) _categoria = sugerencia.categoria;
+        if (nombreVacio) _nombre.text = nombre;
+        if (sugerencia.categoria != null && categoriaVacia) {
+          _categoria = sugerencia.categoria;
+        }
         _leyendoIA = false;
       });
-      _mostrar(
-        sugerencia.confianza == 'alta'
-            ? 'Datos sugeridos — revísalos antes de guardar'
-            : 'Datos sugeridos, con dudas — revísalos bien antes de guardar',
-      );
+      if (!nombreVacio && (sugerencia.categoria == null || !categoriaVacia)) {
+        _mostrar('Ya tenías nombre y categoría escritos: no se tocaron.');
+      } else {
+        _mostrar(
+          sugerencia.confianza == 'alta'
+              ? 'Datos sugeridos — revísalos antes de guardar'
+              : 'Datos sugeridos, con dudas — revísalos bien antes de guardar',
+        );
+      }
     } on SinReconocer {
       if (!mounted) return;
       setState(() => _leyendoIA = false);

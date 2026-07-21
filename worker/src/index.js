@@ -10,8 +10,10 @@
  */
 
 import { usuarioAutenticado } from './auth.js';
+import { carpetaValida, subirFotoFirmada } from './cloudinary.js';
 import { enviarATopic, obtenerToken } from './fcm.js';
 import { leerEtiqueta, leerLibreta, leerRecibo } from './gemini.js';
+import { paginaPrivacidad, paginaTerminos } from './legal.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
 
 /** Una foto de celular comprimida no debería pasar de esto. Corta abusos. */
@@ -163,6 +165,20 @@ export default {
 
     if (url.pathname === '/revisar') return manejarRevisar(peticion, env, url);
 
+    // Política de privacidad y términos de uso: públicos, sin autenticación
+    // — Play Store exige que la política sea accesible por cualquiera antes
+    // de dejar publicar la app.
+    if (url.pathname === '/legal/privacidad') {
+      return new Response(paginaPrivacidad(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    if (url.pathname === '/legal/terminos') {
+      return new Response(paginaTerminos(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
     // Lecturas con Gemini. Comparten autenticación, límite diario y
     // validación de imagen; solo cambia el prompt (ver gemini.js).
     const lectores = {
@@ -172,6 +188,10 @@ export default {
     };
     if (lectores[url.pathname] && peticion.method === 'POST') {
       return manejarLecturaIA(peticion, env, lectores[url.pathname]);
+    }
+
+    if (url.pathname === '/subir-foto' && peticion.method === 'POST') {
+      return manejarSubirFoto(peticion, env);
     }
 
     return new Response('Worker de Cuenta Clara\n', { status: 200 });
@@ -217,7 +237,19 @@ async function manejarLecturaIA(peticion, env, lector) {
     return new Response('Falta configurar GEMINI_API_KEY\n', { status: 500 });
   }
 
-  if (!(await bajoElLimiteDiario(env, uid))) {
+  // Se lee la cuota (sin gastarla todavía) antes de tocar el resto de la
+  // petición: si esto falla, es un problema de KV, no del dueño, así que
+  // responde limpio en vez de dejar reventar una excepción sin capturar.
+  let clave, usados;
+  try {
+    ({ clave, usados } = await usosDeHoy(env, uid));
+  } catch {
+    return new Response(
+      'No se pudo verificar el límite diario, intenta de nuevo.\n',
+      { status: 500 },
+    );
+  }
+  if (usados >= MAX_USOS_IA_POR_DIA) {
     return new Response(
       'Límite diario de lecturas con IA alcanzado. Vuelve mañana.\n',
       { status: 429 },
@@ -251,6 +283,10 @@ async function manejarLecturaIA(peticion, env, lector) {
         ? categorias.filter((c) => typeof c === 'string').slice(0, 30)
         : [],
     });
+    // La cuota solo se gasta cuando la lectura de verdad llegó a Gemini y
+    // volvió con algo usable: un cuerpo mal formado, una foto gigante o un
+    // error de Gemini/red no deben costarle al dueño uno de sus 40 cupos.
+    await registrarUso(env, clave, usados);
     return Response.json(resultado);
   } catch (e) {
     return new Response(`Error: ${e.message}\n`, { status: 500 });
@@ -258,19 +294,79 @@ async function manejarLecturaIA(peticion, env, lector) {
 }
 
 /**
- * Cuenta el uso de hoy en KV y dice si todavía queda cuota.
+ * Lee cuántas lecturas con IA ha gastado hoy este usuario.
  *
- * KV es de consistencia eventual, así que el conteo puede quedarse corto en
- * ráfagas — para un tope de cortesía contra abusos es más que suficiente, no
- * hace falta un contador exacto.
+ * KV es de consistencia eventual y el get+put de aquí no es atómico, así que
+ * dos peticiones casi simultáneas del mismo uid (doble toque, dos
+ * dispositivos con la misma cuenta) podrían colarse un par de lecturas de
+ * más antes de que el conteo se ponga al día. Como tope de cortesía contra
+ * abusos —no una cuota exacta ni de seguridad— ese margen es aceptable.
  */
-async function bajoElLimiteDiario(env, uid) {
+/**
+ * Sube la foto de un producto o de un recibo a Cloudinary.
+ *
+ * Protegido por sesión de Firebase, igual que las lecturas con IA — ver el
+ * comentario en cloudinary.js sobre por qué ya no se sube directo desde la
+ * app con un preset sin firma.
+ */
+async function manejarSubirFoto(peticion, env) {
+  const uid = await usuarioAutenticado(peticion, env.FIREBASE_WEB_API_KEY);
+  if (!uid) {
+    return new Response('No autorizado\n', { status: 401 });
+  }
+  if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+    return new Response('Falta configurar Cloudinary\n', { status: 500 });
+  }
+
+  let cuerpo;
+  try {
+    cuerpo = await peticion.json();
+  } catch {
+    return new Response('Cuerpo inválido: se esperaba JSON\n', { status: 400 });
+  }
+
+  const { imagenBase64, mimeType, carpeta } = cuerpo;
+  if (!imagenBase64 || !mimeType) {
+    return new Response('Faltan imagenBase64 o mimeType\n', { status: 400 });
+  }
+  if (imagenBase64.length * 0.75 > MAX_BYTES_IMAGEN) {
+    return new Response('La imagen es demasiado grande\n', { status: 413 });
+  }
+  if (!carpetaValida(carpeta)) {
+    return new Response('Carpeta inválida\n', { status: 400 });
+  }
+
+  try {
+    const url = await subirFotoFirmada({
+      cloudName: env.CLOUDINARY_CLOUD_NAME,
+      apiKey: env.CLOUDINARY_API_KEY,
+      apiSecret: env.CLOUDINARY_API_SECRET,
+      imagenBase64,
+      mimeType,
+      carpeta,
+    });
+    return Response.json({ url });
+  } catch (e) {
+    return new Response(`Error: ${e.message}\n`, { status: 500 });
+  }
+}
+
+async function usosDeHoy(env, uid) {
   const hoy = hoyEnVenezuela();
   const clave = `ia:${uid}:${hoy}`;
   const usados = Number((await env.TASAS.get(clave)) ?? 0);
-  if (usados >= MAX_USOS_IA_POR_DIA) return false;
+  return { clave, usados };
+}
 
-  // 2 días de TTL: la clave de ayer muere sola, sin tarea de limpieza.
-  await env.TASAS.put(clave, String(usados + 1), { expirationTtl: 2 * 86400 });
-  return true;
+async function registrarUso(env, clave, usadosAntes) {
+  try {
+    // 2 días de TTL: la clave de ayer muere sola, sin tarea de limpieza.
+    await env.TASAS.put(clave, String(usadosAntes + 1), {
+      expirationTtl: 2 * 86400,
+    });
+  } catch {
+    // Si KV falla al escribir el contador no se bloquea la respuesta: el
+    // dueño ya recibió su lectura, solo no quedó contabilizada (cupo de
+    // cortesía, no un candado de seguridad).
+  }
 }

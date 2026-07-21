@@ -43,15 +43,26 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
   void _guardarConRetardo(String negocioId) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 700), () {
-      _guardar(negocioId);
+      _guardar(negocioId, avisar: true);
     });
   }
 
-  Future<void> _guardar(String negocioId) async {
+  Future<void> _guardar(String negocioId, {bool avisar = false}) async {
     try {
       await ref
           .read(negocioRepositoryProvider)
           .guardarMetodosPago(negocioId, _metodos);
+      // El interruptor guarda al toque, pero un campo de texto se guarda con
+      // retardo después de que el dueño deja de escribir — sin este aviso no
+      // hay ninguna señal de que lo escrito no se va a perder al salir.
+      if (avisar && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Guardado ✓'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

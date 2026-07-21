@@ -57,10 +57,16 @@ class ItemVenta {
     this.varianteValor,
     this.varianteColor,
     this.vendidoPorPeso = false,
+    this.fotoUrl,
   });
 
   final String productoId;
   final String nombre;
+
+  /// Foto del producto al momento de la venta. Se congela aquí (igual que
+  /// [costoUnitario]) para que el detalle de una venta vieja siga mostrando
+  /// la foto aunque el producto la haya cambiado o se haya borrado después.
+  final String? fotoUrl;
 
   /// Unidades, o kilos si [vendidoPorPeso].
   final double cantidad;
@@ -102,6 +108,7 @@ class ItemVenta {
         varianteValor: map['varianteValor'] as String?,
         varianteColor: map['varianteColor'] as String?,
         vendidoPorPeso: (map['vendidoPorPeso'] as bool?) ?? false,
+        fotoUrl: map['fotoUrl'] as String?,
       );
 
   Map<String, dynamic> toMap() => {
@@ -113,6 +120,7 @@ class ItemVenta {
         'varianteValor': varianteValor,
         'varianteColor': varianteColor,
         'vendidoPorPeso': vendidoPorPeso,
+        'fotoUrl': fotoUrl,
       };
 
   ItemVenta copyWith({double? cantidad}) => ItemVenta(
@@ -124,6 +132,7 @@ class ItemVenta {
         varianteValor: varianteValor,
         varianteColor: varianteColor,
         vendidoPorPeso: vendidoPorPeso,
+        fotoUrl: fotoUrl,
       );
 }
 
