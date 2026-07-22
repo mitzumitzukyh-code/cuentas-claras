@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/presentation/impresora_screen.dart';
@@ -406,13 +407,11 @@ class _FotoItem extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: tieneFoto
-          ? Image.network(
+          ? FotoRed(
               url!,
-              fit: BoxFit.cover,
               width: 42,
               height: 42,
-              errorBuilder: (_, __, ___) =>
-                  const Text('📦', style: TextStyle(fontSize: 18)),
+              alError: const Text('📦', style: TextStyle(fontSize: 18)),
             )
           : const Text('📦', style: TextStyle(fontSize: 18)),
     );

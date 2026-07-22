@@ -10,8 +10,8 @@
  * sale del Worker.
  */
 
-/** Solo estas dos carpetas existen hoy (ver ProductoRepository/GastoRepository). */
-const CARPETA_VALIDA = /^cuenta-clara\/[A-Za-z0-9_-]{1,80}\/(productos|recibos)$/;
+/** Solo estas carpetas existen hoy (ver ProductoRepository/GastoRepository/NegocioRepository). */
+const CARPETA_VALIDA = /^cuenta-clara\/[A-Za-z0-9_-]{1,80}\/(productos|recibos|perfil)$/;
 
 export function carpetaValida(carpeta) {
   return typeof carpeta === 'string' && CARPETA_VALIDA.test(carpeta);

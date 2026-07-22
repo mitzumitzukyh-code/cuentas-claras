@@ -27,32 +27,34 @@ class BcvRate {
     return BcvRate(
       compra: (json['compra'] as num?)?.toDouble() ?? 0,
       venta: (json['venta'] as num?)?.toDouble() ?? 0,
-      promedio: (json['promedio'] as num?)?.toDouble() ??
+      promedio:
+          (json['promedio'] as num?)?.toDouble() ??
           (json['venta'] as num?)?.toDouble() ??
           0,
       fechaActualizacion:
           DateTime.tryParse(json['fechaActualizacion']?.toString() ?? '') ??
-              DateTime.now(),
+          DateTime.now(),
     );
   }
 
   Map<String, dynamic> toCache() => {
-        'compra': compra,
-        'venta': venta,
-        'promedio': promedio,
-        'fechaActualizacion': fechaActualizacion.toIso8601String(),
-      };
+    'compra': compra,
+    'venta': venta,
+    'promedio': promedio,
+    'fechaActualizacion': fechaActualizacion.toIso8601String(),
+  };
 }
 
 /// Obtiene y cachea la tasa BCV. El brief pide refrescar 1 vez al día
 /// (CLAUDE.md §6): se guarda en `SharedPreferences` con la fecha de descarga.
 class BcvRateService {
   BcvRateService(this._prefs, {http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   static const _endpoint = 'https://ve.dolarapi.com/v1/dolares/oficial';
   static const _cacheKey = 'bcv_rate_cache';
   static const _cacheDateKey = 'bcv_rate_cache_date';
+  static const _cacheAnteriorKey = 'bcv_rate_cache_anterior';
 
   final SharedPreferences _prefs;
   final http.Client _client;
@@ -108,8 +110,31 @@ class BcvRateService {
   }
 
   Future<void> _guardarCache(BcvRate rate) async {
+    // Antes de pisar el valor de hoy, lo que había queda como "anterior" —
+    // pero solo si de verdad era de un día distinto: si ya se había
+    // refrescado hoy mismo (un forzado manual, por ejemplo), no hay que
+    // mover nada o "ayer" terminaría siendo la tasa de esta misma mañana.
+    if (!_cacheEsDeHoy()) {
+      final actual = _leerCache();
+      if (actual != null) {
+        await _prefs.setString(_cacheAnteriorKey, jsonEncode(actual.toCache()));
+      }
+    }
     await _prefs.setString(_cacheKey, jsonEncode(rate.toCache()));
     await _prefs.setString(_cacheDateKey, DateTime.now().toIso8601String());
+  }
+
+  /// La tasa del día anterior al último refresco, para mostrar cuánto se
+  /// movió hoy aunque sea muy poco — sin esto, un cambio de 0,04 % (por
+  /// debajo del umbral mínimo de aviso) no se ve en ningún lado.
+  BcvRate? obtenerAnterior() {
+    final raw = _prefs.getString(_cacheAnteriorKey);
+    if (raw == null) return null;
+    try {
+      return BcvRate.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
   }
 }
 
@@ -122,4 +147,14 @@ final bcvRateServiceProvider = Provider<BcvRateService>((ref) {
 /// Tasa BCV para la UI (dashboard, cálculo de Bs). Se refresca al invalidar.
 final bcvRateProvider = FutureProvider<BcvRate>((ref) {
   return ref.watch(bcvRateServiceProvider).obtenerTasa();
+});
+
+/// Tasa del día anterior, para mostrar la variación mínima del día en el
+/// dashboard aunque quede por debajo del umbral de aviso. `null` mientras no
+/// haya un "ayer" que comparar (primera vez que se abre la app, por ejemplo).
+final bcvRateAnteriorProvider = Provider<BcvRate?>((ref) {
+  // Depende de que `bcvRateProvider` ya haya corrido al menos una vez: es lo
+  // que deja "anterior" listo en el servicio.
+  ref.watch(bcvRateProvider);
+  return ref.watch(bcvRateServiceProvider).obtenerAnterior();
 });

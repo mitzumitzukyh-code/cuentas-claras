@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/constants/app_links.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -80,6 +81,12 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
         ..writeln()
         ..writeln('Tasa BCV: ${MoneyFormatter.bs(tasa)}');
     }
+    // Canal de adquisición: quien recibe el catálogo también puede armar el
+    // suyo. El enlace en texto plano sí sale clickeable en WhatsApp (a
+    // diferencia de la marca de agua, que está pintada dentro de la imagen).
+    texto
+      ..writeln()
+      ..writeln('📲 Hecho con Cuenta Clara — ${AppLinks.descargar}');
 
     await Share.share(texto.toString(), subject: 'Catálogo ${negocio.nombre}');
   }
@@ -94,7 +101,8 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
       );
       await Share.shareXFiles(
         [XFile(archivo.path)],
-        text: 'Catálogo de $nombreNegocio',
+        text: 'Catálogo de $nombreNegocio\n'
+            '📲 Hecho con Cuenta Clara — ${AppLinks.descargar}',
       );
     } catch (e) {
       _mostrar('No se pudo generar la imagen: $e');

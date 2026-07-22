@@ -55,6 +55,64 @@ class NegocioRepository {
     return _membresias.doc(membresiaId).delete();
   }
 
+  /// Guarda el token FCM de este dispositivo en la membresía — lo usa el
+  /// Worker para mandar el resumen de ventas del día directo al dueño (ver
+  /// [Membresia.pushToken]).
+  Future<void> guardarTokenPush(String membresiaId, String token) {
+    return _membresias.doc(membresiaId).update({'pushToken': token});
+  }
+
+  /// Borra el negocio completo: productos, insumos y gastos, el documento del
+  /// negocio y la membresía de quien lo pide. Para cumplir con el borrado de
+  /// cuenta que exige Google Play.
+  ///
+  /// Las **ventas NO se borran** — las reglas de Firestore lo prohíben a
+  /// propósito (CLAUDE.md §6: una venta nunca se elimina) y Venezuela exige
+  /// conservar los registros de venta por motivos fiscales. Ya no contienen
+  /// nada personal del dueño (ni nombre ni correo, solo su uid), así que
+  /// conservarlas no deja datos personales atrás; la política de privacidad
+  /// lo explica.
+  ///
+  /// Solo debe llamarse cuando no queda ningún otro miembro — con empleados
+  /// activos, la pantalla de borrado de cuenta bloquea el intento y manda a
+  /// quitarlos primero.
+  Future<void> eliminarNegocioCompleto(
+    String negocioId,
+    String membresiaId,
+  ) async {
+    final negocioRef = _negocios.doc(negocioId);
+    for (final sub in [
+      FirestorePaths.productos,
+      FirestorePaths.insumos,
+      FirestorePaths.gastos,
+    ]) {
+      await _borrarColeccion(negocioRef.collection(sub));
+    }
+
+    final batch = _db.batch();
+    batch.delete(_membresias.doc(membresiaId));
+    batch.delete(negocioRef);
+    await batch.commit();
+  }
+
+  /// Firestore no borra subcolecciones solas: hay que traer y borrar en
+  /// tandas (un batch admite hasta 500 operaciones).
+  Future<void> _borrarColeccion(
+    CollectionReference<Map<String, dynamic>> col,
+  ) async {
+    const tanda = 400;
+    while (true) {
+      final snap = await col.limit(tanda).get();
+      if (snap.docs.isEmpty) return;
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      if (snap.docs.length < tanda) return;
+    }
+  }
+
   /// Crea un código de invitación de un solo uso, válido 24 h.
   Future<Invitacion> crearInvitacion({
     required String negocioId,
@@ -87,8 +145,10 @@ class NegocioRepository {
     String? nombre,
     String? correo,
   }) async {
-    final membresiaId =
-        FirestorePaths.membresiaId(usuarioId, invitacion.negocioId);
+    final membresiaId = FirestorePaths.membresiaId(
+      usuarioId,
+      invitacion.negocioId,
+    );
     final membresia = Membresia(
       id: membresiaId,
       usuarioId: usuarioId,
@@ -129,6 +189,8 @@ class NegocioRepository {
     bool? alertaStockActiva,
     double? metaMensualUsd,
     String? proveedorWhatsapp,
+    String? fotoUrl,
+    bool? fotoComoFondo,
   }) {
     final cambios = <String, dynamic>{
       if (nombre != null) 'nombre': nombre,
@@ -137,6 +199,8 @@ class NegocioRepository {
       if (alertaStockActiva != null) 'alertaStockActiva': alertaStockActiva,
       if (metaMensualUsd != null) 'metaMensualUsd': metaMensualUsd,
       if (proveedorWhatsapp != null) 'proveedorWhatsapp': proveedorWhatsapp,
+      if (fotoUrl != null) 'fotoUrl': fotoUrl,
+      if (fotoComoFondo != null) 'fotoComoFondo': fotoComoFondo,
     };
     if (cambios.isEmpty) return Future.value();
     return _negocios.doc(negocioId).update(cambios);
@@ -220,7 +284,9 @@ final membresiaActivaProvider = Provider<Membresia?>((ref) {
 final negocioActivoProvider = StreamProvider<Negocio?>((ref) {
   final membresia = ref.watch(membresiaActivaProvider);
   if (membresia == null) return Stream.value(null);
-  return ref.watch(negocioRepositoryProvider).negocioStream(membresia.negocioId);
+  return ref
+      .watch(negocioRepositoryProvider)
+      .negocioStream(membresia.negocioId);
 });
 
 /// Miembros del negocio activo (pantalla de Empleados).

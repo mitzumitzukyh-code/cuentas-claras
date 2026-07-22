@@ -19,6 +19,10 @@ describe('carpetaValida', () => {
     assert.equal(carpetaValida('cuenta-clara/abc123XYZ/recibos'), true);
   });
 
+  it('acepta la carpeta de foto de perfil del negocio', () => {
+    assert.equal(carpetaValida('cuenta-clara/abc123XYZ/perfil'), true);
+  });
+
   it('rechaza una carpeta con un tercer segmento inventado', () => {
     assert.equal(carpetaValida('cuenta-clara/abc123XYZ/lo-que-sea'), false);
   });

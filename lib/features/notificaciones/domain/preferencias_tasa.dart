@@ -15,6 +15,7 @@ library;
 /// Worker publica en todos los que la variación supere. Así, quien elige 3 %
 /// no recibe nada cuando el dólar se mueve un 1 %, sin lógica en el cliente.
 enum UmbralTasa {
+  minimoPorCiento(0.1, 'minimo'),
   medioPorCiento(0.5, 'medio'),
   unoPorCiento(1, 'uno'),
   tresPorCiento(3, 'tres'),
@@ -30,23 +31,26 @@ enum UmbralTasa {
   final String id;
 
   String get etiqueta => switch (this) {
-        UmbralTasa.medioPorCiento => 'Cualquier cambio (0,5 %)',
-        UmbralTasa.unoPorCiento => 'Cambios de 1 % o más',
-        UmbralTasa.tresPorCiento => 'Cambios de 3 % o más',
-        UmbralTasa.cincoPorCiento => 'Solo saltos grandes (5 %)',
-      };
+    UmbralTasa.minimoPorCiento => 'Cada movimiento (0,1 %)',
+    UmbralTasa.medioPorCiento => 'Cambios moderados (0,5 %)',
+    UmbralTasa.unoPorCiento => 'Cambios de 1 % o más',
+    UmbralTasa.tresPorCiento => 'Cambios de 3 % o más',
+    UmbralTasa.cincoPorCiento => 'Solo saltos grandes (5 %)',
+  };
 
   String get descripcionCorta => switch (this) {
-        UmbralTasa.medioPorCiento => 'Te avisa casi a diario',
-        UmbralTasa.unoPorCiento => 'Equilibrado',
-        UmbralTasa.tresPorCiento => 'Solo movimientos serios',
-        UmbralTasa.cincoPorCiento => 'Rara vez, solo lo grave',
-      };
+    UmbralTasa.minimoPorCiento =>
+      'Te avisa por cualquier variación, varias veces al día',
+    UmbralTasa.medioPorCiento => 'Te avisa casi a diario',
+    UmbralTasa.unoPorCiento => 'Equilibrado',
+    UmbralTasa.tresPorCiento => 'Solo movimientos serios',
+    UmbralTasa.cincoPorCiento => 'Rara vez, solo lo grave',
+  };
 
   static UmbralTasa desdeId(String? id) => UmbralTasa.values.firstWhere(
-        (u) => u.id == id,
-        orElse: () => UmbralTasa.unoPorCiento,
-      );
+    (u) => u.id == id,
+    orElse: () => UmbralTasa.unoPorCiento,
+  );
 }
 
 /// Los cuatro avisos que puede mandar el Worker.
@@ -57,29 +61,28 @@ enum TipoAvisoTasa {
   resumen;
 
   String get emoji => switch (this) {
-        TipoAvisoTasa.subida => '📈',
-        TipoAvisoTasa.bajada => '📉',
-        TipoAvisoTasa.ritmo => '🚀',
-        TipoAvisoTasa.resumen => '☀️',
-      };
+    TipoAvisoTasa.subida => '📈',
+    TipoAvisoTasa.bajada => '📉',
+    TipoAvisoTasa.ritmo => '🚀',
+    TipoAvisoTasa.resumen => '☀️',
+  };
 
   String get titulo => switch (this) {
-        TipoAvisoTasa.subida => 'Cuando el dólar sube',
-        TipoAvisoTasa.bajada => 'Cuando el dólar baja',
-        TipoAvisoTasa.ritmo => 'Ritmo de subida',
-        TipoAvisoTasa.resumen => 'Resumen de la mañana',
-      };
+    TipoAvisoTasa.subida => 'Cuando el dólar sube',
+    TipoAvisoTasa.bajada => 'Cuando el dólar baja',
+    TipoAvisoTasa.ritmo => 'Ritmo de subida',
+    TipoAvisoTasa.resumen => 'Resumen de la mañana',
+  };
 
   String get detalle => switch (this) {
-        TipoAvisoTasa.subida =>
-          'Aviso en cuanto la tasa suba por encima de tu umbral.',
-        TipoAvisoTasa.bajada =>
-          'Útil para decidir cuándo te conviene comprar mercancía.',
-        TipoAvisoTasa.ritmo =>
-          'Cuando la subida se acelera: varios días seguidos o una semana fuerte.',
-        TipoAvisoTasa.resumen =>
-          'Cada mañana, la tasa del día y cuánto se movió.',
-      };
+    TipoAvisoTasa.subida =>
+      'Aviso en cuanto la tasa suba por encima de tu umbral.',
+    TipoAvisoTasa.bajada =>
+      'Útil para decidir cuándo te conviene comprar mercancía.',
+    TipoAvisoTasa.ritmo =>
+      'Cuando la subida se acelera: varios días seguidos o una semana fuerte.',
+    TipoAvisoTasa.resumen => 'Cada mañana, la tasa del día y cuánto se movió.',
+  };
 
   /// Clave con la que se guarda en `SharedPreferences`.
   String get clavePref => 'aviso_tasa_$name';
@@ -117,8 +120,7 @@ class PreferenciasTasa {
   bool estaActivo(TipoAvisoTasa tipo) => activos.contains(tipo);
 
   /// Topics a los que debería estar suscrito el dispositivo ahora mismo.
-  Set<String> get topicsDeseados =>
-      activos.map((t) => t.topic(umbral)).toSet();
+  Set<String> get topicsDeseados => activos.map((t) => t.topic(umbral)).toSet();
 
   PreferenciasTasa copyWith({
     Set<TipoAvisoTasa>? activos,

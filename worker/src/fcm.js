@@ -6,7 +6,13 @@
  * no hay dependencias que mantener ni actualizar.
  */
 
-const ALCANCE = 'https://www.googleapis.com/auth/firebase.messaging';
+// Un mismo token OAuth sirve para varios alcances a la vez (JWT con scope
+// separado por espacios) — así el resumen de ventas puede leer Firestore con
+// el mismo token que ya se pedía para mandar los avisos de tasa, sin abrir
+// un segundo flujo de autenticación.
+const ALCANCE =
+  'https://www.googleapis.com/auth/firebase.messaging ' +
+  'https://www.googleapis.com/auth/datastore';
 
 /** base64url sin relleno, que es lo que exige JWT. */
 function base64url(datos) {
@@ -138,6 +144,56 @@ export async function enviarATopic({
 
   if (!resp.ok) {
     throw new Error(`FCM ${resp.status} en '${topic}': ${await resp.text()}`);
+  }
+  return resp.json();
+}
+
+/**
+ * Publica una notificación directo a un dispositivo (por su token), no a un
+ * topic — es lo que necesita el resumen de ventas: cada dueño ve solo lo
+ * suyo, así que no puede ir por un canal compartido.
+ */
+export async function enviarAToken({
+  cuenta,
+  token,
+  destino,
+  titulo,
+  cuerpo,
+  datos = {},
+  canal = 'tasa_bcv',
+}) {
+  const resp = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${cuenta.project_id}/messages:send`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          token: destino,
+          notification: { title: titulo, body: cuerpo },
+          data: datos,
+          android: {
+            priority: 'high',
+            notification: {
+              // Debe coincidir con un canal que la app ya haya declarado
+              // (ver `canalTasa`/`canalVentas` en push_service.dart) — Android
+              // 8+ descarta en silencio cualquier aviso de un canal que no
+              // existe todavía en el dispositivo.
+              channel_id: canal,
+              icon: 'ic_notificacion',
+              color: '#0F9D82',
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`FCM ${resp.status} a token: ${await resp.text()}`);
   }
   return resp.json();
 }

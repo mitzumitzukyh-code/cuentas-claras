@@ -16,6 +16,7 @@ export const DIAS_HISTORIAL = 14;
  * Como cada dispositivo está suscrito a un solo umbral, nadie recibe repetido.
  */
 export const UMBRALES = [
+  { id: 'minimo', pct: 0.1 },
   { id: 'medio', pct: 0.5 },
   { id: 'uno', pct: 1 },
   { id: 'tres', pct: 3 },
@@ -61,6 +62,33 @@ export function variacionEnDias(historial, dias) {
   const viejos = historial.filter((h) => new Date(h.fecha).getTime() >= corte);
   const base = viejos.length >= 2 ? viejos[0] : historial[0];
   return variacion(base.tasa, historial[historial.length - 1].tasa);
+}
+
+/**
+ * Frase de tendencia para el resumen de la mañana.
+ *
+ * No es un pronóstico financiero: es la lectura simple que haría un
+ * comerciante con los últimos 14 días anotados en su cuaderno — hacia dónde
+ * apunta la tasa y a qué ritmo. Siempre devuelve algo, incluso cuando la tasa
+ * está quieta: "estable" también es información que el usuario pidió recibir.
+ */
+export function tendencia(historial) {
+  const semana = variacionEnDias(historial, 7);
+  const racha = rachaDeSubidas(historial);
+
+  if (racha >= 3 || semana >= 2) {
+    return (
+      `Viene acelerando (${pct(semana)} en la semana): ` +
+      'apunta a seguir subiendo.'
+    );
+  }
+  if (semana >= 0.3) {
+    return `Sube poco a poco: ${pct(semana)} en la semana.`;
+  }
+  if (semana <= -0.3) {
+    return `Viene bajando: ${pct(semana)} en la semana.`;
+  }
+  return 'Se ha mantenido estable esta semana.';
 }
 
 /**
@@ -130,7 +158,7 @@ export function construirAvisos({ anterior, actual, historial, esResumen }) {
     avisos.push({
       topics: ['tasa-resumen'],
       titulo: `☀️ Hoy el dólar está en Bs ${bs(actual)}`,
-      cuerpo: `El BCV ${detalle}.`,
+      cuerpo: `El BCV ${detalle}. ${tendencia(historial)}`,
       datos: { ...datosBase, tipo: 'resumen' },
     });
   }

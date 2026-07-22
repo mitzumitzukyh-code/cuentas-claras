@@ -18,6 +18,7 @@ class Negocio {
     this.metaMensualUsd = 0,
     this.proveedorWhatsapp,
     this.fotoUrl,
+    this.fotoComoFondo = false,
     this.metodosPago = const [],
     this.creadoPor,
   });
@@ -46,8 +47,13 @@ class Negocio {
   /// Teléfono del proveedor para pedir reabastecimiento por WhatsApp.
   final String? proveedorWhatsapp;
 
-  /// Logo/foto del negocio.
+  /// Logo/foto del negocio. Se muestra como avatar en Perfil y en el
+  /// Dashboard.
   final String? fotoUrl;
+
+  /// `true` = además de avatar, se usa esta misma foto de fondo en el
+  /// Dashboard (con un velo encima para que el texto siga siendo legible).
+  final bool fotoComoFondo;
 
   /// Formas de pago aceptadas y sus datos (pantalla Métodos de pago).
   final List<MetodoPagoConfig> metodosPago;
@@ -83,6 +89,7 @@ class Negocio {
       metaMensualUsd: (data['metaMensualUsd'] as num?)?.toDouble() ?? 0,
       proveedorWhatsapp: data['proveedorWhatsapp'] as String?,
       fotoUrl: data['fotoUrl'] as String?,
+      fotoComoFondo: (data['fotoComoFondo'] as bool?) ?? false,
       creadoPor: data['creadoPor'] as String?,
       metodosPago: MetodoPagoConfig.listaDesdeMapa(
         data['metodosPago'] as Map<String, dynamic>?,
@@ -102,18 +109,19 @@ class Negocio {
   }
 
   Map<String, dynamic> toMap() => {
-        'nombre': nombre,
-        'rubro': rubro.id,
-        'moneda': moneda,
-        'monedaSecundaria': monedaSecundaria,
-        'configuracion': configuracion.toMap(),
-        'incluirIva': incluirIva,
-        'reciboMensaje': reciboMensaje,
-        'alertaStockActiva': alertaStockActiva,
-        'metaMensualUsd': metaMensualUsd,
-        'proveedorWhatsapp': proveedorWhatsapp,
-        'fotoUrl': fotoUrl,
-        'creadoPor': creadoPor,
-        'metodosPago': MetodoPagoConfig.listaAMapa(metodosPago),
-      };
+    'nombre': nombre,
+    'rubro': rubro.id,
+    'moneda': moneda,
+    'monedaSecundaria': monedaSecundaria,
+    'configuracion': configuracion.toMap(),
+    'incluirIva': incluirIva,
+    'reciboMensaje': reciboMensaje,
+    'alertaStockActiva': alertaStockActiva,
+    'metaMensualUsd': metaMensualUsd,
+    'proveedorWhatsapp': proveedorWhatsapp,
+    'fotoUrl': fotoUrl,
+    'fotoComoFondo': fotoComoFondo,
+    'creadoPor': creadoPor,
+    'metodosPago': MetodoPagoConfig.listaAMapa(metodosPago),
+  };
 }

@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/session/sesion_provider.dart';
-import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
-import '../../features/negocio/data/negocio_repository.dart';
 import '../../features/onboarding/presentation/rubro_selection_screen.dart';
 import '../../features/perfil/presentation/perfil_screen.dart';
 import '../../features/productos/presentation/nuevo_producto_screen.dart';
@@ -21,10 +19,15 @@ import 'routes.dart';
 /// El `redirect` central aplica el flujo del brief:
 /// sin sesión → Login · con sesión sin negocio → Onboarding · listo → Dashboard.
 final goRouterProvider = Provider<GoRouter>((ref) {
-  // Reevalúa el redirect cuando cambian auth o membresías.
+  // Reevalúa el redirect cuando cambia el estado de sesión. Se escucha el
+  // provider DERIVADO (no sus fuentes por separado): escucharlo lo mantiene
+  // activo, de modo que recalcula en cuanto cambia cualquiera de sus fuentes
+  // — auth, membresías o el tiempo mínimo del splash. Escuchar las fuentes
+  // dejaba a sesionProvider sin oyentes, y al vencer el timer del splash el
+  // redirect podía leer un "cargando" viejo y la app se quedaba pegada en la
+  // pantalla de carga para siempre.
   final refresh = ValueNotifier<int>(0);
-  ref.listen(authStateProvider, (_, __) => refresh.value++);
-  ref.listen(misMembresiasProvider, (_, __) => refresh.value++);
+  ref.listen(sesionProvider, (_, __) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
   return GoRouter(

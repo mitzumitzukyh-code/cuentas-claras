@@ -15,6 +15,7 @@ import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/producto_repository.dart';
@@ -652,12 +653,11 @@ class _TarjetaProducto extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             alignment: Alignment.center,
             child: tieneFoto
-                ? Image.network(
+                ? FotoRed(
                     producto.fotoUrl!,
-                    fit: BoxFit.cover,
                     width: 42,
                     height: 42,
-                    errorBuilder: (_, __, ___) =>
+                    alError:
                         Icon(Icons.image_outlined, color: t.muted, size: 18),
                   )
                 : Text(

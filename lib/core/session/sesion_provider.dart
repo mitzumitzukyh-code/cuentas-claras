@@ -3,6 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/negocio/data/negocio_repository.dart';
 
+/// Tiempo mínimo del splash en pantalla.
+///
+/// Con sesión ya guardada, auth resuelve en milisegundos y el splash
+/// parpadeaba tan rápido que ni se veía el logo. Este future retiene el
+/// estado `cargando` un momento para que la marca se aprecie; solo corre una
+/// vez por arranque de la app.
+final splashMinimoProvider = FutureProvider<void>(
+  (ref) => Future<void>.delayed(const Duration(milliseconds: 2200)),
+);
+
 /// Estado global de sesión que decide el destino de navegación (ver router).
 enum SesionEstado {
   /// Aún resolviendo auth o membresías.
@@ -23,11 +33,24 @@ enum SesionEstado {
 
 /// Combina el estado de autenticación con las membresías del usuario.
 final sesionProvider = Provider<SesionEstado>((ref) {
+  // Auth se observa ANTES de consultar el timer del splash: así Firebase va
+  // resolviendo la sesión guardada en paralelo mientras corre la animación,
+  // en vez de empezar de cero cuando el timer vence.
   final auth = ref.watch(authStateProvider);
+  if (ref.watch(splashMinimoProvider).isLoading) return SesionEstado.cargando;
   if (auth.isLoading) return SesionEstado.cargando;
 
   final user = auth.value;
-  if (user == null) return SesionEstado.sinSesion;
+  if (user == null) {
+    // Antes de rendirse y mandar al login: si Firebase no restauró la sesión
+    // (pasa en release, ver [restaurarSesionProvider]), esperar a que la app
+    // intente rehacerla ella misma. Solo si ese intento ya terminó y seguimos
+    // sin usuario, es de verdad "sin sesión".
+    if (ref.watch(restaurarSesionProvider).isLoading) {
+      return SesionEstado.cargando;
+    }
+    return SesionEstado.sinSesion;
+  }
 
   final membresias = ref.watch(misMembresiasProvider);
   if (membresias.isLoading) return SesionEstado.cargando;

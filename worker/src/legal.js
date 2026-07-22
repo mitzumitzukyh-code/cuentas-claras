@@ -56,6 +56,7 @@ function pagina(titulo, cuerpo) {
     <nav>
       <a href="/legal/privacidad">Política de privacidad</a>
       <a href="/legal/terminos">Términos de uso</a>
+      <a href="/legal/eliminar-cuenta">Eliminar mi cuenta</a>
     </nav>
     ${cuerpo}
     <footer>Mitzukyhs Dev — Venezuela · Contacto: ${CONTACTO}</footer>
@@ -106,18 +107,21 @@ export function paginaPrivacidad() {
     </ul>
 
     <h2>5. Cuánto tiempo guardamos tus datos</h2>
-    <p>Mientras tu cuenta exista. Si eliminas tu negocio o tu cuenta, o nos escribes pidiéndolo, borramos tus datos salvo que la ley nos obligue a conservar algún registro (por ejemplo, por motivos fiscales).</p>
+    <p>Mientras tu cuenta exista. Si eliminas tu negocio o tu cuenta, borramos tus datos — con una excepción: tus <strong>registros de venta ya realizados</strong> no se borran, porque la ley exige a los negocios conservar su historial de ventas por motivos fiscales y nuestras propias reglas de base de datos lo impiden a propósito (nadie, ni siquiera nosotros, puede alterar el historial después de una venta). Esos registros no contienen tu nombre ni tu correo — solo quedan asociados a un identificador técnico sin valor personal una vez que tu cuenta se elimina.</p>
 
-    <h2>6. Tus derechos</h2>
+    <h2>6. Eliminar tu cuenta</h2>
+    <p>Puedes eliminar tu cuenta y tus datos en cualquier momento desde la app (Perfil → Cuenta → Eliminar cuenta) o, sin tener la app instalada, en <a href="/legal/eliminar-cuenta">esta página</a>. Ahí se explica en detalle qué se borra y qué se conserva (ver sección 5).</p>
+
+    <h2>7. Tus derechos</h2>
     <p>Puedes pedirnos en cualquier momento: acceder a tus datos, corregirlos, exportarlos o eliminarlos. Escríbenos a <strong>${CONTACTO}</strong> y te respondemos.</p>
 
-    <h2>7. Menores de edad</h2>
+    <h2>8. Menores de edad</h2>
     <p>Cuenta Clara está pensada para dueños y empleados de pequeños negocios, no para niños. No recopilamos a sabiendas datos de menores de edad.</p>
 
-    <h2>8. Cambios a esta política</h2>
+    <h2>9. Cambios a esta política</h2>
     <p>Si cambiamos algo importante, lo avisaremos dentro de la app antes de que entre en vigencia. La fecha de "última actualización" arriba siempre refleja la versión vigente.</p>
 
-    <h2>9. Contacto</h2>
+    <h2>10. Contacto</h2>
     <p>Mitzukyhs Dev — Venezuela.<br>Correo: <strong>${CONTACTO}</strong></p>
     `,
   );
@@ -161,6 +165,33 @@ export function paginaTerminos() {
 
     <h2>11. Contacto</h2>
     <p>Mitzukyhs Dev — Venezuela.<br>Correo: <strong>${CONTACTO}</strong></p>
+    `,
+  );
+}
+
+export function paginaEliminarCuenta() {
+  return pagina(
+    'Eliminar mi cuenta',
+    `
+    <p>Puedes pedir que se elimine tu cuenta de Cuenta Clara y los datos asociados a ella de dos formas:</p>
+
+    <h2>Desde la app (más rápido)</h2>
+    <p>Abre Cuenta Clara → <strong>Perfil</strong> → <strong>Cuenta</strong> → <strong>Eliminar cuenta</strong>. Confirmas ahí mismo y el borrado es inmediato.</p>
+
+    <h2>Sin la app instalada</h2>
+    <p>Escríbenos a <strong>${CONTACTO}</strong> desde el correo con el que te registraste, con el asunto "Eliminar mi cuenta". Confirmamos tu identidad y eliminamos tu cuenta y tus datos en un plazo máximo de 30 días.</p>
+
+    <h2>Qué se elimina</h2>
+    <ul>
+      <li>Tu cuenta de acceso (correo/Google) a Cuenta Clara.</li>
+      <li>Si eres dueño de un negocio sin más miembros: el negocio completo — productos, gastos y su configuración.</li>
+      <li>Si eres empleado, o dueño con empleados activos (a quienes debes quitar primero desde Empleados): tu membresía a ese negocio.</li>
+    </ul>
+
+    <h2>Qué NO se elimina, y por qué</h2>
+    <p>Los <strong>registros de venta</strong> ya realizados no se borran: la ley exige a los negocios conservar su historial de ventas por motivos fiscales, y nuestras propias reglas de base de datos lo impiden a propósito para que nadie pueda alterar el historial después de una venta. Esos registros no contienen tu nombre ni tu correo — solo quedan asociados a un identificador técnico sin valor personal una vez que tu cuenta se elimina.</p>
+
+    <p>Ver también la <a href="/legal/privacidad">política de privacidad</a> completa.</p>
     `,
   );
 }

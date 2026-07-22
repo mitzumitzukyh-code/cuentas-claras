@@ -28,6 +28,12 @@ dependencies:
 
   # --- Autenticacion ---
   google_sign_in: ^6.3.0         # login principal (Google)
+  # Guarda credenciales cifradas (Keystore) para RE-AUTENTICAR al abrir la app
+  # cuando la persistencia nativa de Firebase Auth no restaura la sesion. En
+  # release, sobre el ROM del Z2464N, `currentUser` quedaba en null tras cerrar
+  # y reabrir aunque el login hubiera sido correcto (verificado 2026-07-22). Ver
+  # `AuthRepository.restaurarSesion`.
+  flutter_secure_storage: ^9.2.2
   # Nota: se descarto el login por SMS (verifyPhoneNumber) por su costo, asi que
   # `sms_autofill` ya no se usa y se removio del proyecto.
 
@@ -54,6 +60,7 @@ dependencies:
   esc_pos_utils_plus: ^2.0.4
   print_bluetooth_thermal: ^1.2.1
   permission_handler: ^12.0.3
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

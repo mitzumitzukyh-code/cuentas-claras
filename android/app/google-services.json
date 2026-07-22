@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1037970882198-91bfmm2etm741sc154g4mqlpl6lei4co.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mitzukyhsdev.cuentaclara",
+            "certificate_hash": "5ed062ceb59e3ca12164782fa372a700471cbc47"
+          }
+        },
+        {
           "client_id": "1037970882198-rk4ner1heoq1n4647r8eelsouojn8br5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

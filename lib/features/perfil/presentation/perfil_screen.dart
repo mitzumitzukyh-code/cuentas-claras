@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/providers/conectividad_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../catalogo/presentation/catalogo_screen.dart';
@@ -21,6 +23,7 @@ import '../../negocio/presentation/impresora_screen.dart';
 import '../../negocio/presentation/metodos_pago_screen.dart';
 import '../../ventas/presentation/historial_screen.dart';
 import 'ajustes_screen.dart';
+import 'eliminar_cuenta_screen.dart';
 
 /// Perfil (bloque `isPerfil` del diseño).
 ///
@@ -61,23 +64,9 @@ class PerfilScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: AppColors.marca,
-                      shape: BoxShape.circle,
-                      boxShadow: t.shadowBtn,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      inicial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  _AvatarNegocioGrande(
+                    fotoUrl: negocio?.fotoUrl,
+                    inicial: inicial,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -106,11 +95,12 @@ class PerfilScreen extends ConsumerWidget {
                     emoji: '✏️',
                     size: 34,
                     radius: 12,
-                    onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AjustesScreen(),
-                    ),
-                  ),
+                    onTap:
+                        () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AjustesScreen(),
+                          ),
+                        ),
                   ),
                 ],
               ),
@@ -180,29 +170,32 @@ class PerfilScreen extends ConsumerWidget {
                 _Fila(
                   emoji: '🧾',
                   etiqueta: 'Historial de ventas',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const HistorialScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const HistorialScreen(),
+                        ),
+                      ),
                 ),
                 _Fila(
                   emoji: '📊',
                   etiqueta: 'Reportes de ventas',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ReportesScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ReportesScreen(),
+                        ),
+                      ),
                 ),
                 _Fila(
                   emoji: '💸',
                   etiqueta: 'Gastos',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const GastosScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const GastosScreen(),
+                        ),
+                      ),
                 ),
               ],
             ),
@@ -220,38 +213,42 @@ class PerfilScreen extends ConsumerWidget {
                 _Fila(
                   emoji: '👥',
                   etiqueta: 'Empleados',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const EmpleadosScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const EmpleadosScreen(),
+                        ),
+                      ),
                 ),
                 _Fila(
                   emoji: '💬',
                   etiqueta: 'Catálogo y WhatsApp',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const CatalogoScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CatalogoScreen(),
+                        ),
+                      ),
                 ),
                 _Fila(
                   emoji: '🖨️',
                   etiqueta: 'Impresora de tickets',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ImpresoraScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ImpresoraScreen(),
+                        ),
+                      ),
                 ),
                 _Fila(
                   emoji: '💳',
                   etiqueta: 'Métodos de pago',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const MetodosPagoScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const MetodosPagoScreen(),
+                        ),
+                      ),
                 ),
               ],
             ),
@@ -264,20 +261,32 @@ class PerfilScreen extends ConsumerWidget {
                 _Fila(
                   emoji: '✨',
                   etiqueta: 'Planes premium',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const PlanesScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const PlanesScreen(),
+                        ),
+                      ),
                 ),
                 _Fila(
                   emoji: '⚙️',
                   etiqueta: 'Ajustes de la cuenta',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AjustesScreen(),
-                    ),
-                  ),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AjustesScreen(),
+                        ),
+                      ),
+                ),
+                _Fila(
+                  emoji: '🗑️',
+                  etiqueta: 'Eliminar cuenta',
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const EliminarCuentaScreen(),
+                        ),
+                      ),
                 ),
               ],
             ),
@@ -297,7 +306,41 @@ class PerfilScreen extends ConsumerWidget {
               label: 'Cerrar sesión',
               color: AppColors.peligro,
               background: AppColors.peligroSuave,
-              onPressed: () => ref.read(authRepositoryProvider).cerrarSesion(),
+              // Sin internet, cerrar sesión es una trampa: Firebase no puede
+              // validar credenciales offline, así que no habría forma de
+              // volver a entrar hasta que regrese la señal. Se avisa antes.
+              onPressed: () async {
+                final conectado =
+                    ref.read(hayConexionProvider).valueOrNull ?? true;
+                if (!conectado) {
+                  final seguro = await showDialog<bool>(
+                    context: context,
+                    builder:
+                        (c) => AlertDialog(
+                          title: const Text('¿Cerrar sesión sin internet?'),
+                          content: const Text(
+                            'Estás sin conexión. Si cierras sesión ahora, no '
+                            'podrás volver a entrar hasta que vuelva la señal.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(c).pop(false),
+                              child: const Text('Cancelar'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(c).pop(true),
+                              child: const Text(
+                                'Cerrar sesión igual',
+                                style: TextStyle(color: AppColors.peligro),
+                              ),
+                            ),
+                          ],
+                        ),
+                  );
+                  if (seguro != true) return;
+                }
+                await ref.read(authRepositoryProvider).cerrarSesion();
+              },
             ),
             const SizedBox(height: 12),
             Text(
@@ -308,6 +351,54 @@ class PerfilScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Avatar del negocio (60×60): la foto que se puso en Ajustes, o la inicial.
+class _AvatarNegocioGrande extends StatelessWidget {
+  const _AvatarNegocioGrande({required this.fotoUrl, required this.inicial});
+
+  final String? fotoUrl;
+  final String inicial;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final tieneFoto = fotoUrl != null && fotoUrl!.isNotEmpty;
+    return Container(
+      width: 60,
+      height: 60,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.marca,
+        shape: BoxShape.circle,
+        boxShadow: t.shadowBtn,
+      ),
+      alignment: Alignment.center,
+      child:
+          tieneFoto
+              ? FotoRed(
+                fotoUrl!,
+                width: 60,
+                height: 60,
+                alError: Text(
+                  inicial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              )
+              : Text(
+                inicial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
     );
   }
 }
@@ -361,12 +452,8 @@ class _Fila extends StatelessWidget {
   final VoidCallback onTap;
   final bool divisor;
 
-  _Fila conDivisor(bool v) => _Fila(
-        emoji: emoji,
-        etiqueta: etiqueta,
-        onTap: onTap,
-        divisor: v,
-      );
+  _Fila conDivisor(bool v) =>
+      _Fila(emoji: emoji, etiqueta: etiqueta, onTap: onTap, divisor: v);
 
   @override
   Widget build(BuildContext context) {

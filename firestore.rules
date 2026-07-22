@@ -151,10 +151,21 @@ service cloud.firestore {
       // El dueño cambia el rol de su equipo (pantalla Empleados). Solo puede
       // tocar `rol`: si pudiera reescribir `usuarioId` o `negocioId` movería
       // membresías entre negocios o suplantaría a otro usuario.
-      allow update: if esDueno(resource.data.negocioId) &&
+      allow update: if (esDueno(resource.data.negocioId) &&
                        request.resource.data.usuarioId == resource.data.usuarioId &&
                        request.resource.data.negocioId == resource.data.negocioId &&
-                       request.resource.data.rol in ['dueno', 'empleado'];
+                       request.resource.data.rol in ['dueno', 'empleado'])
+                       ||
+                       // Cualquiera puede guardar el token FCM de SU PROPIA
+                       // membresía (para el resumen de ventas del Worker) —
+                       // nada más: ni el rol, ni el negocio, ni de quién es.
+                       (estaAutenticado() &&
+                        request.auth.uid == resource.data.usuarioId &&
+                        request.resource.data.diff(resource.data)
+                          .affectedKeys().hasOnly(['pushToken']) &&
+                        request.resource.data.usuarioId == resource.data.usuarioId &&
+                        request.resource.data.negocioId == resource.data.negocioId &&
+                        request.resource.data.rol == resource.data.rol);
 
       allow delete: if estaAutenticado() &&
                        (resource.data.usuarioId == request.auth.uid ||

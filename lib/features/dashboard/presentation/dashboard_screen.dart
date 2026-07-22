@@ -8,7 +8,9 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
+import '../../../services/notificaciones/push_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../notificaciones/presentation/notificaciones_screen.dart';
@@ -39,8 +41,17 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.tokens;
+    // Antes las notificaciones de tasa solo se activaban si el dueño
+    // encontraba el botón "Permitir avisos" en Ajustes — muchos nunca
+    // llegaban a verlo y se quedaban sin ninguna, sin saber por qué. Esto lo
+    // pide solo, una vez en la vida de la instalación (ver push_service.dart).
+    ref.watch(autoPedirPermisoTasaProvider);
+    // Deja el token de este dispositivo listo en la membresía del dueño para
+    // el resumen de ventas del día (ver push_service.dart).
+    ref.watch(registrarTokenVentasProvider);
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
-    final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final ventas =
+        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
     final productos = ref.watch(productosProvider).valueOrNull ?? const [];
     final tasa = ref.watch(bcvRateProvider).valueOrNull;
     final pendientes = ref.watch(ventasPendientesProvider);
@@ -54,199 +65,247 @@ class DashboardScreen extends ConsumerWidget {
 
     // Si Firestore rechaza las consultas (reglas no desplegadas, sin permiso),
     // el dashboard se vería vacío y sin explicación. Mejor decirlo.
-    final falloDatos = ref.watch(negocioActivoProvider).hasError ||
+    final falloDatos =
+        ref.watch(negocioActivoProvider).hasError ||
         ref.watch(ventasDelDiaProvider).hasError ||
         ref.watch(productosProvider).hasError;
 
+    // Foto de fondo opcional (Ajustes de la cuenta). Se muestra sin ningún
+    // velo encima — hasta un blanco al 35 % se veía como neblina sobre una
+    // foto con mucho color. Las tarjetas ya son opacas y no necesitan nada
+    // más; los textos que quedan directo sobre la foto (fuera de cualquier
+    // tarjeta) llevan su propio fondito opaco (`_ChipLegible`) en vez de
+    // sombra — con texto oscuro, una sombra oscura no da suficiente
+    // contraste contra una foto clara.
+    final tieneFondo =
+        (negocio?.fotoComoFondo ?? false) &&
+        (negocio?.fotoUrl?.isNotEmpty ?? false);
+
     return Scaffold(
+      backgroundColor: tieneFondo ? Colors.transparent : null,
       bottomNavigationBar: const AppBottomNav(activa: NavTab.inicio),
-      body: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: AppColors.marca,
-          onRefresh: () async => ref.invalidate(bcvRateProvider),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-            children: [
-              if (falloDatos) ...[
-                const _BannerSinPermiso(),
-                const SizedBox(height: 16),
-              ],
-
-              if (pendientes.isNotEmpty) ...[
-                _BannerVentasPendientes(cantidad: pendientes.length),
-                const SizedBox(height: 16),
-              ],
-
-              // --- Saludo + acciones ---
-              Row(
+      body: Stack(
+        children: [
+          if (tieneFondo) ...[
+            // Sin velo encima: cualquier color plano de por medio (hasta
+            // blanco al 35 %) se veía como neblina sobre una foto con tanto
+            // color. La foto se ve tal cual — los textos que quedan directo
+            // sobre ella llevan su propio fondito opaco (`_ChipLegible`) en
+            // vez de tapar la foto entera.
+            Positioned.fill(
+              child: FotoRed(
+                negocio!.fotoUrl!,
+                alError: Container(color: t.pageBg),
+              ),
+            ),
+          ],
+          SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              color: AppColors.marca,
+              onRefresh: () async => ref.invalidate(bcvRateProvider),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  if (falloDatos) ...[
+                    const _BannerSinPermiso(),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (pendientes.isNotEmpty) ...[
+                    _BannerVentasPendientes(cantidad: pendientes.length),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // --- Saludo + acciones ---
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ChipLegible(
+                          activo: tieneFondo,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _saludo(),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: t.textSec,
+                                ),
+                              ),
+                              Text(
+                                nombre,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: t.text,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _Campana(
+                        // Punto de aviso solo si hay algo que atender.
+                        conAviso: stockBajo > 0,
+                        onTap:
+                            () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const NotificacionesScreen(),
+                              ),
+                            ),
+                      ),
+                      const SizedBox(width: 10),
+                      _AvatarNegocio(
+                        fotoUrl: negocio?.fotoUrl,
+                        inicial: nombre.isEmpty ? '?' : nombre[0].toUpperCase(),
+                        onTap: () => context.go(Routes.perfil),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // --- Ventas de hoy ---
+                  _TarjetaVentas(
+                    totalUsd: totalUsdHoy,
+                    tasa: tasa?.tasa,
+                    cobros: ventas.length,
+                    // Sin ningún costo registrado la ganancia no existe: la
+                    // tarjeta invita a registrarlos en vez de mostrar un cero
+                    // falso o repetir el total como si todo fuera ganancia.
+                    ganancia:
+                        itemsHoy > 0 && itemsSinCosto < itemsHoy
+                            ? gananciaHoy
+                            : null,
+                    gananciaParcial: itemsSinCosto > 0,
+                    invitarACostos: itemsHoy > 0 && itemsSinCosto == itemsHoy,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // --- Tasa BCV ---
+                  _FilaTasaBcv(
+                    tasa: tasa?.tasa,
+                    tasaAnterior: ref.watch(bcvRateAnteriorProvider)?.tasa,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // --- Contadores ---
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Contador(
+                          etiqueta: 'Productos',
+                          valor: '${productos.length}',
+                          onTap: () => context.go(Routes.productos),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _Contador(
+                          etiqueta: 'Stock bajo',
+                          valor: '$stockBajo',
+                          alerta: stockBajo > 0,
+                          onTap: () => context.go(Routes.productos),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // --- Meta mensual (solo si el dueño la configuró) ---
+                  if ((negocio?.metaMensualUsd ?? 0) > 0) ...[
+                    const SizedBox(height: 18),
+                    _MetaMensual(
+                      // La meta es del MES: suma todas sus ventas con la consulta
+                      // por rango, no solo las de hoy. Mientras carga se muestra
+                      // lo de hoy, que es el piso conocido.
+                      logrado:
+                          ref
+                              .watch(ventasReporteProvider(PeriodoReporte.mes))
+                              .valueOrNull
+                              ?.where((v) => !v.anulada)
+                              .fold<double>(0, (s, v) => s + v.totalUSD) ??
+                          totalUsdHoy,
+                      meta: negocio!.metaMensualUsd,
+                    ),
+                  ],
+
+                  const SizedBox(height: 18),
+
+                  // --- Actividad reciente ---
+                  _ChipLegible(
+                    activo: tieneFondo,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _saludo(),
-                          style: TextStyle(fontSize: 13, color: t.textSec),
-                        ),
-                        Text(
-                          nombre,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          'Actividad reciente',
                           style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
                             color: t.text,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap:
+                              () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const HistorialScreen(),
+                                ),
+                              ),
+                          child: const Text(
+                            'Ver todo',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.marca,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  _Campana(
-                    // Punto de aviso solo si hay algo que atender.
-                    conAviso: stockBajo > 0,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const NotificacionesScreen(),
+                  const SizedBox(height: 10),
+                  if (ventas.isEmpty)
+                    NeuCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 32,
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('🧾', style: TextStyle(fontSize: 28)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Aún no registras ventas',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: t.textSec,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    NeuCard(
+                      clip: true,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < ventas.length && i < 5; i++)
+                            _FilaVenta(
+                              venta: ventas[i],
+                              ultima: i == ventas.length - 1 || i == 4,
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  _AvatarNegocio(
-                    inicial: nombre.isEmpty ? '?' : nombre[0].toUpperCase(),
-                    onTap: () => context.go(Routes.perfil),
-                  ),
                 ],
               ),
-              const SizedBox(height: 18),
-
-              // --- Ventas de hoy ---
-              _TarjetaVentas(
-                totalUsd: totalUsdHoy,
-                tasa: tasa?.tasa,
-                cobros: ventas.length,
-                // Sin ningún costo registrado la ganancia no existe: la
-                // tarjeta invita a registrarlos en vez de mostrar un cero
-                // falso o repetir el total como si todo fuera ganancia.
-                ganancia: itemsHoy > 0 && itemsSinCosto < itemsHoy
-                    ? gananciaHoy
-                    : null,
-                gananciaParcial: itemsSinCosto > 0,
-                invitarACostos: itemsHoy > 0 && itemsSinCosto == itemsHoy,
-              ),
-              const SizedBox(height: 18),
-
-              // --- Tasa BCV ---
-              _FilaTasaBcv(tasa: tasa?.tasa),
-              const SizedBox(height: 18),
-
-              // --- Contadores ---
-              Row(
-                children: [
-                  Expanded(
-                    child: _Contador(
-                      etiqueta: 'Productos',
-                      valor: '${productos.length}',
-                      onTap: () => context.go(Routes.productos),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _Contador(
-                      etiqueta: 'Stock bajo',
-                      valor: '$stockBajo',
-                      alerta: stockBajo > 0,
-                      onTap: () => context.go(Routes.productos),
-                    ),
-                  ),
-                ],
-              ),
-              // --- Meta mensual (solo si el dueño la configuró) ---
-              if ((negocio?.metaMensualUsd ?? 0) > 0) ...[
-                const SizedBox(height: 18),
-                _MetaMensual(
-                  // La meta es del MES: suma todas sus ventas con la consulta
-                  // por rango, no solo las de hoy. Mientras carga se muestra
-                  // lo de hoy, que es el piso conocido.
-                  logrado: ref
-                          .watch(ventasReporteProvider(PeriodoReporte.mes))
-                          .valueOrNull
-                          ?.where((v) => !v.anulada)
-                          .fold<double>(0, (s, v) => s + v.totalUSD) ??
-                      totalUsdHoy,
-                  meta: negocio!.metaMensualUsd,
-                ),
-              ],
-
-              const SizedBox(height: 18),
-
-              // --- Actividad reciente ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Actividad reciente',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: t.text,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const HistorialScreen(),
-                      ),
-                    ),
-                    child: const Text(
-                      'Ver todo',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.marca,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              if (ventas.isEmpty)
-                NeuCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 32,
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('🧾', style: TextStyle(fontSize: 28)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Aún no registras ventas',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: t.textSec,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                NeuCard(
-                  clip: true,
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < ventas.length && i < 5; i++)
-                        _FilaVenta(
-                          venta: ventas[i],
-                          ultima: i == ventas.length - 1 || i == 4,
-                        ),
-                    ],
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -298,11 +357,12 @@ class _BannerVentasPendientes extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const VentasPendientesScreen(),
-        ),
-      ),
+      onTap:
+          () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const VentasPendientesScreen(),
+            ),
+          ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
@@ -393,6 +453,31 @@ class _MetaMensual extends StatelessWidget {
   }
 }
 
+/// Fondito opaco para el texto que, con la foto de fondo activada, quedaría
+/// flotando directo sobre ella. Sin [activo] es un passthrough — no cambia
+/// nada del layout normal (sin foto de fondo).
+class _ChipLegible extends StatelessWidget {
+  const _ChipLegible({required this.activo, required this.child});
+
+  final bool activo;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!activo) return child;
+    final t = context.tokens;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: t.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: t.shadowRaisedSm,
+      ),
+      child: child,
+    );
+  }
+}
+
 /// Campana de notificaciones con el punto ámbar de "sin leer".
 class _Campana extends StatelessWidget {
   const _Campana({required this.conAviso, required this.onTap});
@@ -428,35 +513,57 @@ class _Campana extends StatelessWidget {
   }
 }
 
-/// Avatar circular verde con la inicial del negocio.
+/// Avatar circular con la foto del negocio (Ajustes), o su inicial si no hay.
 class _AvatarNegocio extends StatelessWidget {
-  const _AvatarNegocio({required this.inicial, required this.onTap});
+  const _AvatarNegocio({
+    required this.fotoUrl,
+    required this.inicial,
+    required this.onTap,
+  });
 
+  final String? fotoUrl;
   final String inicial;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final tieneFoto = fotoUrl != null && fotoUrl!.isNotEmpty;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 42,
         height: 42,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: AppColors.marca,
           shape: BoxShape.circle,
           boxShadow: t.shadowBtn,
         ),
         alignment: Alignment.center,
-        child: Text(
-          inicial,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        child:
+            tieneFoto
+                ? FotoRed(
+                  fotoUrl!,
+                  width: 42,
+                  height: 42,
+                  alError: Text(
+                    inicial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                )
+                : Text(
+                  inicial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
       ),
     );
   }
@@ -519,8 +626,10 @@ class _TarjetaVentas extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0x26FFFFFF),
                   borderRadius: BorderRadius.circular(10),
@@ -582,13 +691,24 @@ class _TarjetaVentas extends StatelessWidget {
 /// Es solo informativa: sin `onTap` ni flecha, para que no invite a pulsarla y
 /// luego no pase nada.
 class _FilaTasaBcv extends StatelessWidget {
-  const _FilaTasaBcv({required this.tasa});
+  const _FilaTasaBcv({required this.tasa, this.tasaAnterior});
 
   final double? tasa;
+
+  /// Tasa del día anterior, para mostrar cuánto se movió hoy aunque el
+  /// cambio sea demasiado chico para disparar una notificación (esas solo
+  /// avisan a partir de 0,1 %; aquí se ve el movimiento exacto, sea el que
+  /// sea).
+  final double? tasaAnterior;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final variacion =
+        (tasa != null && tasaAnterior != null && tasaAnterior! > 0)
+            ? (tasa! - tasaAnterior!) / tasaAnterior! * 100
+            : null;
+
     return NeuCard(
       small: true,
       radius: 18,
@@ -628,11 +748,53 @@ class _FilaTasaBcv extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            'Referencia de hoy',
-            style: TextStyle(fontSize: 11, color: t.muted),
-          ),
+          if (variacion == null)
+            Text(
+              'Referencia de hoy',
+              style: TextStyle(fontSize: 11, color: t.muted),
+            )
+          else
+            _ChipVariacion(variacion: variacion),
         ],
+      ),
+    );
+  }
+}
+
+/// "▲ +0,04%" en verde, "▼ −0,04%" en rojo, o "Sin cambios" si es cero —
+/// el movimiento exacto del día, por chico que sea.
+class _ChipVariacion extends StatelessWidget {
+  const _ChipVariacion({required this.variacion});
+
+  final double variacion;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    if (variacion.abs() < 0.005) {
+      return Text(
+        'Sin cambios hoy',
+        style: TextStyle(fontSize: 11, color: t.muted),
+      );
+    }
+    final subio = variacion > 0;
+    final color = subio ? AppColors.marca : AppColors.peligro;
+    final flecha = subio ? '▲' : '▼';
+    final texto =
+        '$flecha ${subio ? '+' : '−'}${variacion.abs().toStringAsFixed(2).replaceAll('.', ',')}%';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -702,11 +864,12 @@ class _FilaVenta extends StatelessWidget {
 
     return NeuListTile(
       divider: !ultima,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => VentaDetalleScreen(ventaId: venta.id),
-        ),
-      ),
+      onTap:
+          () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => VentaDetalleScreen(ventaId: venta.id),
+            ),
+          ),
       child: Row(
         children: [
           Container(

@@ -8,16 +8,16 @@ enum RolMembresia {
   String get id => name;
 
   static RolMembresia fromId(String? id) => RolMembresia.values.firstWhere(
-        (r) => r.id == id,
-        orElse: () => RolMembresia.empleado,
-      );
+    (r) => r.id == id,
+    orElse: () => RolMembresia.empleado,
+  );
 
   bool get esDueno => this == RolMembresia.dueno;
 
   String get etiqueta => switch (this) {
-        RolMembresia.dueno => 'Dueño',
-        RolMembresia.empleado => 'Vendedor',
-      };
+    RolMembresia.dueno => 'Dueño',
+    RolMembresia.empleado => 'Vendedor',
+  };
 }
 
 /// Relación usuario ↔ negocio (CLAUDE.md §4: `membresias/{usuarioId}_{negocioId}`).
@@ -30,12 +30,19 @@ class Membresia {
     this.nombre,
     this.correo,
     this.codigoInvitacion,
+    this.pushToken,
   });
 
   final String id;
   final String usuarioId;
   final String negocioId;
   final RolMembresia rol;
+
+  /// Token FCM del dispositivo de este miembro. Solo se usa si es dueño: el
+  /// Worker lo lee para mandarle el resumen de ventas del día directo a su
+  /// teléfono — a diferencia de los avisos de tasa BCV (que van por topics
+  /// compartidos), esto sí es personal por negocio.
+  final String? pushToken;
 
   /// Código de invitación con el que se creó esta membresía, o `null` si quien
   /// la tiene fundó el negocio.
@@ -78,18 +85,19 @@ class Membresia {
       nombre: data['nombre'] as String?,
       correo: data['correo'] as String?,
       codigoInvitacion: data['codigoInvitacion'] as String?,
+      pushToken: data['pushToken'] as String?,
     );
   }
 
   Map<String, dynamic> toMap() => {
-        'usuarioId': usuarioId,
-        'negocioId': negocioId,
-        'rol': rol.id,
-        'nombre': nombre,
-        'correo': correo,
-        // Se omite si no hay código: las reglas distinguen "sin código" (=
-        // fundador) de "código presente", y un null explícito no es ninguno
-        // de los dos.
-        if (codigoInvitacion != null) 'codigoInvitacion': codigoInvitacion,
-      };
+    'usuarioId': usuarioId,
+    'negocioId': negocioId,
+    'rol': rol.id,
+    'nombre': nombre,
+    'correo': correo,
+    // Se omite si no hay código: las reglas distinguen "sin código" (=
+    // fundador) de "código presente", y un null explícito no es ninguno
+    // de los dos.
+    if (codigoInvitacion != null) 'codigoInvitacion': codigoInvitacion,
+  };
 }

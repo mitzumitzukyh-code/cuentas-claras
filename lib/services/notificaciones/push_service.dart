@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/firebase_providers.dart';
+import '../../features/negocio/data/negocio_repository.dart';
 import '../../features/notificaciones/domain/preferencias_tasa.dart';
 
 /// Canal de Android para los avisos de tasa.
@@ -18,6 +19,15 @@ const AndroidNotificationChannel canalTasa = AndroidNotificationChannel(
   'tasa_bcv',
   'Tasa del dólar',
   description: 'Avisos cuando el dólar BCV sube, baja o se acelera.',
+  importance: Importance.high,
+);
+
+/// Canal del resumen de ventas del día — aparte del de tasa BCV para que no
+/// aparezca en los ajustes del sistema como si fuera un aviso del dólar.
+const AndroidNotificationChannel canalVentas = AndroidNotificationChannel(
+  'resumen_ventas',
+  'Resumen de ventas',
+  description: 'Cuánto vendiste hoy, una vez al final del día.',
   importance: Importance.high,
 );
 
@@ -63,13 +73,17 @@ class PushService {
   static const _claveUmbral = 'aviso_tasa_umbral';
   static const _clavePermiso = 'aviso_tasa_permiso';
   static const _claveTopics = 'aviso_tasa_topics_suscritos';
+  static const _clavePreguntoAuto = 'aviso_tasa_pregunto_auto';
 
   /// Prepara el canal y los manejadores. Se llama una vez al arrancar.
   Future<void> iniciar() async {
-    await _locales
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(canalTasa);
+    final android =
+        _locales
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+    await android?.createNotificationChannel(canalTasa);
+    await android?.createNotificationChannel(canalVentas);
 
     await _locales.initialize(
       const InitializationSettings(
@@ -91,8 +105,9 @@ class PushService {
     // excepción, no hay log, solo silencio.
     if (kDebugMode) {
       try {
-        final token =
-            await _messaging.getToken().timeout(const Duration(seconds: 10));
+        final token = await _messaging.getToken().timeout(
+          const Duration(seconds: 10),
+        );
         debugPrint('[push] token FCM: $token');
         // Además de logcat: en ROMs que filtran el nivel Info del tag
         // `flutter` (visto en un ZTE de pruebas, donde debugPrint nunca
@@ -137,12 +152,26 @@ class PushService {
     final ajustes = await _messaging.requestPermission();
     final concedido =
         ajustes.authorizationStatus == AuthorizationStatus.authorized ||
-            ajustes.authorizationStatus == AuthorizationStatus.provisional;
+        ajustes.authorizationStatus == AuthorizationStatus.provisional;
     await _prefs.setBool(_clavePermiso, concedido);
     return concedido;
   }
 
   bool get permisoConcedido => _prefs.getBool(_clavePermiso) ?? false;
+
+  /// `true` si ya se intentó pedir el permiso automáticamente alguna vez.
+  ///
+  /// Antes el permiso (y por lo tanto la suscripción a los topics) solo se
+  /// pedía si el dueño encontraba el botón "Permitir avisos" en Ajustes —
+  /// muchos nunca llegaban a verlo y se quedaban sin ninguna notificación,
+  /// sin saber por qué, aunque Android ya les permitiera recibirlas. Ahora se
+  /// pregunta sola la primera vez que se abre el Dashboard; esta bandera
+  /// evita repetir el intento en cada arranque de la app.
+  bool get yaSePreguntoAutomatico =>
+      _prefs.getBool(_clavePreguntoAuto) ?? false;
+
+  Future<void> marcarPreguntadoAutomatico() =>
+      _prefs.setBool(_clavePreguntoAuto, true);
 
   // --- Preferencias ---
 
@@ -208,9 +237,7 @@ class PushService {
 
     for (final topic in suscritos.difference(deseados).toList()) {
       try {
-        await _messaging
-            .unsubscribeFromTopic(topic)
-            .timeout(_timeoutTopic);
+        await _messaging.unsubscribeFromTopic(topic).timeout(_timeoutTopic);
         suscritos.remove(topic);
       } catch (_) {
         // No se pudo confirmar la baja: se deja como estaba y se reintentará
@@ -255,7 +282,8 @@ final pushServiceProvider = Provider<PushService>((ref) {
 
 /// Preferencias de avisos, con las suscripciones ya reconciliadas al cambiar.
 class PreferenciasTasaNotifier extends StateNotifier<PreferenciasTasa> {
-  PreferenciasTasaNotifier(this._servicio) : super(_servicio.leerPreferencias());
+  PreferenciasTasaNotifier(this._servicio)
+    : super(_servicio.leerPreferencias());
 
   final PushService _servicio;
 
@@ -275,6 +303,24 @@ class PreferenciasTasaNotifier extends StateNotifier<PreferenciasTasa> {
     return concedido;
   }
 
+  /// Pide el permiso automáticamente, pero solo una vez en toda la vida de la
+  /// instalación — se llama desde el Dashboard, no hace falta que el dueño
+  /// encuentre ningún botón. Si Android ya lo tenía concedido (versiones
+  /// anteriores a la 13, o porque el dueño lo activó desde los ajustes del
+  /// sistema), Firebase lo confirma sin mostrar ningún diálogo y esto alcanza
+  /// para dejar los topics suscritos de una vez.
+  Future<void> pedirPermisoAutomaticoSiHaceFalta() async {
+    if (_servicio.yaSePreguntoAutomatico) return;
+    await _servicio.marcarPreguntadoAutomatico();
+    if (state.permisoConcedido) return;
+    try {
+      await pedirPermiso();
+    } on PushSyncException {
+      // Sin usuario mirando no hay a quién avisarle del fallo de sincronía;
+      // la próxima vez que abra Ajustes lo reintentará con feedback visible.
+    }
+  }
+
   /// Aplica el cambio y reconcilia con Google. Si la reconciliación falla, el
   /// estado se relee de lo que de verdad quedó guardado —nunca se deja el
   /// optimista puesto—, y el error se relanza para que la pantalla lo muestre.
@@ -291,5 +337,40 @@ class PreferenciasTasaNotifier extends StateNotifier<PreferenciasTasa> {
 
 final preferenciasTasaProvider =
     StateNotifierProvider<PreferenciasTasaNotifier, PreferenciasTasa>((ref) {
-  return PreferenciasTasaNotifier(ref.watch(pushServiceProvider));
+      return PreferenciasTasaNotifier(ref.watch(pushServiceProvider));
+    });
+
+/// Efecto de una sola vez: pide el permiso de notificaciones automáticamente
+/// si nunca se había preguntado. Al ser un `FutureProvider` normal, Riverpod
+/// solo ejecuta su cuerpo la primera vez que algo lo observa en toda la vida
+/// del `ProviderContainer` — por eso el Dashboard puede simplemente
+/// observarlo en cada build sin repetir el intento.
+final autoPedirPermisoTasaProvider = FutureProvider<void>((ref) {
+  return ref
+      .read(preferenciasTasaProvider.notifier)
+      .pedirPermisoAutomaticoSiHaceFalta();
+});
+
+/// Guarda el token FCM de este dispositivo en la membresía activa, para que
+/// el Worker pueda mandarle el resumen de ventas del día directo al dueño.
+///
+/// A diferencia del permiso (que se pide una sola vez en la vida de la
+/// instalación), esto SÍ se reevalúa cada vez que cambian sus dependencias
+/// (permiso recién concedido, cambio de negocio activo, etc.) — son
+/// reescrituras baratas e idempotentes, y es la única forma de no perderse
+/// el momento en que el permiso pasa de no concedido a concedido.
+///
+/// Solo el dueño lo necesita: el resumen de ventas es información financiera,
+/// igual que Reportes (CLAUDE.md §6), y un empleado no debe recibirla.
+final registrarTokenVentasProvider = FutureProvider<void>((ref) async {
+  final prefs = ref.watch(preferenciasTasaProvider);
+  final esDueno = ref.watch(esDuenoProvider);
+  final membresia = ref.watch(membresiaActivaProvider);
+  if (!prefs.permisoConcedido || !esDueno || membresia == null) return;
+
+  final token = await ref.watch(firebaseMessagingProvider).getToken();
+  if (token == null || token == membresia.pushToken) return;
+  await ref
+      .watch(negocioRepositoryProvider)
+      .guardarTokenPush(membresia.id, token);
 });

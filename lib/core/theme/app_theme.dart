@@ -135,6 +135,12 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Se quitan solas a los 4 s, pero también a mano: con la X o
+        // deslizándolas hacia abajo — sin esto muchos usuarios esperaban
+        // sin saber que podían quitarlas.
+        showCloseIcon: true,
+        closeIconColor: Colors.white70,
+        dismissDirection: DismissDirection.down,
       ),
     );
   }

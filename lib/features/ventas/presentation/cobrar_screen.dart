@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -79,6 +80,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   int _descuentoPct = 0;
   bool _expandido = false;
   bool _cobrando = false;
+  bool _buscando = false;
 
   static const _descuentos = [0, 5, 10, 15, 20];
 
@@ -104,18 +106,17 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
       if (p == null) continue;
       Variante? v;
       if (partes.length == 3) {
-        v = p.variantes
-            .where((x) =>
-                x.valor == partes[1] && (x.color ?? '') == partes[2])
-            .firstOrNull;
+        v =
+            p.variantes
+                .where(
+                  (x) => x.valor == partes[1] && (x.color ?? '') == partes[2],
+                )
+                .firstOrNull;
         if (v == null) continue;
       }
-      lineas.add(_Linea(
-        clave: e.key,
-        producto: p,
-        variante: v,
-        cantidad: e.value,
-      ));
+      lineas.add(
+        _Linea(clave: e.key, producto: p, variante: v, cantidad: e.value),
+      );
     }
     return lineas;
   }
@@ -175,15 +176,17 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   }
 
   void _avisarStock(Producto p, [Variante? v]) {
-    final restante = v == null
-        ? p.cantidadLabel
-        : Producto.formatearCantidad(v.cantidad.toDouble(), false);
-    final nombre = v == null
-        ? p.nombre
-        : '${p.nombre} ${v.valor}${v.color == null ? '' : ' ${v.color}'}';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Solo quedan $restante de $nombre')),
-    );
+    final restante =
+        v == null
+            ? p.cantidadLabel
+            : Producto.formatearCantidad(v.cantidad.toDouble(), false);
+    final nombre =
+        v == null
+            ? p.nombre
+            : '${p.nombre} ${v.valor}${v.color == null ? '' : ' ${v.color}'}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Solo quedan $restante de $nombre')));
   }
 
   /// Selector de variante: al tocar un producto con tallas/tonos hay que
@@ -191,41 +194,43 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   Future<Variante?> _pedirVariante(Producto p) {
     return showDialog<Variante>(
       context: context,
-      builder: (d) => SimpleDialog(
-        title: Text(p.nombre),
-        children: [
-          for (final v in p.variantes)
-            SimpleDialogOption(
-              onPressed:
-                  v.cantidad <= 0 ? null : () => Navigator.of(d).pop(v),
-              child: Opacity(
-                opacity: v.cantidad <= 0 ? 0.4 : 1,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${v.valor}${v.color == null || v.color!.isEmpty ? '' : ' / ${v.color}'}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+      builder:
+          (d) => SimpleDialog(
+            title: Text(p.nombre),
+            children: [
+              for (final v in p.variantes)
+                SimpleDialogOption(
+                  onPressed:
+                      v.cantidad <= 0 ? null : () => Navigator.of(d).pop(v),
+                  child: Opacity(
+                    opacity: v.cantidad <= 0 ? 0.4 : 1,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${v.valor}${v.color == null || v.color!.isEmpty ? '' : ' / ${v.color}'}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
+                        Text(
+                          v.cantidad <= 0 ? 'Agotada' : 'Quedan ${v.cantidad}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color:
+                                v.cantidad <= 0
+                                    ? AppColors.peligro
+                                    : AppColors.marca,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      v.cantidad <= 0 ? 'Agotada' : 'Quedan ${v.cantidad}',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: v.cantidad <= 0
-                            ? AppColors.peligro
-                            : AppColors.marca,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-        ],
-      ),
+            ],
+          ),
     );
   }
 
@@ -242,26 +247,30 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   void _ponerEnEspera() {
     if (_carrito.isEmpty) return;
     setState(() {
-      _enEspera.add(_VentaEnEspera(
-        carrito: Map<String, double>.from(_carrito),
-        creada: DateTime.now(),
-      ));
+      _enEspera.add(
+        _VentaEnEspera(
+          carrito: Map<String, double>.from(_carrito),
+          creada: DateTime.now(),
+        ),
+      );
       _carrito.clear();
       _expandido = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Venta puesta en espera')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Venta puesta en espera')));
   }
 
   void _reanudar(_VentaEnEspera venta) {
     setState(() {
       // Lo que hubiera en el carrito se guarda para no perderlo.
       if (_carrito.isNotEmpty) {
-        _enEspera.add(_VentaEnEspera(
-          carrito: Map<String, double>.from(_carrito),
-          creada: DateTime.now(),
-        ));
+        _enEspera.add(
+          _VentaEnEspera(
+            carrito: Map<String, double>.from(_carrito),
+            creada: DateTime.now(),
+          ),
+        );
       }
       _carrito
         ..clear()
@@ -306,19 +315,21 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final items = <ItemVenta>[];
     for (final l in lineas) {
       if (l.cantidad == 0) continue;
-      items.add(ItemVenta(
-        productoId: l.producto.id,
-        nombre: l.producto.nombre,
-        cantidad: l.cantidad,
-        precioUnitario: l.producto.precio,
-        // El costo viaja congelado en la venta: si el dueño lo cambia mañana,
-        // la ganancia de hoy no se reescribe sola.
-        costoUnitario: l.producto.costo,
-        varianteValor: l.variante?.valor,
-        varianteColor: l.variante?.color,
-        vendidoPorPeso: l.producto.vendidoPorPeso,
-        fotoUrl: l.producto.fotoUrl,
-      ));
+      items.add(
+        ItemVenta(
+          productoId: l.producto.id,
+          nombre: l.producto.nombre,
+          cantidad: l.cantidad,
+          precioUnitario: l.producto.precio,
+          // El costo viaja congelado en la venta: si el dueño lo cambia mañana,
+          // la ganancia de hoy no se reescribe sola.
+          costoUnitario: l.producto.costo,
+          varianteValor: l.variante?.valor,
+          varianteColor: l.variante?.color,
+          vendidoPorPeso: l.producto.vendidoPorPeso,
+          fotoUrl: l.producto.fotoUrl,
+        ),
+      );
     }
 
     final subtotal = items.fold<double>(0, (s, i) => s + i.subtotal);
@@ -402,11 +413,12 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             }
 
             final texto = _busqueda.text.trim().toLowerCase();
-            final visibles = texto.isEmpty
-                ? productos
-                : productos
-                    .where((p) => p.nombre.toLowerCase().contains(texto))
-                    .toList();
+            final visibles =
+                texto.isEmpty
+                    ? productos
+                    : productos
+                        .where((p) => p.nombre.toLowerCase().contains(texto))
+                        .toList();
 
             final lineas = _lineasDe(productos);
             // Cantidad total en carrito por producto, para la insignia del
@@ -422,46 +434,69 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             );
             final conDescuento = subtotal - (subtotal * _descuentoPct / 100);
             final iva =
-                (negocio?.incluirIva ?? false) ? conDescuento * Negocio.tasaIva : 0.0;
+                (negocio?.incluirIva ?? false)
+                    ? conDescuento * Negocio.tasaIva
+                    : 0.0;
             final total = conDescuento + iva;
 
-            final espacioInferior = _carrito.isEmpty ? 90.0 : 150.0;
+            final espacioInferior = _carrito.isEmpty ? 24.0 : 96.0;
 
             return Stack(
               children: [
                 ListView(
                   padding: EdgeInsets.fromLTRB(20, 24, 20, espacioInferior),
                   children: [
-                    Text(
-                      'Cobrar',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: t.text,
-                      ),
+                    // Encabezado compacto: la búsqueda y el escáner viven en
+                    // dos botones de ícono para dejarle todo el espacio al
+                    // catálogo de fotos.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Cobrar',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: t.text,
+                            ),
+                          ),
+                        ),
+                        NeuIconBtn(
+                          icon: _buscando ? Icons.search_off : Icons.search,
+                          onTap:
+                              () => setState(() {
+                                _buscando = !_buscando;
+                                if (!_buscando) _busqueda.clear();
+                              }),
+                        ),
+                        const SizedBox(width: 10),
+                        NeuIconBtn(
+                          icon: Icons.qr_code_scanner,
+                          onTap: () => _escanear(productos),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Toca un producto o escanea su código',
+                      'Toca un producto para agregarlo al carrito',
                       style: TextStyle(fontSize: 13, color: t.textSec),
                     ),
-                    const SizedBox(height: 14),
-                    NeuSecondaryButton(
-                      label: 'Escanear código de barras',
-                      height: 48,
-                      radius: 18,
-                      icon: const Text('📊', style: TextStyle(fontSize: 14)),
-                      onPressed: () => _escanear(productos),
-                    ),
-                    const SizedBox(height: 14),
-                    const _SeparadorTexto(texto: 'O AGREGA MANUALMENTE'),
-                    const SizedBox(height: 14),
-                    NeuInput(
-                      controller: _busqueda,
-                      hint: 'Buscar producto',
-                      height: 44,
-                      radius: 16,
-                      onChanged: (_) => setState(() {}),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      child:
+                          _buscando
+                              ? Padding(
+                                padding: const EdgeInsets.only(top: 14),
+                                child: NeuInput(
+                                  controller: _busqueda,
+                                  hint: 'Buscar producto',
+                                  height: 44,
+                                  radius: 16,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              )
+                              : const SizedBox(width: double.infinity),
                     ),
 
                     // --- Ventas en espera ---
@@ -473,22 +508,24 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                           scrollDirection: Axis.horizontal,
                           itemCount: _enEspera.length,
                           separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (_, i) => _ChipEnEspera(
-                            venta: _enEspera[i],
-                            onTap: () => _reanudar(_enEspera[i]),
-                          ),
+                          itemBuilder:
+                              (_, i) => _ChipEnEspera(
+                                venta: _enEspera[i],
+                                onTap: () => _reanudar(_enEspera[i]),
+                              ),
                         ),
                       ),
                     ],
 
                     const SizedBox(height: 14),
+                    // 3 columnas con foto grande: catálogo visual táctil.
                     GridView.count(
-                      crossAxisCount: 2,
+                      crossAxisCount: 3,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
-                      childAspectRatio: 1.35,
+                      childAspectRatio: 0.72,
                       children: [
                         for (final p in visibles)
                           _MosaicoProducto(
@@ -509,11 +546,20 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                     ),
                   ),
 
+                // Carrito: píldora flotante mientras está plegado (o nada si
+                // está vacío); la hoja completa solo al expandirlo.
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: _HojaCarrito(
+                  child: !_expandido
+                      ? _PildoraCarrito(
+                          visible: lineas.isNotEmpty,
+                          lineas: lineas.length,
+                          total: total,
+                          onTap: () => setState(() => _expandido = true),
+                        )
+                      : _HojaCarrito(
                     lineas: lineas,
                     subtotal: subtotal,
                     iva: iva,
@@ -526,18 +572,20 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                     onAlternar: () => setState(() => _expandido = !_expandido),
                     onMas: _masDeLinea,
                     onMenos: _quitar,
-                    onVaciar: () => setState(() {
-                      _carrito.clear();
-                      _descuentoPct = 0;
-                      _expandido = false;
-                    }),
+                    onVaciar:
+                        () => setState(() {
+                          _carrito.clear();
+                          _descuentoPct = 0;
+                          _expandido = false;
+                        }),
                     onEnEspera: _ponerEnEspera,
                     onMetodo: (m) => setState(() => _metodo = m),
                     onDescuento: (d) => setState(() => _descuentoPct = d),
                     descuentos: _descuentos,
-                    onCobrar: tasa == null || _cobrando || negocio == null
-                        ? null
-                        : () => _cobrar(lineas, tasa, negocio),
+                    onCobrar:
+                        tasa == null || _cobrando || negocio == null
+                            ? null
+                            : () => _cobrar(lineas, tasa, negocio),
                   ),
                 ),
               ],
@@ -656,37 +704,92 @@ class _ChipEnEspera extends StatelessWidget {
   }
 }
 
-/// Separador con texto en mayúsculas al centro.
-class _SeparadorTexto extends StatelessWidget {
-  const _SeparadorTexto({required this.texto});
+/// Píldora flotante del carrito (diseño "catálogo visual táctil").
+///
+/// Mientras el carrito está plegado, en vez de una barra ancha se muestra
+/// esta píldora centrada con el conteo y el total; tocarla abre la hoja
+/// completa. Entra y sale deslizándose desde abajo.
+class _PildoraCarrito extends StatelessWidget {
+  const _PildoraCarrito({
+    required this.visible,
+    required this.lineas,
+    required this.total,
+    required this.onTap,
+  });
 
-  final String texto;
+  final bool visible;
+  final int lineas;
+  final double total;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return Row(
-      children: [
-        Expanded(child: Container(height: 1, color: t.border2)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            texto,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: t.textSec,
+    return SafeArea(
+      top: false,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedSlide(
+          offset: visible ? Offset.zero : const Offset(0, 2),
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
+            opacity: visible ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: Center(
+              child: GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.marca,
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x40000000),
+                        offset: Offset(0, 6),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🛒', style: TextStyle(fontSize: 15)),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$lineas · ${MoneyFormatter.usd(total)}',
+                        style: AppTypography.money(
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.arrow_upward_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-        Expanded(child: Container(height: 1, color: t.border2)),
-      ],
+      ),
     );
   }
 }
 
-/// Mosaico de producto con insignia de cantidad en el carrito.
-class _MosaicoProducto extends StatelessWidget {
+/// Tarjeta vertical del catálogo: foto grande arriba, precio y nombre debajo.
+///
+/// Al tocarla hace un pequeño rebote (escala) como confirmación visual de que
+/// el producto entró al carrito, además de la insignia con la cantidad.
+class _MosaicoProducto extends StatefulWidget {
   const _MosaicoProducto({
     required this.producto,
     required this.cantidad,
@@ -697,6 +800,11 @@ class _MosaicoProducto extends StatelessWidget {
   final double cantidad;
   final VoidCallback onTap;
 
+  @override
+  State<_MosaicoProducto> createState() => _MosaicoProductoState();
+}
+
+class _MosaicoProductoState extends State<_MosaicoProducto> {
   static const _colores = [
     Color(0xFF0F6B5C),
     Color(0xFF3D6CA8),
@@ -705,96 +813,140 @@ class _MosaicoProducto extends StatelessWidget {
     Color(0xFFC74A3A),
   ];
 
+  bool _rebote = false;
+
+  Future<void> _tocar() async {
+    widget.onTap();
+    setState(() => _rebote = true);
+    await Future<void>.delayed(const Duration(milliseconds: 130));
+    if (mounted) setState(() => _rebote = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final agotado = producto.cantidad <= 0;
-    final color = _colores[producto.nombre.hashCode.abs() % _colores.length];
+    final p = widget.producto;
+    final agotado = p.cantidad <= 0;
+    final color = _colores[p.nombre.hashCode.abs() % _colores.length];
+    final tieneFoto = p.fotoUrl != null && p.fotoUrl!.isNotEmpty;
 
-    return Opacity(
-      opacity: agotado ? 0.45 : 1,
-      child: NeuCard(
-        small: true,
-        radius: 20,
-        onTap: agotado ? null : onTap,
-        padding: const EdgeInsets.all(14),
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: t.shadowRaisedSm,
+    return AnimatedScale(
+      scale: _rebote ? 1.07 : 1,
+      duration: const Duration(milliseconds: 130),
+      curve: Curves.easeOut,
+      child: Opacity(
+        opacity: agotado ? 0.45 : 1,
+        child: NeuCard(
+          small: true,
+          radius: 18,
+          clip: true,
+          onTap: agotado ? null : _tocar,
+          padding: EdgeInsets.zero,
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child:
+                        tieneFoto
+                            ? FotoRed(
+                              p.fotoUrl!,
+                              alError: _FondoInicial(producto: p, color: color),
+                            )
+                            : _FondoInicial(producto: p, color: color),
                   ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    producto.nombre.isEmpty
-                        ? '?'
-                        : producto.nombre[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          agotado
+                              ? 'Agotado'
+                              : p.vendidoPorPeso
+                              ? '${MoneyFormatter.usd(p.precio)}/kg'
+                              : MoneyFormatter.usd(p.precio),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: agotado ? AppColors.peligro : t.text,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          p.nombre,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: t.textSec),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  producto.nombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: t.text,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  agotado
-                      ? 'Agotado'
-                      : producto.vendidoPorPeso
-                          ? '${MoneyFormatter.usd(producto.precio)} / kg'
-                          : MoneyFormatter.usd(producto.precio),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: agotado ? AppColors.peligro : t.textSec,
-                  ),
-                ),
-              ],
-            ),
-            if (cantidad > 0)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 20),
-                  height: 20,
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.marca,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    Producto.formatearCantidad(
-                      cantidad,
-                      producto.vendidoPorPeso,
-                    ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                ],
               ),
-          ],
+              if (widget.cantidad > 0)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 20),
+                    height: 20,
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.marca,
+                      borderRadius: BorderRadius.circular(100),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          offset: Offset(0, 2),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      Producto.formatearCantidad(
+                        widget.cantidad,
+                        p.vendidoPorPeso,
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fondo de color con la inicial grande, para productos sin foto (o cuya foto
+/// nunca se llegó a descargar).
+class _FondoInicial extends StatelessWidget {
+  const _FondoInicial({required this.producto, required this.color});
+
+  final Producto producto;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color,
+      alignment: Alignment.center,
+      child: Text(
+        producto.nombre.isEmpty ? '?' : producto.nombre[0].toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -990,12 +1142,13 @@ class _HojaCarrito extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           itemCount: MetodoPago.values.length,
                           separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (_, i) => NeuChip(
-                            label: MetodoPago.values[i].etiquetaCorta,
-                            dense: true,
-                            selected: metodo == MetodoPago.values[i],
-                            onTap: () => onMetodo(MetodoPago.values[i]),
-                          ),
+                          itemBuilder:
+                              (_, i) => NeuChip(
+                                label: MetodoPago.values[i].etiquetaCorta,
+                                dense: true,
+                                selected: metodo == MetodoPago.values[i],
+                                onTap: () => onMetodo(MetodoPago.values[i]),
+                              ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -1009,14 +1162,16 @@ class _HojaCarrito extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           itemCount: descuentos.length,
                           separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (_, i) => NeuChip(
-                            label: descuentos[i] == 0
-                                ? 'Sin descuento'
-                                : '${descuentos[i]}%',
-                            dense: true,
-                            selected: descuentoPct == descuentos[i],
-                            onTap: () => onDescuento(descuentos[i]),
-                          ),
+                          itemBuilder:
+                              (_, i) => NeuChip(
+                                label:
+                                    descuentos[i] == 0
+                                        ? 'Sin descuento'
+                                        : '${descuentos[i]}%',
+                                dense: true,
+                                selected: descuentoPct == descuentos[i],
+                                onTap: () => onDescuento(descuentos[i]),
+                              ),
                         ),
                       ),
                       const SizedBox(height: 16),

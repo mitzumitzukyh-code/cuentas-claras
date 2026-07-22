@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_mode_provider.dart';
+import '../shared/presentation/aviso_conexion.dart';
 import '../shared/presentation/firebase_config_error_screen.dart';
 import 'router/app_router.dart';
 
@@ -57,7 +58,7 @@ class CuentaClaraApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: _overlay(modo == ThemeMode.dark),
-        child: child ?? const SizedBox.shrink(),
+        child: AvisoConexion(child: child ?? const SizedBox.shrink()),
       ),
     );
   }

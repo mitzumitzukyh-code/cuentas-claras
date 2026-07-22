@@ -424,30 +424,71 @@ class _Separador extends StatelessWidget {
 
 /// "G" de Google. Para producción, sustituir por el logo oficial según las
 /// guías de marca de Google.
+/// La "G" multicolor oficial de Google, dibujada a mano.
+///
+/// Antes era una "G" tipográfica azul dentro de un círculo — funcional, pero
+/// no se reconocía como el botón de Google y transmitía menos confianza. Se
+/// pinta con CustomPaint (sin assets) siguiendo la marca: cuatro segmentos de
+/// arco en los colores oficiales más la barra horizontal azul.
 class _LogoGoogle extends StatelessWidget {
   const _LogoGoogle();
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return Container(
+    return const SizedBox(
       width: 20,
       height: 20,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: t.border),
-      ),
-      alignment: Alignment.center,
-      child: const Text(
-        'G',
-        style: TextStyle(
-          color: Color(0xFF4285F4),
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
-          height: 1,
-        ),
-      ),
+      child: CustomPaint(painter: _PintorG()),
     );
   }
+}
+
+class _PintorG extends CustomPainter {
+  const _PintorG();
+
+  static const _azul = Color(0xFF4285F4);
+  static const _verde = Color(0xFF34A853);
+  static const _amarillo = Color(0xFFFBBC05);
+  static const _rojo = Color(0xFFEA4335);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grosor = size.width * 0.22;
+    final centro = size.center(Offset.zero);
+    final radio = (size.width - grosor) / 2;
+    final rect = Rect.fromCircle(center: centro, radius: radio);
+
+    final pincel =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = grosor;
+
+    // Ángulos en radianes; 0 = derecha, sentido horario. La abertura de la
+    // "G" queda arriba a la derecha, donde entra la barra azul.
+    const grado = 3.14159 / 180;
+    void arco(double desde, double barrido, Color color) {
+      canvas.drawArc(rect, desde * grado, barrido * grado, false,
+          pincel..color = color);
+    }
+
+    arco(-10, 55, _azul); // derecha, hacia abajo
+    arco(45, 90, _verde); // abajo
+    arco(135, 90, _amarillo); // izquierda
+    arco(225, 100, _rojo); // arriba (deja la abertura a la derecha)
+
+    // Barra horizontal azul: del centro hacia el borde derecho, a media
+    // altura — el rasgo más reconocible de la "G".
+    canvas.drawRect(
+      Rect.fromLTWH(
+        centro.dx,
+        centro.dy - grosor / 2,
+        radio + grosor / 2,
+        grosor,
+      ),
+      Paint()..color = _azul,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PintorG oldDelegate) => false;
 }

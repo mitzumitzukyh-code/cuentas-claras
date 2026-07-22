@@ -54,7 +54,9 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
 
     setState(() => _cargando = true);
     try {
-      await ref.read(negocioRepositoryProvider).crearNegocio(
+      await ref
+          .read(negocioRepositoryProvider)
+          .crearNegocio(
             usuarioId: user.uid,
             nombre: _nombre.text.trim(),
             rubro: _rubro!,
@@ -95,34 +97,35 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
               // tiene que poder desplazarse en vez de desbordar.
               Expanded(
                 child: LayoutBuilder(
-                  builder: (context, c) => SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: c.maxHeight),
-                      child: IntrinsicHeight(
-                        child: switch (_paso) {
-                  0 => _PasoNegocio(
-                      nombre: _nombre,
-                      rubro: _rubro,
-                      onRubro: (r) => setState(() => _rubro = r),
-                      onCambio: () => setState(() {}),
-                      onSiguiente: _siguiente,
-                    ),
-                  1 => _PasoMoneda(
-                      moneda: _moneda,
-                      onMoneda: (m) => setState(() => _moneda = m),
-                      onSiguiente: _siguiente,
-                    ),
-                          _ => _PasoResumen(
-                              nombreNegocio: _nombre.text.trim(),
-                              rubro: _rubro,
-                              moneda: _moneda,
-                              cargando: _cargando,
-                              onEmpezar: _crearNegocio,
-                            ),
-                        },
+                  builder:
+                      (context, c) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: c.maxHeight),
+                          child: IntrinsicHeight(
+                            child: switch (_paso) {
+                              0 => _PasoNegocio(
+                                nombre: _nombre,
+                                rubro: _rubro,
+                                onRubro: (r) => setState(() => _rubro = r),
+                                onCambio: () => setState(() {}),
+                                onSiguiente: _siguiente,
+                              ),
+                              1 => _PasoMoneda(
+                                moneda: _moneda,
+                                onMoneda: (m) => setState(() => _moneda = m),
+                                onSiguiente: _siguiente,
+                              ),
+                              _ => _PasoResumen(
+                                nombreNegocio: _nombre.text.trim(),
+                                rubro: _rubro,
+                                moneda: _moneda,
+                                cargando: _cargando,
+                                onEmpezar: _crearNegocio,
+                              ),
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -152,9 +155,10 @@ class _BarraPasos extends StatelessWidget {
       children: [
         SizedBox(
           width: 36,
-          child: onAtras == null
-              ? null
-              : NeuIconBtn(icon: Icons.arrow_back, onTap: onAtras),
+          child:
+              onAtras == null
+                  ? null
+                  : NeuIconBtn(icon: Icons.arrow_back, onTap: onAtras),
         ),
         Expanded(
           child: Row(
@@ -251,6 +255,21 @@ class _PasoNegocio extends StatelessWidget {
           titulo: '¿Cómo se llama tu negocio?',
           subtitulo: 'Así lo verán tus recibos y tu equipo.',
         ),
+        const SizedBox(height: 16),
+        // Antes vivía como un texto chiquito al pie de este paso, fácil de
+        // no ver — quien fue invitado terminaba sin saber dónde poner su
+        // código. Ahora es lo primero que se ve, antes de pedirle un nombre
+        // de negocio que ni siquiera necesita escribir.
+        NeuSecondaryButton(
+          label: '¿Te invitaron? Entra con tu código',
+          height: 46,
+          onPressed:
+              () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const UnirseCodigoScreen(),
+                ),
+              ),
+        ),
         const SizedBox(height: 22),
         NeuInput(
           controller: nombre,
@@ -281,36 +300,7 @@ class _PasoNegocio extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        NeuButton(
-          label: 'Continuar',
-          onPressed: listo ? onSiguiente : null,
-        ),
-        const SizedBox(height: 12),
-        // Salida para quien fue invitado y no viene a crear su propio negocio.
-        Center(
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const UnirseCodigoScreen(),
-              ),
-            ),
-            child: Text.rich(
-              TextSpan(
-                text: '¿Te invitaron? ',
-                style: TextStyle(fontSize: 13, color: t.textSec),
-                children: const [
-                  TextSpan(
-                    text: 'Entra con tu código',
-                    style: TextStyle(
-                      color: AppColors.marca,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        NeuButton(label: 'Continuar', onPressed: listo ? onSiguiente : null),
       ],
     );
   }
@@ -479,30 +469,30 @@ class _TarjetaTasa extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: tasaAsync.when(
-                  loading: () => Text(
-                    '—',
-                    style: AppTypography.money(
-                      fontSize: 20,
-                      color: AppColors.marca,
-                    ),
-                  ),
-                  error: (_, __) => Text(
-                    'sin conexión',
-                    style: TextStyle(fontSize: 14, color: t.textSec),
-                  ),
-                  data: (r) => Text(
-                    MoneyFormatter.bs(r.tasa).replaceFirst('Bs ', ''),
-                    style: AppTypography.money(
-                      fontSize: 20,
-                      color: AppColors.marca,
-                    ),
-                  ),
+                  loading:
+                      () => Text(
+                        '—',
+                        style: AppTypography.money(
+                          fontSize: 20,
+                          color: AppColors.marca,
+                        ),
+                      ),
+                  error:
+                      (_, __) => Text(
+                        'sin conexión',
+                        style: TextStyle(fontSize: 14, color: t.textSec),
+                      ),
+                  data:
+                      (r) => Text(
+                        MoneyFormatter.bs(r.tasa).replaceFirst('Bs ', ''),
+                        style: AppTypography.money(
+                          fontSize: 20,
+                          color: AppColors.marca,
+                        ),
+                      ),
                 ),
               ),
-              Text(
-                'por \$1',
-                style: TextStyle(fontSize: 13, color: t.textSec),
-              ),
+              Text('por \$1', style: TextStyle(fontSize: 13, color: t.textSec)),
             ],
           ),
           const SizedBox(height: 6),
@@ -581,10 +571,7 @@ class _PasoResumen extends ConsumerWidget {
           clip: true,
           child: Column(
             children: [
-              _FilaResumen(
-                etiqueta: 'Rubro',
-                valor: rubro?.etiqueta ?? '—',
-              ),
+              _FilaResumen(etiqueta: 'Rubro', valor: rubro?.etiqueta ?? '—'),
               _FilaResumen(etiqueta: 'Moneda principal', valor: moneda),
               _FilaResumen(
                 etiqueta: 'Tasa BCV',

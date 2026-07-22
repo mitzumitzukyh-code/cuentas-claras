@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../ventas/domain/venta.dart';
@@ -33,13 +34,14 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
     double? ganancia,
     List<_TopProducto> top,
   ) async {
-    final texto = StringBuffer()
-      ..writeln('*Reporte de $negocio*')
-      ..writeln('Periodo: ${_periodo.etiqueta.toLowerCase()}')
-      ..writeln()
-      ..writeln('Ventas: ${ventas.length}')
-      ..writeln('Total: ${MoneyFormatter.usd(total)}')
-      ..writeln('Ticket promedio: ${MoneyFormatter.usd(ticket)}');
+    final texto =
+        StringBuffer()
+          ..writeln('*Reporte de $negocio*')
+          ..writeln('Periodo: ${_periodo.etiqueta.toLowerCase()}')
+          ..writeln()
+          ..writeln('Ventas: ${ventas.length}')
+          ..writeln('Total: ${MoneyFormatter.usd(total)}')
+          ..writeln('Ticket promedio: ${MoneyFormatter.usd(ticket)}');
     if (ganancia != null) {
       texto.writeln('Ganancia: ${MoneyFormatter.usd(ganancia)}');
     }
@@ -103,9 +105,8 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
     }
 
     final desde = _periodo.desde;
-    final ventas = historial
-        .where((v) => !v.anulada && !v.fecha.isBefore(desde))
-        .toList();
+    final ventas =
+        historial.where((v) => !v.anulada && !v.fecha.isBefore(desde)).toList();
     final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
     final ticket = ventas.isEmpty ? 0.0 : total / ventas.length;
 
@@ -156,12 +157,10 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                           duration: const Duration(milliseconds: 160),
                           height: 38,
                           decoration: BoxDecoration(
-                            color:
-                                _periodo == p ? AppColors.marca : t.surface,
+                            color: _periodo == p ? AppColors.marca : t.surface,
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: _periodo == p
-                                ? t.shadowBtn
-                                : t.shadowRaisedSm,
+                            boxShadow:
+                                _periodo == p ? t.shadowBtn : t.shadowRaisedSm,
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -169,8 +168,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color:
-                                  _periodo == p ? Colors.white : t.text,
+                              color: _periodo == p ? Colors.white : t.text,
                             ),
                           ),
                         ),
@@ -201,12 +199,14 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
             ),
             const SizedBox(height: 12),
             _Kpi(
-              etiqueta: sinCosto > 0 && hayGanancia
-                  ? 'Ganancia (sin contar $sinCosto sin costo)'
-                  : 'Ganancia',
-              valor: hayGanancia
-                  ? '${sinCosto > 0 ? "≈" : ""}${MoneyFormatter.usd(ganancia)}'
-                  : 'Registra costos para verla',
+              etiqueta:
+                  sinCosto > 0 && hayGanancia
+                      ? 'Ganancia (sin contar $sinCosto sin costo)'
+                      : 'Ganancia',
+              valor:
+                  hayGanancia
+                      ? '${sinCosto > 0 ? "≈" : ""}${MoneyFormatter.usd(ganancia)}'
+                      : 'Registra costos para verla',
             ),
             const SizedBox(height: 16),
 
@@ -269,9 +269,10 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
             NeuButton(
               label: '📤 Enviar reporte por WhatsApp',
               color: const Color(0xFF25D366),
-              onPressed: ventas.isEmpty
-                  ? null
-                  : () => _enviarPorWhatsapp(
+              onPressed:
+                  ventas.isEmpty
+                      ? null
+                      : () => _enviarPorWhatsapp(
                         negocio?.nombre ?? 'mi negocio',
                         ventas,
                         total,
@@ -292,14 +293,19 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
     const nombres = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
     return List.generate(7, (i) {
-      final dia = DateTime(hoy.year, hoy.month, hoy.day)
-          .subtract(Duration(days: 6 - i));
+      final dia = DateTime(
+        hoy.year,
+        hoy.month,
+        hoy.day,
+      ).subtract(Duration(days: 6 - i));
       final siguiente = dia.add(const Duration(days: 1));
       final total = historial
-          .where((v) =>
-              !v.anulada &&
-              v.fecha.isAfter(dia) &&
-              v.fecha.isBefore(siguiente))
+          .where(
+            (v) =>
+                !v.anulada &&
+                v.fecha.isAfter(dia) &&
+                v.fecha.isBefore(siguiente),
+          )
           .fold<double>(0, (s, v) => s + v.totalUSD);
       return _Barra(etiqueta: nombres[dia.weekday - 1], total: total);
     });
@@ -324,11 +330,12 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
           unidades: (actual?.unidades ?? 0) + item.cantidad,
           total: (actual?.total ?? 0) + item.subtotal * factor,
           porPeso: item.vendidoPorPeso,
+          fotoUrl: actual?.fotoUrl ?? item.fotoUrl,
         );
       }
     }
-    final lista = acumulado.values.toList()
-      ..sort((a, b) => b.total.compareTo(a.total));
+    final lista =
+        acumulado.values.toList()..sort((a, b) => b.total.compareTo(a.total));
     return lista;
   }
 }
@@ -340,23 +347,44 @@ class _Barra {
   final double total;
 }
 
+class _InicialTop extends StatelessWidget {
+  const _InicialTop({required this.nombre});
+
+  final String nombre;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      nombre.isEmpty ? '?' : nombre[0].toUpperCase(),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
 class _TopProducto {
   const _TopProducto({
     required this.nombre,
     required this.unidades,
     required this.total,
     required this.porPeso,
+    this.fotoUrl,
   });
 
   final String nombre;
   final double unidades;
   final double total;
   final bool porPeso;
+  final String? fotoUrl;
 
   String get unidadesLabel {
-    final n = unidades == unidades.roundToDouble()
-        ? unidades.toStringAsFixed(0)
-        : unidades.toStringAsFixed(2).replaceAll('.', ',');
+    final n =
+        unidades == unidades.roundToDouble()
+            ? unidades.toStringAsFixed(0)
+            : unidades.toStringAsFixed(2).replaceAll('.', ',');
     return porPeso ? '$n kg' : '$n uds';
   }
 }
@@ -415,7 +443,8 @@ class _GraficoBarras extends StatelessWidget {
                     width: 22,
                     // Mínimo de 3 px para que un día sin ventas se distinga
                     // de uno con muy pocas, en vez de desaparecer.
-                    height: maximo == 0 ? 3 : (b.total / maximo * 90).clamp(3, 90),
+                    height:
+                        maximo == 0 ? 3 : (b.total / maximo * 90).clamp(3, 90),
                     decoration: BoxDecoration(
                       color: b.total > 0 ? AppColors.marca : t.border,
                       borderRadius: const BorderRadius.vertical(
@@ -461,6 +490,8 @@ class _FilaTop extends StatelessWidget {
     final t = context.tokens;
     final color = _colores[producto.nombre.hashCode.abs() % _colores.length];
 
+    final tieneFoto = producto.fotoUrl != null && producto.fotoUrl!.isNotEmpty;
+
     return NeuListTile(
       divider: !ultima,
       child: Row(
@@ -468,21 +499,21 @@ class _FilaTop extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Text(
-              producto.nombre.isEmpty
-                  ? '?'
-                  : producto.nombre[0].toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            child:
+                tieneFoto
+                    ? FotoRed(
+                      producto.fotoUrl!,
+                      width: 34,
+                      height: 34,
+                      alError: _InicialTop(nombre: producto.nombre),
+                    )
+                    : _InicialTop(nombre: producto.nombre),
           ),
           const SizedBox(width: 12),
           Expanded(

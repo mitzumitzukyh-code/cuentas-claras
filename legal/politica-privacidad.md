@@ -51,21 +51,25 @@ No vendemos tus datos. Los compartimos únicamente con los proveedores que hacen
 
 ## 5. Cuánto tiempo guardamos tus datos
 
-Mientras tu cuenta exista. Si eliminas tu negocio o tu cuenta, o nos escribes pidiéndolo, borramos tus datos salvo que la ley nos obligue a conservar algún registro (por ejemplo, por motivos fiscales).
+Mientras tu cuenta exista. Si eliminas tu negocio o tu cuenta, borramos tus datos — con una excepción: tus **registros de venta ya realizados** no se borran, porque la ley exige a los negocios conservar su historial de ventas por motivos fiscales y nuestras propias reglas de base de datos lo impiden a propósito (nadie, ni siquiera nosotros, puede alterar el historial después de una venta). Esos registros no contienen tu nombre ni tu correo — solo quedan asociados a un identificador técnico sin valor personal una vez que tu cuenta se elimina.
 
-## 6. Tus derechos
+## 6. Eliminar tu cuenta
+
+Puedes eliminar tu cuenta y tus datos en cualquier momento desde la app (Perfil → Cuenta → Eliminar cuenta) o, sin tener la app instalada, en la página `/legal/eliminar-cuenta`. Ahí se explica en detalle qué se borra y qué se conserva (ver sección 5).
+
+## 7. Tus derechos
 
 Puedes pedirnos en cualquier momento: acceder a tus datos, corregirlos, exportarlos o eliminarlos. Escríbenos a **[correo de contacto pendiente]** y te respondemos.
 
-## 7. Menores de edad
+## 8. Menores de edad
 
 Cuenta Clara está pensada para dueños y empleados de pequeños negocios, no para niños. No recopilamos a sabiendas datos de menores de edad.
 
-## 8. Cambios a esta política
+## 9. Cambios a esta política
 
 Si cambiamos algo importante, lo avisaremos dentro de la app antes de que entre en vigencia. La fecha de "última actualización" arriba siempre refleja la versión vigente.
 
-## 9. Contacto
+## 10. Contacto
 
 Mitzukyhs Dev — Venezuela.
 Correo: **[correo de contacto pendiente]**

@@ -70,8 +70,8 @@ describe('construirAvisos', () => {
   });
 
   it('no avisa por un cambio por debajo del umbral más bajo', () => {
-    // 0,2 % está por debajo del 0,5 % mínimo.
-    const avisos = construirAvisos({ ...base, anterior: 700, actual: 701.4 });
+    // 0,05 % está por debajo del 0,1 % mínimo.
+    const avisos = construirAvisos({ ...base, anterior: 700, actual: 700.35 });
     assert.equal(avisos.length, 0);
   });
 
@@ -102,9 +102,10 @@ describe('construirAvisos', () => {
   });
 
   it('publica en todos los umbrales que la variación supera', () => {
-    // +3,4 % alcanza medio, uno y tres, pero no cinco.
+    // +3,4 % alcanza minimo, medio, uno y tres, pero no cinco.
     const [aviso] = construirAvisos({ ...base, anterior: 700, actual: 723.8 });
     assert.deepEqual(aviso.topics, [
+      'tasa-subida-minimo',
       'tasa-subida-medio',
       'tasa-subida-uno',
       'tasa-subida-tres',
@@ -112,8 +113,9 @@ describe('construirAvisos', () => {
   });
 
   it('un cambio pequeño solo alcanza el umbral más bajo', () => {
-    const [aviso] = construirAvisos({ ...base, anterior: 700, actual: 705 });
-    assert.deepEqual(aviso.topics, ['tasa-subida-medio']);
+    // 0,3 % supera "minimo" (0,1 %) pero no "medio" (0,5 %).
+    const [aviso] = construirAvisos({ ...base, anterior: 700, actual: 702.1 });
+    assert.deepEqual(aviso.topics, ['tasa-subida-minimo']);
   });
 
   it('avisa del ritmo tras varios días seguidos subiendo', () => {
@@ -162,5 +164,37 @@ describe('construirAvisos', () => {
     });
     const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
     assert.match(resumen.cuerpo, /subió 14,00/);
+  });
+
+  it('el resumen dice "estable" cuando la semana estuvo quieta', () => {
+    const avisos = construirAvisos({
+      anterior: 732.48,
+      actual: 732.48,
+      historial: historialDe([732.48, 732.48, 732.48]),
+      esResumen: true,
+    });
+    assert.match(avisos[0].cuerpo, /estable esta semana/);
+  });
+
+  it('el resumen anticipa la subida cuando viene acelerando', () => {
+    const avisos = construirAvisos({
+      anterior: 730,
+      actual: 740,
+      historial: historialDe([700, 710, 720, 730, 740]),
+      esResumen: true,
+    });
+    const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
+    assert.match(resumen.cuerpo, /apunta a seguir subiendo/);
+  });
+
+  it('el resumen menciona la bajada semanal', () => {
+    const avisos = construirAvisos({
+      anterior: 700,
+      actual: 700,
+      historial: historialDe([710, 705, 700]),
+      esResumen: true,
+    });
+    const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
+    assert.match(resumen.cuerpo, /Viene bajando/);
   });
 });

@@ -11,10 +11,13 @@
 
 import { usuarioAutenticado } from './auth.js';
 import { carpetaValida, subirFotoFirmada } from './cloudinary.js';
-import { enviarATopic, obtenerToken } from './fcm.js';
+import { enviarAToken, enviarATopic, obtenerToken } from './fcm.js';
 import { leerEtiqueta, leerLibreta, leerRecibo } from './gemini.js';
-import { paginaPrivacidad, paginaTerminos } from './legal.js';
+import { paginaDescargar } from './descargar.js';
+import { duenosConToken, ventasDesde } from './firestore.js';
+import { paginaEliminarCuenta, paginaPrivacidad, paginaTerminos } from './legal.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
+import { mensajeResumenVentas } from './ventas.js';
 
 /** Una foto de celular comprimida no debería pasar de esto. Corta abusos. */
 const MAX_BYTES_IMAGEN = 6 * 1024 * 1024;
@@ -30,6 +33,9 @@ const API_TASA = 'https://ve.dolarapi.com/v1/dolares/oficial';
 
 /** Hora local de Venezuela (UTC−4) a la que sale el resumen de la mañana. */
 const HORA_RESUMEN = 8;
+
+/** Hora local de Venezuela a la que sale el resumen de ventas del día. */
+const HORA_RESUMEN_VENTAS = 21;
 
 function cuentaDeServicio(env) {
   if (!env.FIREBASE_SERVICE_ACCOUNT) {
@@ -63,6 +69,80 @@ function hoyEnVenezuela(ahora = new Date()) {
 
 function horaEnVenezuela(ahora = new Date()) {
   return new Date(ahora.getTime() - 4 * 60 * 60 * 1000).getUTCHours();
+}
+
+/** Instante UTC que corresponde a las 00:00 de Venezuela del día de [ahora]. */
+function inicioDiaVenezuela(ahora = new Date()) {
+  const ve = new Date(ahora.getTime() - 4 * 60 * 60 * 1000);
+  return new Date(
+    Date.UTC(ve.getUTCFullYear(), ve.getUTCMonth(), ve.getUTCDate(), 4, 0, 0),
+  );
+}
+
+/**
+ * Resumen de ventas del día, uno por dueño con notificaciones activas — a
+ * diferencia de la tasa BCV (topics compartidos), esto es personal por
+ * negocio, así que se manda por token de dispositivo, uno a la vez.
+ *
+ * Solo actúa a la hora de cierre (`HORA_RESUMEN_VENTAS`); en cualquier otra
+ * hora del cron no hace nada. El fallo de un negocio no bloquea a los demás.
+ */
+async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } = {}) {
+  if (!forzar && horaEnVenezuela(ahora) !== HORA_RESUMEN_VENTAS) {
+    return { enviados: 0, motivo: 'no es la hora de cierre' };
+  }
+
+  const cuenta = cuentaDeServicio(env);
+  const tokenOAuth = await obtenerToken(cuenta, env.TASAS);
+  const duenos = await duenosConToken({
+    token: tokenOAuth,
+    projectId: cuenta.project_id,
+  });
+
+  const hoy = hoyEnVenezuela(ahora);
+  const desde = inicioDiaVenezuela(ahora);
+  let enviados = 0;
+
+  for (const { negocioId, pushToken } of duenos) {
+    // Evita mandarlo dos veces si el cron llegara a dispararse más de una
+    // vez en la misma hora — no debería pasar, pero es barato cubrirlo.
+    // `forzar` (prueba manual) lo salta a propósito.
+    const clave = `resumenVentas:${negocioId}`;
+    if (!forzar && (await env.TASAS.get(clave)) === hoy) continue;
+
+    try {
+      const { total, cobros } = await ventasDesde({
+        token: tokenOAuth,
+        projectId: cuenta.project_id,
+        negocioId,
+        desde,
+      });
+      const mensaje = mensajeResumenVentas({ total, cobros });
+      if (mensaje) {
+        await enviarAToken({
+          cuenta,
+          token: tokenOAuth,
+          destino: pushToken,
+          titulo: mensaje.titulo,
+          cuerpo: mensaje.cuerpo,
+          datos: mensaje.datos,
+          canal: 'resumen_ventas',
+        });
+        enviados++;
+      }
+      // Se marca como hecho aunque no hubiera nada que mandar (0 cobros): si
+      // no, cada revisión de la misma hora repetiría la consulta a Firestore
+      // el resto del día. Una prueba forzada NO se marca — si no, cancelaría
+      // el envío real de esta noche para ese negocio.
+      if (!forzar) {
+        await env.TASAS.put(clave, hoy, { expirationTtl: 3 * 86400 });
+      }
+    } catch (e) {
+      console.error(`resumen de ventas falló para ${negocioId}:`, e.message);
+    }
+  }
+
+  return { enviados, negocios: duenos.length };
 }
 
 /**
@@ -152,10 +232,17 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
 export default {
   /** Disparo programado (ver el cron en wrangler.toml). */
   async scheduled(evento, env, ctx) {
+    const ahora = new Date(evento.scheduledTime);
     ctx.waitUntil(
-      revisarTasa(env, { ahora: new Date(evento.scheduledTime) }).then(
+      revisarTasa(env, { ahora }).then(
         (r) => console.log('revisión', JSON.stringify(r)),
         (e) => console.error('falló la revisión:', e.message),
+      ),
+    );
+    ctx.waitUntil(
+      revisarResumenVentas(env, { ahora }).then(
+        (r) => console.log('resumen de ventas', JSON.stringify(r)),
+        (e) => console.error('falló el resumen de ventas:', e.message),
       ),
     );
   },
@@ -164,6 +251,12 @@ export default {
     const url = new URL(peticion.url);
 
     if (url.pathname === '/revisar') return manejarRevisar(peticion, env, url);
+
+    if (url.pathname === '/descargar') {
+      return new Response(paginaDescargar(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
 
     // Política de privacidad y términos de uso: públicos, sin autenticación
     // — Play Store exige que la política sea accesible por cualquiera antes
@@ -175,6 +268,11 @@ export default {
     }
     if (url.pathname === '/legal/terminos') {
       return new Response(paginaTerminos(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    if (url.pathname === '/legal/eliminar-cuenta') {
+      return new Response(paginaEliminarCuenta(), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
@@ -211,6 +309,32 @@ async function manejarRevisar(peticion, env, url) {
   }
 
   try {
+    // `probar=1` manda un push de prueba real a `tasa-resumen` sin importar
+    // si la tasa cambió — para confirmar que la entrega de punta a punta
+    // (Worker → FCM → teléfono) funciona, sin esperar a que se mueva el
+    // dólar de verdad.
+    if (url.searchParams.get('probar') === '1') {
+      const cuenta = cuentaDeServicio(env);
+      const token = await obtenerToken(cuenta, env.TASAS);
+      const resultado = await enviarATopic({
+        cuenta,
+        token,
+        topic: 'tasa-resumen',
+        titulo: '🧪 Prueba de Cuenta Clara',
+        cuerpo: 'Si ves esto, las notificaciones están funcionando.',
+        datos: { tipo: 'prueba' },
+      });
+      return Response.json({ prueba: true, topic: 'tasa-resumen', resultado });
+    }
+
+    // `probarVentas=1` corre el resumen de ventas ahora mismo, sin importar
+    // la hora ni si ya se mandó hoy — para probar la entrega real sin
+    // esperar a las 9pm.
+    if (url.searchParams.get('probarVentas') === '1') {
+      const resultado = await revisarResumenVentas(env, { forzar: true });
+      return Response.json(resultado);
+    }
+
     const resultado = await revisarTasa(env, {
       validar: url.searchParams.get('validar') === '1',
     });

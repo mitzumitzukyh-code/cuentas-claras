@@ -63,6 +63,27 @@ android {
 
     buildTypes {
         release {
+            // NO MINIFICAR / NO OFUSCAR EN RELEASE. No tocar sin leer esto.
+            //
+            // El plugin de Flutter activa R8 por defecto en release. R8
+            // renombraba las clases internas de Firebase Auth
+            // (p. ej. com.google.firebase.auth.EmailAuthCredential -> q), y eso
+            // rompia la LECTURA de la sesion guardada al reabrir la app: el
+            // usuario quedaba logueado en disco pero Firebase no podia
+            // deserializarlo, asi que cada arranque en release caia en la
+            // pantalla de login. En debug (sin R8) nunca pasaba — por eso
+            // costo tanto verlo. Diagnosticado en el Z2464N el 2026-07-22
+            // comparando el mismo login en debug (persistia) vs release (no).
+            //
+            // Una app Flutter casi no adelgaza con R8 (el peso es el motor y los
+            // assets, ya tree-shakeados), asi que desactivarlo no cuesta nada y
+            // elimina toda esta clase de fallos. Si algun dia se quiere volver a
+            // activar, hay que agregar reglas -keep para Firebase Auth y probar
+            // el ciclo login -> cerrar del todo -> reabrir EN RELEASE en un
+            // dispositivo real antes de dar por bueno el build.
+            isMinifyEnabled = false
+            isShrinkResources = false
+
             // Antes se firmaba con la clave de debug, lo que hacia el AAB
             // impublicable: Google Play rechaza cualquier artefacto firmado con
             // ella. Ahora se usa la clave de subida real.
