@@ -14,8 +14,14 @@ import { carpetaValida, subirFotoFirmada } from './cloudinary.js';
 import { enviarAToken, enviarATopic, obtenerToken } from './fcm.js';
 import { leerEtiqueta, leerLibreta, leerRecibo } from './gemini.js';
 import { paginaDescargar } from './descargar.js';
-import { duenosConToken, ventasDesde } from './firestore.js';
+import {
+  duenosConToken,
+  negocioAvisaStock,
+  productosBajos,
+  ventasDesde,
+} from './firestore.js';
 import { paginaEliminarCuenta, paginaPrivacidad, paginaTerminos } from './legal.js';
+import { construirAvisoStock } from './stock.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
 import { mensajeResumenVentas } from './ventas.js';
 
@@ -146,6 +152,80 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
 }
 
 /**
+ * Avisa al dueño cuando un producto ACABA de quedarse en stock bajo (o
+ * agotado). Se envía al token del dueño, uno por negocio — es información de su
+ * inventario, igual que el resumen de ventas.
+ *
+ * Solo avisa en la TRANSICIÓN a stock bajo, no cada hora: se guarda en KV la
+ * lista de productos que ya estaban bajos y solo se notifican los nuevos. Al
+ * reabastecer, el producto sale de esa lista y podrá volver a avisar si cae de
+ * nuevo. Así el cron puede correr cada hora sin convertirse en spam.
+ *
+ * `forzar` (prueba manual) ignora el dedup —avisa de todos los bajos actuales—
+ * y NO guarda el estado, para no alterar el dedup real de ese negocio.
+ */
+async function revisarStockBajo(env, { forzar = false } = {}) {
+  const cuenta = cuentaDeServicio(env);
+  const tokenOAuth = await obtenerToken(cuenta, env.TASAS);
+  const duenos = await duenosConToken({
+    token: tokenOAuth,
+    projectId: cuenta.project_id,
+  });
+
+  let enviados = 0;
+  for (const { negocioId, pushToken } of duenos) {
+    try {
+      const activa = await negocioAvisaStock({
+        token: tokenOAuth,
+        projectId: cuenta.project_id,
+        negocioId,
+      });
+      if (!activa) continue;
+
+      const bajos = await productosBajos({
+        token: tokenOAuth,
+        projectId: cuenta.project_id,
+        negocioId,
+      });
+      const idsBajos = bajos.map((p) => p.id).sort();
+
+      const clave = `stockAvisado:${negocioId}`;
+      const previos = forzar
+        ? []
+        : (await env.TASAS.get(clave, { type: 'json' })) ?? [];
+      const nuevos = bajos.filter((p) => !previos.includes(p.id));
+
+      const aviso = construirAvisoStock(nuevos);
+      if (aviso) {
+        await enviarAToken({
+          cuenta,
+          token: tokenOAuth,
+          destino: pushToken,
+          titulo: aviso.titulo,
+          cuerpo: aviso.cuerpo,
+          datos: aviso.datos,
+          canal: 'stock_bajo',
+        });
+        enviados++;
+      }
+
+      // Se guarda SIEMPRE el estado actual (aunque no se enviara nada): los
+      // reabastecidos salen del set y los que siguen bajos no re-avisan. La
+      // prueba forzada no guarda, para no pisar el dedup real.
+      if (!forzar) {
+        await env.TASAS.put(clave, JSON.stringify(idsBajos), {
+          expirationTtl: 30 * 86400,
+        });
+      }
+    } catch (e) {
+      console.error(`stock bajo falló para ${negocioId}:`, e.message);
+    }
+  }
+
+  return { enviados, negocios: duenos.length };
+}
+
+/**
  * Revisa la tasa y envía lo que toque. Devuelve un resumen para los logs.
  *
  * `validar` propaga el modo `validate_only` de FCM: permite ejercitar todo el
@@ -245,6 +325,12 @@ export default {
         (e) => console.error('falló el resumen de ventas:', e.message),
       ),
     );
+    ctx.waitUntil(
+      revisarStockBajo(env).then(
+        (r) => console.log('stock bajo', JSON.stringify(r)),
+        (e) => console.error('falló el stock bajo:', e.message),
+      ),
+    );
   },
 
   async fetch(peticion, env) {
@@ -332,6 +418,13 @@ async function manejarRevisar(peticion, env, url) {
     // esperar a las 9pm.
     if (url.searchParams.get('probarVentas') === '1') {
       const resultado = await revisarResumenVentas(env, { forzar: true });
+      return Response.json(resultado);
+    }
+
+    // `probarStock=1` avisa de todos los productos bajos actuales sin importar
+    // el dedup — para probar la entrega sin tener que agotar algo a propósito.
+    if (url.searchParams.get('probarStock') === '1') {
+      const resultado = await revisarStockBajo(env, { forzar: true });
       return Response.json(resultado);
     }
 

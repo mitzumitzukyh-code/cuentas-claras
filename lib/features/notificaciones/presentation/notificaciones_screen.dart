@@ -9,6 +9,8 @@ import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../productos/data/producto_repository.dart';
+import '../../reportes/data/reportes_providers.dart';
+import '../../reportes/domain/periodo_reporte.dart';
 import '../../reportes/presentation/reportes_screen.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../../ventas/presentation/historial_screen.dart';
@@ -108,7 +110,17 @@ class NotificacionesScreen extends ConsumerWidget {
     // --- Meta mensual ---
     final meta = negocio?.metaMensualUsd ?? 0;
     if (meta > 0) {
-      final total = ventasHoy.fold<double>(0, (s, v) => s + v.totalUSD);
+      // La meta es del MES: se suma todo lo vendido en el mes (misma consulta
+      // por rango que el Dashboard), no solo lo de hoy — antes el % salía muy
+      // por debajo de lo real. Mientras la consulta del mes carga, se usa lo de
+      // hoy como piso conocido.
+      final inicioMes = DateTime(DateTime.now().year, DateTime.now().month);
+      final ventasMes = ref.watch(ventasReporteProvider(PeriodoReporte.mes));
+      final total =
+          ventasMes.valueOrNull
+              ?.where((v) => !v.anulada && !v.fecha.isBefore(inicioMes))
+              .fold<double>(0, (s, v) => s + v.totalUSD) ??
+          ventasHoy.fold<double>(0, (s, v) => s + v.totalUSD);
       final pct = ((total / meta) * 100).clamp(0, 100).toStringAsFixed(0);
       avisos.add(_Aviso(
         icono: '🎯',

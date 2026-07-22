@@ -95,3 +95,56 @@ export async function ventasDesde({ token, projectId, negocioId, desde }) {
   }
   return { total, cobros };
 }
+
+/**
+ * `false` solo si el dueño apagó las alertas de stock del negocio; por defecto
+ * están activas (igual que en la app, que asume `alertaStockActiva ?? true`).
+ * Un fallo de lectura no debe silenciar las alertas, así que también devuelve
+ * `true` si el documento no se pudo leer.
+ */
+export async function negocioAvisaStock({ token, projectId, negocioId }) {
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${projectId}` +
+    `/databases/(default)/documents/negocios/${negocioId}`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!resp.ok) return true;
+  const doc = await resp.json();
+  return valorDeCampo(doc.fields?.alertaStockActiva) !== false;
+}
+
+/**
+ * Productos con stock bajo de un negocio: los que tienen umbral configurado
+ * (`alertaEn`) y su cantidad ya cayó a ese umbral o menos — la misma regla que
+ * `Producto.stockBajo` en la app.
+ *
+ * El filtro `cantidad <= alertaEn` compara dos campos del mismo documento, algo
+ * que las consultas de Firestore no permiten, así que se leen los productos y
+ * se filtra aquí. Para el plan gratis (tope de 50 productos) es intrascendente.
+ * Devuelve `{ id, nombre, cantidad, agotado }` por producto.
+ */
+export async function productosBajos({ token, projectId, negocioId }) {
+  const docs = await ejecutarQuery({
+    token,
+    projectId,
+    parent: `negocios/${negocioId}`,
+    structuredQuery: { from: [{ collectionId: 'productos' }] },
+  });
+
+  const bajos = [];
+  for (const doc of docs) {
+    const alertaEn = valorDeCampo(doc.fields?.alertaEn);
+    if (alertaEn == null || alertaEn <= 0) continue;
+    const cantidad = valorDeCampo(doc.fields?.cantidad) ?? 0;
+    if (cantidad <= alertaEn) {
+      bajos.push({
+        id: doc.name.split('/').pop(),
+        nombre: valorDeCampo(doc.fields?.nombre) ?? 'Producto',
+        cantidad,
+        agotado: cantidad <= 0,
+      });
+    }
+  }
+  return bajos;
+}

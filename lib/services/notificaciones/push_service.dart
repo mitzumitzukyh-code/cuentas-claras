@@ -31,6 +31,17 @@ const AndroidNotificationChannel canalVentas = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
+/// Canal de las alertas de stock bajo — que el dueño pueda silenciarlas en los
+/// ajustes del sistema sin tocar las de tasa ni las de ventas. El id coincide
+/// con el `channel_id` que manda el Worker (`stock_bajo`); sin este canal
+/// declarado, Android 8+ descarta esas notificaciones en silencio.
+const AndroidNotificationChannel canalStock = AndroidNotificationChannel(
+  'stock_bajo',
+  'Stock bajo',
+  description: 'Avisos cuando un producto se agota o está por agotarse.',
+  importance: Importance.high,
+);
+
 /// Recibe los push en segundo plano.
 ///
 /// Tiene que ser una función de nivel superior: Android arranca un isolate
@@ -84,6 +95,7 @@ class PushService {
             >();
     await android?.createNotificationChannel(canalTasa);
     await android?.createNotificationChannel(canalVentas);
+    await android?.createNotificationChannel(canalStock);
 
     await _locales.initialize(
       const InitializationSettings(
@@ -123,9 +135,19 @@ class PushService {
   }
 
   /// Pinta un aviso recibido mientras la app está en pantalla.
+  ///
+  /// Con la app abierta, Android no muestra el push por su cuenta; hay que
+  /// pintarlo a mano, y en el canal correcto según el tipo, para que se agrupe
+  /// y se pueda silenciar donde corresponde (tasa / ventas / stock).
   Future<void> mostrarEnPrimerPlano(RemoteMessage mensaje) async {
     final aviso = mensaje.notification;
     if (aviso == null) return;
+
+    final canal = switch (mensaje.data['tipo']) {
+      'stock' => canalStock,
+      'resumen_ventas' || 'recordatorio_ventas' => canalVentas,
+      _ => canalTasa,
+    };
 
     await _locales.show(
       mensaje.hashCode,
@@ -133,9 +155,9 @@ class PushService {
       aviso.body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          canalTasa.id,
-          canalTasa.name,
-          channelDescription: canalTasa.description,
+          canal.id,
+          canal.name,
+          channelDescription: canal.description,
           icon: '@drawable/ic_notificacion',
           importance: Importance.high,
           priority: Priority.high,
