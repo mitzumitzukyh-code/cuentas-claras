@@ -6,6 +6,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../shared/presentation/neu.dart';
 
+/// `true` si el tutorial de bienvenida todavía no se le ha mostrado al usuario.
+///
+/// Lo observa el Dashboard para abrirlo una sola vez, la primera vez que se
+/// entra tras crear el negocio. Es un `FutureProvider` (se resuelve una vez por
+/// arranque), así que el Dashboard puede escucharlo sin repetir la apertura.
+final tutorialPendienteProvider = FutureProvider<bool>(
+  (ref) => TutorialScreen.pendiente(),
+);
+
 /// Un paso del tutorial.
 typedef _Paso = ({String icono, String titulo, String detalle});
 

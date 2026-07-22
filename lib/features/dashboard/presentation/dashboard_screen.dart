@@ -14,6 +14,7 @@ import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/neu.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../notificaciones/presentation/notificaciones_screen.dart';
+import '../../onboarding/presentation/tutorial_screen.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../reportes/data/reportes_providers.dart';
 import '../../reportes/domain/periodo_reporte.dart';
@@ -49,6 +50,20 @@ class DashboardScreen extends ConsumerWidget {
     // Deja el token de este dispositivo listo en la membresía del dueño para
     // el resumen de ventas del día (ver push_service.dart).
     ref.watch(registrarTokenVentasProvider);
+    // Tutorial de bienvenida: se abre una sola vez, la primera vez que se entra
+    // al Dashboard tras crear el negocio. El `FutureProvider` se resuelve una
+    // vez por arranque, así que este `listen` dispara como mucho una apertura;
+    // `_salir` del tutorial marca "visto" para que no vuelva a salir. Se navega
+    // en el post-frame porque hacerlo durante el build lanzaría.
+    ref.listen(tutorialPendienteProvider, (_, estado) {
+      if (estado.valueOrNull != true) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const TutorialScreen()),
+        );
+      });
+    });
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final ventas =
         ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
