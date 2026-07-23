@@ -59,7 +59,7 @@ Puedes eliminar tu cuenta y tus datos en cualquier momento desde la app (Perfil 
 
 ## 7. Tus derechos
 
-Puedes pedirnos en cualquier momento: acceder a tus datos, corregirlos, exportarlos o eliminarlos. Escríbenos a **[correo de contacto pendiente]** y te respondemos.
+Puedes pedirnos en cualquier momento: acceder a tus datos, corregirlos, exportarlos o eliminarlos. Escríbenos a **soporte.cuentaclara@gmail.com** y te respondemos.
 
 ## 8. Menores de edad
 
@@ -72,4 +72,4 @@ Si cambiamos algo importante, lo avisaremos dentro de la app antes de que entre 
 ## 10. Contacto
 
 Mitzukyhs Dev — Venezuela.
-Correo: **[correo de contacto pendiente]**
+Correo: **soporte.cuentaclara@gmail.com**

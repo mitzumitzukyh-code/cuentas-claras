@@ -47,4 +47,4 @@ Estos términos se rigen por las leyes de la República Bolivariana de Venezuela
 ## 11. Contacto
 
 Mitzukyhs Dev — Venezuela.
-Correo: **[correo de contacto pendiente]**
+Correo: **soporte.cuentaclara@gmail.com**

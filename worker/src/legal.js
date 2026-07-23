@@ -9,7 +9,7 @@
  * revisarlo y versionarlo cómodo; esta es la versión que de verdad se sirve.
  */
 
-const CONTACTO = '[correo de contacto pendiente — falta que Mitzuky lo defina]';
+const CONTACTO = 'soporte.cuentaclara@gmail.com';
 
 function pagina(titulo, cuerpo) {
   return `<!doctype html>
