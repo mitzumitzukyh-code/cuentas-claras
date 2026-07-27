@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/negocio_repository.dart';
 import '../domain/metodo_pago_config.dart';
 
-/// Métodos de pago (bloque `isMetodosPago` del diseño).
+/// Métodos de pago (réplica visual de `P1 · MÉTODOS DE PAGO`, `Lote E ·
+/// Negocio y Perfil`).
 ///
 /// Cada método se activa con un interruptor y, al activarlo, despliega los
 /// datos que hay que darle al cliente (teléfono de Pago Móvil, correo de
 /// Zelle…). Los interruptores guardan al toque; los campos de texto NO se
-/// guardan solos mientras escribes (antes lo hacían con un retardo, pero eso
-/// hacía salir "Guardado" cada vez que el dueño hacía una pausa al anotar un
-/// número en varias tandas) — se guardan todos juntos al tocar "Guardar
-/// cambios".
+/// guardan solos mientras escribes — se guardan todos juntos al tocar
+/// "Guardar cambios".
 class MetodosPagoScreen extends ConsumerStatefulWidget {
   const MetodosPagoScreen({super.key});
 
@@ -59,14 +56,12 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No se pudieron guardar: $e'),
-          backgroundColor: AppColors.peligro,
+          backgroundColor: LibretaColors.peligro,
         ),
       );
     }
   }
 
-  // Activar/desactivar un método es una sola acción deliberada: se guarda al
-  // toque, igual que cualquier otro interruptor de la app.
   void _alternar(String negocioId, MetodoPago metodo, bool activo) {
     setState(() {
       _metodos = [
@@ -92,7 +87,6 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final esDueno = ref.watch(esDuenoProvider);
 
@@ -102,89 +96,93 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
     _sembrar(negocio.metodosPago);
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                children: [
-                  Row(
-                    children: [
-                      NeuIconBtn(
-                        icon: Icons.arrow_back,
-                        onTap: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Métodos de pago',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: t.text,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Activa los que aceptas al cobrar',
-                    style: TextStyle(fontSize: 13, color: t.textSec),
-                  ),
-
-                  if (!esDueno) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.avisoSuave,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Text(
-                        'Solo el dueño puede cambiar los métodos de pago.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.aviso,
-                        ),
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+                child: Row(
+                  children: [
+                    LibretaBackButton(
+                      oscuro: true,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Métodos de pago',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: context.libreta.textoFuerte,
+                        letterSpacing: -0.4,
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 18),
-                  for (final config in _metodos)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _TarjetaMetodo(
-                        config: config,
-                        editable: esDueno,
-                        onAlternar:
-                            (v) => _alternar(negocio.id, config.metodo, v),
-                        onCampo:
-                            (clave, valor) =>
-                                _editarCampo(config.metodo, clave, valor),
-                      ),
+                ),
+              ),
+              Divider(height: 1, color: context.libreta.renglon),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  children: [
+                    Text(
+                      'Elige qué formas de pago aparecen al cobrar.',
+                      style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                     ),
 
-                  const SizedBox(height: 12),
-                  Text(
-                    'Los datos que escribas aquí son los que verá tu cliente al '
-                    'pagar y los que se incluirán en el recibo.',
-                    style: TextStyle(fontSize: 12, color: t.muted),
-                  ),
-                ],
-              ),
-            ),
+                    if (!esDueno) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0x21F2A93C),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text(
+                          'Solo el dueño puede cambiar los métodos de pago.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: LibretaColors.aviso,
+                          ),
+                        ),
+                      ),
+                    ],
 
-            if (_sucio && esDueno)
-              _BarraGuardar(
-                guardando: _guardando,
-                onGuardar: () => _guardar(negocio.id, avisar: true),
+                    const SizedBox(height: 16),
+                    for (final config in _metodos)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _TarjetaMetodo(
+                          config: config,
+                          editable: esDueno,
+                          onAlternar:
+                              (v) => _alternar(negocio.id, config.metodo, v),
+                          onCampo:
+                              (clave, valor) =>
+                                  _editarCampo(config.metodo, clave, valor),
+                        ),
+                      ),
+
+                    const SizedBox(height: 8),
+                    Text(
+                      'Los datos que escribas aquí son los que verá tu cliente al '
+                      'pagar y los que se incluirán en el recibo.',
+                      style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                    ),
+                  ],
+                ),
               ),
-          ],
+
+              if (_sucio && esDueno)
+                _BarraGuardar(
+                  guardando: _guardando,
+                  onGuardar: () => _guardar(negocio.id, avisar: true),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -200,14 +198,13 @@ class _BarraGuardar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       decoration: BoxDecoration(
-        color: t.surface,
-        border: Border(top: BorderSide(color: t.border2)),
+        color: context.libreta.superficie,
+        border: Border(top: BorderSide(color: context.libreta.renglon)),
       ),
-      child: NeuButton(
+      child: LibretaButton(
         label: guardando ? 'Guardando…' : 'Guardar cambios',
         height: 48,
         loading: guardando,
@@ -216,6 +213,10 @@ class _BarraGuardar extends StatelessWidget {
     );
   }
 }
+
+/// Quita el emoji de `MetodoPago.etiqueta` — el ícono ya se dibuja aparte.
+String _sinEmoji(String etiqueta) =>
+    etiqueta.replaceFirst(RegExp(r'^\S+\s'), '');
 
 /// Tarjeta de un método: interruptor y, si está activo, sus campos.
 class _TarjetaMetodo extends StatefulWidget {
@@ -256,66 +257,71 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
     super.dispose();
   }
 
+  IconData get _icono => switch (widget.config.metodo) {
+        MetodoPago.efectivo => Icons.payments_outlined,
+        MetodoPago.pagoMovil => Icons.smartphone,
+        MetodoPago.transferencia => Icons.account_balance_outlined,
+        MetodoPago.zelle => Icons.attach_money,
+        MetodoPago.biopago => Icons.fingerprint,
+        MetodoPago.puntoDeVenta => Icons.point_of_sale,
+      };
+
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final campos = MetodoPagoConfig.camposDe(widget.config.metodo);
 
-    return NeuCard(
-      small: true,
-      radius: 18,
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: context.libreta.superficie,
+        border: Border.all(color: const Color(0x141E2A38)),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0x1F0E9F6E),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(_icono, size: 18, color: LibretaColors.verde),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  widget.config.metodo.etiqueta,
+                  _sinEmoji(widget.config.metodo.etiqueta),
                   style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
-                    color: t.text,
+                    color: context.libreta.textoFuerte,
                   ),
                 ),
               ),
-              NeuToggle(
+              LibretaToggle(
                 value: widget.config.activo,
                 onChanged: widget.editable ? widget.onAlternar : (_) {},
               ),
             ],
           ),
 
-          // Los campos solo aparecen si el método está activo — el efectivo
-          // no pide ninguno.
           if (widget.config.activo && campos.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             for (final campo in campos)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      campo.etiqueta,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: t.textSec,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    NeuInput(
-                      controller: _controles[campo.clave],
-                      hint: campo.ejemplo,
-                      height: 42,
-                      radius: 14,
-                      fillWithPageBg: true,
-                      enabled: widget.editable,
-                      onChanged: (v) => widget.onCampo(campo.clave, v),
-                    ),
-                  ],
+                child: LibretaInput(
+                  controller: _controles[campo.clave],
+                  label: campo.etiqueta,
+                  hint: campo.ejemplo,
+                  height: 42,
+                  enabled: widget.editable,
+                  onChanged: (v) => widget.onCampo(campo.clave, v),
                 ),
               ),
           ],

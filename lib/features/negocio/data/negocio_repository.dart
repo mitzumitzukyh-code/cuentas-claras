@@ -289,6 +289,14 @@ final negocioActivoProvider = StreamProvider<Negocio?>((ref) {
       .negocioStream(membresia.negocioId);
 });
 
+/// Un negocio cualquiera por id — usado por el selector de "Más" para
+/// mostrar el nombre de cada negocio en `misMembresiasProvider` sin acoplarlo
+/// al negocio activo.
+final negocioPorIdProvider =
+    StreamProvider.family<Negocio?, String>((ref, negocioId) {
+  return ref.watch(negocioRepositoryProvider).negocioStream(negocioId);
+});
+
 /// Miembros del negocio activo (pantalla de Empleados).
 final miembrosNegocioProvider = StreamProvider<List<Membresia>>((ref) {
   final membresia = ref.watch(membresiaActivaProvider);

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 
 /// `true` si el tutorial de bienvenida todavía no se le ha mostrado al usuario.
 ///
@@ -16,9 +15,10 @@ final tutorialPendienteProvider = FutureProvider<bool>(
 );
 
 /// Un paso del tutorial.
-typedef _Paso = ({String icono, String titulo, String detalle});
+typedef _Paso = ({IconData icono, String tagline, String titulo, String detalle});
 
-/// Tutorial de bienvenida (bloque `isTutorial` del diseño).
+/// Tutorial de bienvenida (réplica visual de `P1 · TUTORIAL`, `Lote F ·
+/// Onboarding y Sistema`).
 ///
 /// Se muestra una sola vez tras crear el negocio; la marca queda en
 /// `SharedPreferences` para no repetirlo en cada arranque.
@@ -47,25 +47,29 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
 
   static const List<_Paso> _pasos = [
     (
-      icono: '💵',
+      icono: Icons.payments_outlined,
+      tagline: 'este es tu cuaderno',
       titulo: 'Cobra en segundos',
       detalle: 'Toca los productos o escanea su código de barras para armar la '
           'cuenta. El total sale en dólares y bolívares con la tasa BCV del día.',
     ),
     (
-      icono: '📦',
+      icono: Icons.inventory_2_outlined,
+      tagline: 'todo bajo control',
       titulo: 'Tu inventario siempre claro',
       detalle: 'Agrega productos con foto, precio y stock. La app te avisa '
           'cuando algo se está agotando.',
     ),
     (
-      icono: '📈',
+      icono: Icons.bar_chart_outlined,
+      tagline: 'cuentas claras',
       titulo: 'Reportes de tu negocio',
       detalle: 'Mira cuánto vendiste hoy, tus productos más vendidos y envía '
           'reportes por WhatsApp.',
     ),
     (
-      icono: '⚙️',
+      icono: Icons.settings_outlined,
+      tagline: 'a tu manera',
       titulo: 'Hazla tuya',
       detalle: 'Configura tu perfil, métodos de pago y empleados en Ajustes '
           'para una mejor experiencia.',
@@ -79,113 +83,134 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final paso = _pasos[_paso];
     final ultimo = _paso == _pasos.length - 1;
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: _salir,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      'Saltar',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: t.textSec,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: LibretaColors.degradadoMarca,
+            stops: [0, 0.55, 1.2],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: _salir,
+                        child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        'Saltar',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white70,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
-              Expanded(
-                child: Column(
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: Icon(paso.icono, size: 42, color: Colors.white),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        paso.tagline,
+                        style: GoogleFonts.caveat(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: LibretaColors.tagline,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: 280,
+                        child: Text(
+                          paso.titulo,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: 280,
+                        child: Text(
+                          paso.detalle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            height: 1.55,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // --- Puntos ---
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    NeuCard(
-                      radius: 32,
-                      width: 96,
-                      height: 96,
-                      child: Center(
-                        child: Text(
-                          paso.icono,
-                          style: const TextStyle(fontSize: 44),
+                    for (var i = 0; i < _pasos.length; i++)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _paso ? 22 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i == _paso ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(100),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: 280,
-                      child: Text(
-                        paso.titulo,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                          color: t.text,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: 280,
-                      child: Text(
-                        paso.detalle,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.55,
-                          color: t.textSec,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 20),
 
-              // --- Puntos ---
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < _pasos.length; i++)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: i == _paso ? 22 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: i == _paso ? AppColors.marca : t.border,
-                        borderRadius: BorderRadius.circular(100),
+                SizedBox(
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: ultimo ? _salir : () => setState(() => _paso++),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: LibretaColors.papel,
+                      foregroundColor: LibretaColors.degradadoMarca[0],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 18),
-
-              if (!ultimo)
-                NeuButton(
-                  label: 'Siguiente',
-                  height: 50,
-                  onPressed: () => setState(() => _paso++),
-                )
-              else ...[
-                NeuButton(
-                  label: 'Empezar a vender',
-                  height: 50,
-                  onPressed: _salir,
+                    child: Text(
+                      ultimo ? 'Empezar a vender' : 'Siguiente',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

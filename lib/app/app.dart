@@ -18,16 +18,16 @@ class CuentaClaraApp extends ConsumerWidget {
 
   /// Iconos de la barra de estado y de navegación del sistema.
   ///
-  /// El fondo de la app es claro, así que los iconos deben ser oscuros para
-  /// verse (y al revés en modo oscuro). Sin esto Android hereda el estilo de la
-  /// app anterior y la hora/batería/señal quedan invisibles.
-  SystemUiOverlayStyle _overlay(bool oscuro) {
+  /// Se adaptan al modo claro/oscuro para que la hora/batería/señal sean
+  /// siempre visibles.
+  SystemUiOverlayStyle _overlay(ThemeMode mode) {
+    final oscuro = mode == ThemeMode.dark;
     return SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: oscuro ? Brightness.light : Brightness.dark,
       statusBarBrightness: oscuro ? Brightness.dark : Brightness.light,
       systemNavigationBarColor:
-          oscuro ? AppColors.dSurface : AppColors.lSurface,
+          oscuro ? AppColors.dPageBg : AppColors.lSurface,
       systemNavigationBarIconBrightness:
           oscuro ? Brightness.light : Brightness.dark,
     );
@@ -35,30 +35,35 @@ class CuentaClaraApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final modo = ref.watch(themeModeProvider);
-
     if (initError != null) {
       return MaterialApp(
         title: 'Cuenta Clara',
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
-        themeMode: modo,
+        themeMode: ThemeMode.light,
         debugShowCheckedModeBanner: false,
         home: FirebaseConfigErrorScreen(mensaje: initError!),
       );
     }
 
+    final themeMode = ref.watch(themeModeProvider);
     final router = ref.watch(goRouterProvider);
     return MaterialApp.router(
       title: 'Cuenta Clara',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: modo,
+      themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
-      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: _overlay(modo == ThemeMode.dark),
-        child: AvisoConexion(child: child ?? const SizedBox.shrink()),
+      // Limita el escalado de texto del sistema: a más de 1.15 el layout de P4
+      // se desborda. Se permite achicar/agrandar solo dentro de ese rango.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 1.0,
+        maxScaleFactor: 1.15,
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: _overlay(themeMode),
+          child: AvisoConexion(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }

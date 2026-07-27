@@ -72,3 +72,19 @@ flutter:
 
   assets:
     - assets/icon/
+
+  # Fuente del diseño empaquetada (antes se bajaba en runtime con google_fonts y
+  # caía a Roboto sin red). Pesos 400/500/600/700/800 = los que usa el sistema.
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800

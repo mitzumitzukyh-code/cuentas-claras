@@ -4,17 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
 import '../domain/gasto.dart';
 
-/// Pantalla 9 — Registrar gasto.
+/// Pantalla 9 — Registrar gasto (réplica visual de `P1 · REGISTRAR GASTO`,
+/// `Lote C · Gastos y Productos`).
 ///
 /// La foto del recibo es opcional; con ella la IA puede prellenar monto,
 /// fecha, categoría y descripción — y como siempre, solo PRELLENA: el dueño
@@ -38,10 +37,6 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
   bool _leyendoIA = false;
   bool _guardando = false;
 
-  // Si el dueño ya tocó la categoría o la fecha a mano, la sugerencia de la
-  // IA no las pisa (a diferencia de monto/descripción, no hay forma de saber
-  // solo mirando el valor si "mercancia" o "hoy" son el default sin tocar o
-  // una elección real del dueño).
   bool _categoriaTocada = false;
   bool _fechaTocada = false;
 
@@ -78,8 +73,6 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
           await ref.read(lectorEtiquetaServiceProvider).leerRecibo(foto);
       if (!mounted) return;
 
-      // Recibo en bolívares: se convierte a USD con la tasa BCV del día,
-      // porque toda la contabilidad de la app va en dólares.
       final tasa = ref.read(bcvRateProvider).valueOrNull?.tasa;
       double? monto = datos.monto;
       var notaBs = '';
@@ -93,9 +86,6 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
         }
       }
 
-      // Igual que con el nombre del producto: la sugerencia solo rellena lo
-      // que el dueño no había tocado, nunca pisa algo que ya escribió o
-      // eligió a mano.
       final montoVacio = _monto.text.trim().isEmpty;
       final descripcionVacia = _descripcion.text.trim().isEmpty;
       final hoy = DateTime.now();
@@ -138,8 +128,6 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
     final limite = DateTime(hoy.year - 2);
     final fecha = await showDatePicker(
       context: context,
-      // Un recibo con fecha fuera del rango (OCR de un papel viejo) no puede
-      // ser el initialDate: el picker lo rechaza con un assert.
       initialDate: _fecha.isBefore(limite) ? hoy : _fecha,
       firstDate: limite,
       lastDate: hoy,
@@ -167,7 +155,6 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
         try {
           fotoUrl = await repo.subirFotoRecibo(membresia.negocioId, _foto!);
         } catch (_) {
-          // El gasto vale más que su comprobante: se guarda sin la foto.
           avisoFoto = 'Se guardó sin la foto del recibo (no se pudo subir).';
         }
       }
@@ -207,224 +194,234 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
     final monto = _montoValor;
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Registrar gasto',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            // --- Recibo + IA ---
-            NeuCard(
-              small: true,
-              radius: 16,
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 32),
+            children: [
+              Row(
                 children: [
-                  Text(
-                    _foto == null
-                        ? '🧾 ¿Tienes el recibo a mano? Fotografíalo y la IA '
-                            'rellena el gasto por ti.'
-                        : '🧾 Recibo listo. Puedes leerlo con IA o guardarlo '
-                            'como comprobante.',
-                    style: TextStyle(fontSize: 12.5, color: t.textSec),
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
-                  const SizedBox(height: 10),
-                  if (_foto != null) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        _foto!,
-                        height: 110,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Nuevo gasto',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                      letterSpacing: -0.4,
                     ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (_leyendoIA)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(8),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        ),
-                      ),
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: NeuSecondaryButton(
-                            label: '📷 Cámara',
-                            height: 38,
-                            radius: 12,
-                            onPressed: () => _elegirFoto(ImageSource.camera),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: NeuSecondaryButton(
-                            label: '🖼️ Galería',
-                            height: 38,
-                            radius: 12,
-                            onPressed: () => _elegirFoto(ImageSource.gallery),
-                          ),
-                        ),
-                        if (_foto != null) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: NeuSecondaryButton(
-                              label: '✨ Leer con IA',
-                              height: 38,
-                              radius: 12,
-                              onPressed: _leerRecibo,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-            // --- Monto ---
-            NeuInput(
-              controller: _monto,
-              label: 'Monto (USD)',
-              hint: '0.00',
-              height: 48,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (_) => setState(() {}),
-            ),
-            if (monto != null && monto > 0 && tasa != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                MoneyFormatter.usdComoBs(monto, tasa),
-                style: TextStyle(fontSize: 12, color: t.textSec),
+              // --- Recibo + IA ---
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: context.libreta.superficie,
+                  border: Border.all(color: const Color(0x141E2A38)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _foto == null
+                          ? '¿Tienes el recibo a mano? Fotografíalo y la IA '
+                              'rellena el gasto por ti.'
+                          : 'Recibo listo. Puedes leerlo con IA o guardarlo '
+                              'como comprobante.',
+                      style: TextStyle(fontSize: 12.5, color: context.libreta.textoMuted),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_foto != null) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          _foto!,
+                          height: 110,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    if (_leyendoIA)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(8),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                        ),
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LibretaSecondaryButton(
+                              label: 'Cámara',
+                              height: 38,
+                              icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                              onPressed: () => _elegirFoto(ImageSource.camera),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: LibretaSecondaryButton(
+                              label: 'Galería',
+                              height: 38,
+                              icon: const Icon(Icons.image_outlined, size: 16),
+                              onPressed: () => _elegirFoto(ImageSource.gallery),
+                            ),
+                          ),
+                          if (_foto != null) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: LibretaSecondaryButton(
+                                label: 'Leer con IA',
+                                height: 38,
+                                icon: const Icon(Icons.auto_awesome, size: 16),
+                                onPressed: _leerRecibo,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
               ),
-            ],
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-            // --- Categoría ---
-            Text(
-              'Categoría',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: t.textSec,
+              // --- Monto ---
+              LibretaInput(
+                controller: _monto,
+                label: 'Monto (USD)',
+                hint: '0.00',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() {}),
               ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final c in CategoriaGasto.values)
-                  NeuChip(
-                    label: c.etiqueta,
-                    selected: _categoria == c,
-                    onTap: () => setState(() {
-                      _categoria = c;
-                      _subcategoria = null;
-                      _categoriaTocada = true;
-                    }),
-                  ),
+              if (monto != null && monto > 0 && tasa != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  MoneyFormatter.usdComoBs(monto, tasa),
+                  style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                ),
               ],
-            ),
-            if (_categoria.subcategorias.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 18),
+
+              // --- Categoría ---
+              Text(
+                'Categoría',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.libreta.textoMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final s in _categoria.subcategorias)
-                    NeuChip(
-                      label: s,
-                      dense: true,
-                      selected: _subcategoria == s,
+                  for (final c in CategoriaGasto.values)
+                    LibretaChip(
+                      label: _sinEmoji(c.etiqueta),
+                      selected: _categoria == c,
                       onTap: () => setState(() {
-                        _subcategoria = _subcategoria == s ? null : s;
+                        _categoria = c;
+                        _subcategoria = null;
                         _categoriaTocada = true;
                       }),
                     ),
                 ],
               ),
-            ],
-            const SizedBox(height: 18),
+              if (_categoria.subcategorias.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final s in _categoria.subcategorias)
+                      LibretaChip(
+                        label: s,
+                        dense: true,
+                        selected: _subcategoria == s,
+                        onTap: () => setState(() {
+                          _subcategoria = _subcategoria == s ? null : s;
+                          _categoriaTocada = true;
+                        }),
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 18),
 
-            // --- Descripción ---
-            NeuInput(
-              controller: _descripcion,
-              label: 'Descripción (opcional)',
-              hint: 'Ej: Mercancía distribuidora Polar',
-              height: 48,
-            ),
-            const SizedBox(height: 18),
-
-            // --- Fecha ---
-            NeuCard(
-              small: true,
-              radius: 16,
-              onTap: _elegirFecha,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Fecha del gasto',
-                      style: TextStyle(fontSize: 13, color: t.textSec),
-                    ),
-                  ),
-                  Text(
-                    '${_fecha.day}/${_fecha.month}/${_fecha.year}',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.marca,
-                    ),
-                  ),
-                ],
+              // --- Descripción ---
+              LibretaInput(
+                controller: _descripcion,
+                label: 'Descripción (opcional)',
+                hint: 'Ej: Mercancía distribuidora Polar',
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
-            NeuButton(
-              label: 'Guardar gasto',
-              height: 50,
-              loading: _guardando,
-              onPressed: _puedeGuardar ? _guardar : null,
-            ),
-          ],
+              // --- Fecha ---
+              GestureDetector(
+                onTap: _elegirFecha,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Fecha del gasto',
+                          style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                        ),
+                      ),
+                      Text(
+                        '${_fecha.day}/${_fecha.month}/${_fecha.year}',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: LibretaColors.verde,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              LibretaButton(
+                label: 'Guardar gasto',
+                loading: _guardando,
+                onPressed: _puedeGuardar ? _guardar : null,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+/// Quita el emoji de `etiqueta` — las categorías se muestran sin emoji aquí.
+String _sinEmoji(String etiqueta) =>
+    etiqueta.replaceFirst(RegExp(r'^\S+\s'), '');

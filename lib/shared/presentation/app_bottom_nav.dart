@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/routes.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_tokens.dart';
+import 'libreta/libreta.dart';
 
-/// Pestañas de la barra inferior del diseño.
-enum NavTab { inicio, cobrar, productos, perfil }
+/// Pestañas de la barra inferior (réplica visual de `P0 · APP SHELL`,
+/// `Lote K · Navegación`): Inicio, Ventas, Mercancía, Reportes y Más.
+enum NavTab { inicio, cobrar, productos, reportes, perfil }
 
-/// Barra de navegación inferior (bloque `showNav` del diseño).
+/// Barra de navegación inferior, fija, con 5 pestañas.
 ///
-/// Cada pestaña es un icono dentro de una "píldora" que se tiñe de verde suave
-/// y crece un 8 % al estar activa.
+/// Solo cambia de color el icono y la etiqueta al activarse — sin píldora de
+/// fondo, tal como lo muestra el mockup.
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key, required this.activa});
 
   final NavTab activa;
 
-  static const double alto = 72;
+  static const double alto = 64;
 
   void _ir(BuildContext context, NavTab tab) {
     if (tab == activa) return;
@@ -28,6 +28,8 @@ class AppBottomNav extends StatelessWidget {
         context.go(Routes.cobrar);
       case NavTab.productos:
         context.go(Routes.productos);
+      case NavTab.reportes:
+        context.go(Routes.reportes);
       case NavTab.perfil:
         context.go(Routes.perfil);
     }
@@ -35,46 +37,50 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
+    final t = context.libreta;
     // La barra de gestos del sistema va *debajo* de las pestañas: si se
-    // descuenta de los 72 px la columna de cada pestaña no cabe y desborda.
+    // descuenta de los 64 px la columna de cada pestaña no cabe y desborda.
     final insetInferior = MediaQuery.paddingOf(context).bottom;
 
     return Container(
       height: alto + insetInferior,
       padding: EdgeInsets.only(bottom: insetInferior),
       decoration: BoxDecoration(
-        color: t.surface,
-        border: Border(top: BorderSide(color: t.border2)),
+        color: t.papel,
+        border: Border(top: BorderSide(color: t.bordeSuave)),
       ),
       child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _Tab(
-              icono: Icons.home_outlined,
-              etiqueta: 'Inicio',
-              activa: activa == NavTab.inicio,
-              onTap: () => _ir(context, NavTab.inicio),
-            ),
-            _Tab(
-              // El diseño usa un signo "$" en vez de un icono aquí.
-              texto: '\$',
-              etiqueta: 'Cobrar',
-              activa: activa == NavTab.cobrar,
-              onTap: () => _ir(context, NavTab.cobrar),
-            ),
-            _Tab(
-              icono: Icons.grid_view_outlined,
-              etiqueta: 'Productos',
-              activa: activa == NavTab.productos,
-              onTap: () => _ir(context, NavTab.productos),
-            ),
-            _Tab(
-              icono: Icons.person_outline,
-              etiqueta: 'Perfil',
-              activa: activa == NavTab.perfil,
-              onTap: () => _ir(context, NavTab.perfil),
-            ),
+        children: [
+          _Tab(
+            icono: Icons.home_outlined,
+            etiqueta: 'Inicio',
+            activa: activa == NavTab.inicio,
+            onTap: () => _ir(context, NavTab.inicio),
+          ),
+          _Tab(
+            icono: Icons.receipt_long_outlined,
+            etiqueta: 'Ventas',
+            activa: activa == NavTab.cobrar,
+            onTap: () => _ir(context, NavTab.cobrar),
+          ),
+          _Tab(
+            icono: Icons.inventory_2_outlined,
+            etiqueta: 'Mercancía',
+            activa: activa == NavTab.productos,
+            onTap: () => _ir(context, NavTab.productos),
+          ),
+          _Tab(
+            icono: Icons.show_chart_rounded,
+            etiqueta: 'Reportes',
+            activa: activa == NavTab.reportes,
+            onTap: () => _ir(context, NavTab.reportes),
+          ),
+          _Tab(
+            icono: Icons.more_horiz_rounded,
+            etiqueta: 'Más',
+            activa: activa == NavTab.perfil,
+            onTap: () => _ir(context, NavTab.perfil),
+          ),
         ],
       ),
     );
@@ -83,62 +89,37 @@ class AppBottomNav extends StatelessWidget {
 
 class _Tab extends StatelessWidget {
   const _Tab({
-    this.icono,
-    this.texto,
+    required this.icono,
     required this.etiqueta,
     required this.activa,
     required this.onTap,
-  }) : assert(icono != null || texto != null, 'Se requiere icono o texto');
+  });
 
-  final IconData? icono;
-  final String? texto;
+  final IconData icono;
   final String etiqueta;
   final bool activa;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    final color = activa ? AppColors.marca : t.navInactive;
+    final t = context.libreta;
+    final color = activa ? LibretaColors.verde : t.textoMuted;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedScale(
-              scale: activa ? 1.08 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 44,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: activa ? t.tint : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: icono != null
-                    ? Icon(icono, size: 20, color: color)
-                    : Text(
-                        texto!,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: color,
-                        ),
-                      ),
-              ),
-            ),
+            Icon(icono, size: 21, color: color),
             const SizedBox(height: 3),
             Text(
               etiqueta,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),

@@ -158,25 +158,6 @@ class AuthRepository {
     return cred;
   }
 
-  /// Envía un enlace de acceso al correo (magic link).
-  ///
-  /// Usa un dominio de Firebase Hosting del proyecto (autorizado por defecto).
-  /// TODO(setup): habilitar "Email link (passwordless sign-in)" en Firebase
-  /// Auth y configurar App Links / dominio para que el enlace abra la app.
-  Future<void> enviarEnlaceCorreo(String correo) {
-    final settings = ActionCodeSettings(
-      url: 'https://cuenta-clara-5002c.firebaseapp.com/finishSignIn',
-      handleCodeInApp: true,
-      androidPackageName: 'com.mitzukyhsdev.cuentaclara',
-      iOSBundleId: 'com.mitzukyhsdev.cuentaclara',
-      androidInstallApp: true,
-    );
-    return _auth.sendSignInLinkToEmail(
-      email: correo,
-      actionCodeSettings: settings,
-    );
-  }
-
   /// Cierra sesión tanto en Google como en Firebase.
   Future<void> cerrarSesion() async {
     await _olvidarSesion();

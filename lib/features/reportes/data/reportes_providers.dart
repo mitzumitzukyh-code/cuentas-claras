@@ -30,3 +30,18 @@ final ventasReporteProvider =
       .watch(ventaRepositoryProvider)
       .ventasDesde(membresia.negocioId, desde);
 });
+
+/// Ventas desde el inicio del periodo ANTERIOR hasta hoy — de aquí se sacan
+/// tanto el total actual como el del periodo pasado, para el comparativo
+/// "▲ 12% vs junio" (`Lote N · Reportes y Más`). Un solo listener cubre
+/// ambos periodos: Firestore no permite acotar un rango por el extremo
+/// superior sin un segundo índice, así que se filtra el borde en el cliente.
+final ventasComparativoProvider =
+    StreamProvider.family<List<Venta>, PeriodoReporte>((ref, periodo) {
+  final membresia = ref.watch(membresiaActivaProvider);
+  if (membresia == null) return Stream.value(const []);
+
+  return ref
+      .watch(ventaRepositoryProvider)
+      .ventasDesde(membresia.negocioId, periodo.desdeAnterior);
+});

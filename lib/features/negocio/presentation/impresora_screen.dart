@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/negocio_repository.dart';
 
@@ -26,7 +24,6 @@ class _OpcionConexion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -34,10 +31,10 @@ class _OpcionConexion extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: seleccionada ? t.tint : t.surface,
+          color: seleccionada ? const Color(0x140E9F6E) : context.libreta.superficie,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: seleccionada ? AppColors.marca : t.border,
+            color: seleccionada ? LibretaColors.verde : context.libreta.bordeSuave,
             width: 1.5,
           ),
         ),
@@ -48,9 +45,9 @@ class _OpcionConexion extends StatelessWidget {
               height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: seleccionada ? AppColors.marca : Colors.transparent,
+                color: seleccionada ? LibretaColors.verde : Colors.transparent,
                 border: Border.all(
-                  color: seleccionada ? AppColors.marca : t.border,
+                  color: seleccionada ? LibretaColors.verde : context.libreta.bordeSuave,
                   width: 2,
                 ),
               ),
@@ -68,13 +65,13 @@ class _OpcionConexion extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: t.text,
+                      color: context.libreta.textoFuerte,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     detalle,
-                    style: TextStyle(fontSize: 12, color: t.textSec),
+                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
                   ),
                 ],
               ),
@@ -95,11 +92,13 @@ class _Pasos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return NeuCard(
-      small: true,
-      radius: 16,
+    return Container(
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: context.libreta.superficie,
+        border: Border.all(color: const Color(0x141E2A38)),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -108,7 +107,7 @@ class _Pasos extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: t.text,
+              color: context.libreta.textoFuerte,
             ),
           ),
           const SizedBox(height: 10),
@@ -121,8 +120,8 @@ class _Pasos extends StatelessWidget {
                   Container(
                     width: 20,
                     height: 20,
-                    decoration: BoxDecoration(
-                      color: t.tint,
+                    decoration: const BoxDecoration(
+                      color: Color(0x1F0E9F6E),
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
@@ -131,7 +130,7 @@ class _Pasos extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.marca,
+                        color: LibretaColors.verde,
                       ),
                     ),
                   ),
@@ -142,7 +141,7 @@ class _Pasos extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12.5,
                         height: 1.4,
-                        color: t.textSec,
+                        color: context.libreta.textoMuted,
                       ),
                     ),
                   ),
@@ -155,7 +154,8 @@ class _Pasos extends StatelessWidget {
   }
 }
 
-/// Configuración de la impresora de tickets.
+/// Configuración de la impresora de tickets (réplica visual de
+/// `P2 · IMPRESORA`, `Lote E · Negocio y Perfil`).
 ///
 /// Cubre las dos formas de conectarla: por WiFi (la impresora tiene su propia
 /// IP en la red del local) o por Bluetooth (emparejada con este teléfono).
@@ -272,245 +272,259 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-
     if (_cargando) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Impresora de tickets',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+            children: [
+              Row(
+                children: [
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Para darle recibo impreso a tus clientes',
-              style: TextStyle(fontSize: 13, color: t.textSec),
-            ),
-            const SizedBox(height: 18),
-
-            Text(
-              '¿Cómo se conecta tu impresora?',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: t.text,
+                  const SizedBox(width: 12),
+                  Text(
+                    'Impresora',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 10),
-
-            // --- Tipo de conexión ---
-            for (final tipo in TipoImpresora.values)
+              const SizedBox(height: 6),
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _OpcionConexion(
-                  titulo: tipo.etiqueta,
-                  detalle: tipo.explicacion,
-                  seleccionada: _config.tipo == tipo,
-                  onTap: () => _guardar(_config.copyWith(tipo: tipo)),
-                ),
-              ),
-            const SizedBox(height: 14),
-
-            // --- WiFi ---
-            if (_config.tipo == TipoImpresora.wifi) ...[
-              const _Pasos(
-                titulo: 'Antes de empezar',
-                pasos: [
-                  'Enciende la impresora.',
-                  'Si la impresora crea su propia red WiFi, conéctate a ella '
-                      'desde los ajustes del teléfono. Si va conectada al WiFi '
-                      'del local, asegúrate de que tu teléfono esté en ese '
-                      'mismo WiFi.',
-                  'Mantén pulsado el botón de avance de papel: la impresora '
-                      'imprimirá una hoja con sus datos. Ahí sale un número '
-                      'como 192.168.1.87.',
-                ],
-              ),
-              const SizedBox(height: 12),
-              NeuCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Número de la impresora',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: t.text,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'El que salió en la hoja que imprimió',
-                      style: TextStyle(fontSize: 11.5, color: t.textSec),
-                    ),
-                    const SizedBox(height: 10),
-                    NeuInput(
-                      controller: _ip,
-                      hint: '192.168.1.87',
-                      height: 46,
-                      radius: 14,
-                      fillWithPageBg: true,
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) => _guardar(_config.copyWith(ip: v)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            // --- Bluetooth ---
-            if (_config.tipo == TipoImpresora.bluetooth) ...[
-              const _Pasos(
-                titulo: 'Antes de empezar',
-                pasos: [
-                  'Enciende la impresora y el Bluetooth del teléfono.',
-                  'Ve a los ajustes de Bluetooth de tu teléfono y empareja la '
-                      'impresora. Suele aparecer con un nombre tipo "PT-210" o '
-                      '"BlueTooth Printer".',
-                  'Vuelve aquí y toca el botón de abajo.',
-                ],
-              ),
-              const SizedBox(height: 12),
-              NeuButton(
-                label: _buscando ? 'Buscando…' : 'Ver mis impresoras',
-                height: 48,
-                onPressed: _buscando ? null : _buscarBluetooth,
-              ),
-              const SizedBox(height: 12),
-              if (_config.macBluetooth.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    'Seleccionada: ${_config.nombreBluetooth}',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.marca,
-                    ),
-                  ),
-                ),
-              for (final bt in _emparejadas)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: NeuCard(
-                    small: true,
-                    radius: 16,
-                    onTap: () => _guardar(_config.copyWith(
-                      macBluetooth: bt.macAdress,
-                      nombreBluetooth: bt.name,
-                    )),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.print_outlined, size: 20, color: t.textSec),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            bt.name,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: t.text,
-                            ),
-                          ),
-                        ),
-                        if (_config.macBluetooth == bt.macAdress)
-                          const Icon(
-                            Icons.check_circle,
-                            size: 20,
-                            color: AppColors.marca,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-            ],
-
-            // --- Tamaño de papel ---
-            if (_config.tipo != TipoImpresora.ninguna) ...[
-              NeuCard(
-                small: true,
-                radius: 16,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Uso papel ancho',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: t.text,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _config.papel80mm
-                                ? 'Rollo grande, de mostrador (80 mm)'
-                                : 'Rollo pequeño, el más común (58 mm)',
-                            style: TextStyle(fontSize: 11.5, color: t.textSec),
-                          ),
-                        ],
-                      ),
-                    ),
-                    NeuToggle(
-                      value: _config.papel80mm,
-                      onChanged: (v) =>
-                          _guardar(_config.copyWith(papel80mm: v)),
-                    ),
-                  ],
+                padding: EdgeInsets.only(left: 52),
+                child: Text(
+                  'Para darle recibo impreso a tus clientes',
+                  style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                 ),
               ),
               const SizedBox(height: 18),
-              NeuButton(
-                label: 'Imprimir ticket de prueba',
-                loading: _probando,
-                onPressed: _config.configurada ? _probar : null,
-              ),
-              if (!_config.configurada) ...[
-                const SizedBox(height: 10),
-                Text(
-                  _config.tipo == TipoImpresora.wifi
-                      ? 'Escribe el número de la impresora para poder probar.'
-                      : 'Elige tu impresora de la lista para poder probar.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: t.muted),
+
+              Text(
+                '¿Cómo se conecta tu impresora?',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: context.libreta.textoFuerte,
                 ),
+              ),
+              const SizedBox(height: 10),
+
+              // --- Tipo de conexión ---
+              for (final tipo in TipoImpresora.values)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _OpcionConexion(
+                    titulo: tipo.etiqueta,
+                    detalle: tipo.explicacion,
+                    seleccionada: _config.tipo == tipo,
+                    onTap: () => _guardar(_config.copyWith(tipo: tipo)),
+                  ),
+                ),
+              const SizedBox(height: 14),
+
+              // --- WiFi ---
+              if (_config.tipo == TipoImpresora.wifi) ...[
+                const _Pasos(
+                  titulo: 'Antes de empezar',
+                  pasos: [
+                    'Enciende la impresora.',
+                    'Si la impresora crea su propia red WiFi, conéctate a ella '
+                        'desde los ajustes del teléfono. Si va conectada al WiFi '
+                        'del local, asegúrate de que tu teléfono esté en ese '
+                        'mismo WiFi.',
+                    'Mantén pulsado el botón de avance de papel: la impresora '
+                        'imprimirá una hoja con sus datos. Ahí sale un número '
+                        'como 192.168.1.87.',
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Número de la impresora',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: context.libreta.textoFuerte,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'El que salió en la hoja que imprimió',
+                        style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                      ),
+                      const SizedBox(height: 10),
+                      LibretaInput(
+                        controller: _ip,
+                        hint: '192.168.1.87',
+                        height: 46,
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) => _guardar(_config.copyWith(ip: v)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // --- Bluetooth ---
+              if (_config.tipo == TipoImpresora.bluetooth) ...[
+                const _Pasos(
+                  titulo: 'Antes de empezar',
+                  pasos: [
+                    'Enciende la impresora y el Bluetooth del teléfono.',
+                    'Ve a los ajustes de Bluetooth de tu teléfono y empareja la '
+                        'impresora. Suele aparecer con un nombre tipo "PT-210" o '
+                        '"BlueTooth Printer".',
+                    'Vuelve aquí y toca el botón de abajo.',
+                  ],
+                ),
+                const SizedBox(height: 12),
+                LibretaButton(
+                  label: _buscando ? 'Buscando…' : 'Ver mis impresoras',
+                  height: 48,
+                  onPressed: _buscando ? null : _buscarBluetooth,
+                ),
+                const SizedBox(height: 12),
+                if (_config.macBluetooth.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'Seleccionada: ${_config.nombreBluetooth}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: LibretaColors.verde,
+                      ),
+                    ),
+                  ),
+                for (final bt in _emparejadas)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: GestureDetector(
+                      onTap: () => _guardar(_config.copyWith(
+                        macBluetooth: bt.macAdress,
+                        nombreBluetooth: bt.name,
+                      )),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: context.libreta.superficie,
+                          border: Border.all(color: const Color(0x141E2A38)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.print_outlined,
+                              size: 20,
+                              color: context.libreta.textoMuted,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                bt.name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: context.libreta.textoFuerte,
+                                ),
+                              ),
+                            ),
+                            if (_config.macBluetooth == bt.macAdress)
+                              const Icon(
+                                Icons.check_circle,
+                                size: 20,
+                                color: LibretaColors.verde,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+              ],
+
+              // --- Tamaño de papel ---
+              if (_config.tipo != TipoImpresora.ninguna) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Uso papel ancho',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: context.libreta.textoFuerte,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _config.papel80mm
+                                  ? 'Rollo grande, de mostrador (80 mm)'
+                                  : 'Rollo pequeño, el más común (58 mm)',
+                              style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      LibretaToggle(
+                        value: _config.papel80mm,
+                        onChanged: (v) =>
+                            _guardar(_config.copyWith(papel80mm: v)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                LibretaButton(
+                  label: 'Imprimir ticket de prueba',
+                  loading: _probando,
+                  onPressed: _config.configurada ? _probar : null,
+                ),
+                if (!_config.configurada) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _config.tipo == TipoImpresora.wifi
+                        ? 'Escribe el número de la impresora para poder probar.'
+                        : 'Elige tu impresora de la lista para poder probar.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                  ),
+                ],
               ],
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/invitacion.dart';
 
-/// Unirse a un negocio con un código de invitación.
+/// Unirse a un negocio con un código de invitación (réplica visual de
+/// `P2 · UNIRSE`, `Lote F · Onboarding y Sistema`).
 ///
 /// Es la otra mitad de la pantalla de Empleados: el dueño genera el código y
 /// quien lo recibe entra por aquí. Valida antes de aceptar para poder decir a
@@ -89,10 +88,10 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final inv = _encontrada;
 
     return Scaffold(
+      backgroundColor: context.libreta.papel,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
@@ -101,29 +100,40 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
             children: [
               Align(
                 alignment: Alignment.centerLeft,
-                child: NeuIconBtn(
-                  icon: Icons.arrow_back,
+                child: LibretaBackButton(
+                  oscuro: true,
                   onTap: () => Navigator.of(context).pop(),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0x1A0E9F6E),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.group_add_outlined, size: 30, color: LibretaColors.verde),
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Entrar con código',
+                'Unirme a un negocio',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
-                  color: t.text,
+                  color: context.libreta.textoFuerte,
+                  letterSpacing: -0.4,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                'Escribe el código de 6 caracteres que te dio el dueño del '
-                'negocio.',
-                style: TextStyle(fontSize: 14, color: t.textSec),
+                'Pídele al dueño el código de invitación que aparece en su app.',
+                style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
               ),
               const SizedBox(height: 22),
 
-              NeuInput(
+              LibretaInput(
                 controller: _codigo,
                 hint: 'ABC123',
                 height: 56,
@@ -138,16 +148,15 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
               if (_error != null) ...[
                 const SizedBox(height: 14),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppColors.peligroSuave,
+                    color: LibretaColors.peligro.withValues(alpha: .1),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     _error!,
                     style: const TextStyle(
-                      color: AppColors.peligro,
+                      color: LibretaColors.peligro,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -158,19 +167,28 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
               // Confirmación antes de aceptar: que sepa a dónde entra.
               if (inv != null) ...[
                 const SizedBox(height: 18),
-                NeuCard(
+                Container(
                   padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                   child: Column(
                     children: [
                       Container(
                         width: 64,
                         height: 64,
-                        decoration: BoxDecoration(
-                          color: t.tint,
+                        decoration: const BoxDecoration(
+                          color: Color(0x1A0E9F6E),
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
-                        child: const Text('🏪', style: TextStyle(fontSize: 26)),
+                        child: const Icon(
+                          Icons.storefront_outlined,
+                          size: 28,
+                          color: LibretaColors.verde,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -179,13 +197,13 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
-                          color: t.text,
+                          color: context.libreta.textoFuerte,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Entrarás como ${inv.rol.etiqueta.toLowerCase()}',
-                        style: TextStyle(fontSize: 13, color: t.textSec),
+                        style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                       ),
                     ],
                   ),
@@ -194,14 +212,14 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
 
               const Spacer(),
               if (inv == null)
-                NeuButton(
+                LibretaButton(
                   label: 'Verificar código',
                   loading: _verificando,
                   onPressed:
                       _codigo.text.trim().length == 6 ? _verificar : null,
                 )
               else
-                NeuButton(
+                LibretaButton(
                   label: 'Unirme a ${inv.negocioNombre}',
                   loading: _uniendo,
                   onPressed: _unirse,

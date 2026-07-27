@@ -70,6 +70,29 @@ negocios/{negocioId}/gastos/{gastoId}
   - subcategoria (opcional)
   - descripcion, monto, fecha, fotoReciboUrl
 
+negocios/{negocioId}/clientes/{clienteId}  // Fiados (Lote G)
+  - nombre, telefono (opcional)
+  - saldoUSD (denormalizado, se ajusta con FieldValue.increment al fiar/abonar)
+  - actualizadoEn
+
+negocios/{negocioId}/clientes/{clienteId}/movimientos/{movimientoId}
+  - tipo (fiado|abono), montoUSD, concepto, fecha, registradoPor (userId)
+  - negocioId (denormalizado, para la consulta collectionGroup del Resumen del día)
+  - nunca se edita ni se borra (libro mayor)
+
+negocios/{negocioId}/proveedores/{proveedorId}  // Cuentas por pagar (Lote H)
+  - nombre, saldoUSD (denormalizado), proximoVencimiento (opcional), actualizadoEn
+
+negocios/{negocioId}/proveedores/{proveedorId}/movimientos/{movimientoId}
+  - tipo (compra|pago), montoUSD, concepto, fecha, vencimiento (solo compra), registradoPor
+  - nunca se edita ni se borra (libro mayor)
+
+negocios/{negocioId}/cierres/{cierreId}  // Cierre de caja (Lote H), id = fecha "yyyy-MM-dd"
+  - ventasUSD, gastosUSD, fiadoOtorgadoUSD, abonosUSD, netoUSD
+  - metodosEsperados (map método→monto), efectivoEsperado, efectivoContado, descuadreUSD
+  - cerradoPor (userId), cerradaEn
+  - nunca se edita ni se borra
+
 membresias/{usuarioId}_{negocioId}
   - usuarioId, negocioId, rol (dueno|empleado)
 

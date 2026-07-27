@@ -1,27 +1,25 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../app/router/routes.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../negocio/presentation/empleados_screen.dart';
 
-/// Eliminar cuenta (requisito de Google Play: toda app con cuentas debe
-/// ofrecer una vía DENTRO de la app para pedir el borrado de la cuenta y sus
-/// datos — https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev/legal/eliminar-cuenta
-/// es la vía equivalente fuera de la app).
+/// Eliminar cuenta (réplica visual de `P5 · ELIMINAR CUENTA`, `Lote E ·
+/// Negocio y Perfil`).
+///
+/// Requisito de Google Play: toda app con cuentas debe ofrecer una vía DENTRO
+/// de la app para pedir el borrado de la cuenta y sus datos.
 ///
 /// Tres caminos según quién eres:
 /// - Empleado: sales del negocio y se borra tu cuenta de acceso.
-/// - Dueño con empleados activos: bloqueado — hay que quitarlos primero, no
-///   se puede borrar un negocio con gente todavía adentro.
-/// - Dueño sin empleados: se borra el negocio completo (productos, insumos,
-///   gastos) y tu cuenta. Las VENTAS no se borran — CLAUDE.md §6 y las
-///   reglas de Firestore lo prohíben a propósito (auditoría/fiscal); ya no
-///   tienen nada personal, solo un uid, así que no queda dato personal atrás.
+/// - Dueño con empleados activos: bloqueado — hay que quitarlos primero.
+/// - Dueño sin empleados: se borra el negocio completo y tu cuenta. Las
+///   VENTAS no se borran — CLAUDE.md §6 y las reglas de Firestore lo prohíben
+///   a propósito (auditoría/fiscal).
 class EliminarCuentaScreen extends ConsumerStatefulWidget {
   const EliminarCuentaScreen({super.key});
 
@@ -58,10 +56,6 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
       } else if (!esDueno) {
         await negocioRepo.quitarMiembro(membresiaId);
       }
-      // A partir de aquí el widget puede desmontarse en cualquier momento
-      // (el router reacciona solo al cambio de sesión/membresías) — `auth` y
-      // `negocioRepo` ya están capturados, así que seguir sin `ref` es
-      // seguro.
       await auth.eliminarCuenta(
         contrasenaActual: contrasena.isEmpty ? null : contrasena,
       );
@@ -71,7 +65,7 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_mensajeError(e)),
-          backgroundColor: AppColors.peligro,
+          backgroundColor: LibretaColors.peligro,
         ),
       );
     }
@@ -96,7 +90,6 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final membresia = ref.watch(membresiaActivaProvider);
     final esDueno = ref.watch(esDuenoProvider);
     final esGoogle = ref.read(authRepositoryProvider).sesionEsGoogle;
@@ -114,156 +107,219 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
     final negocioSolo = esDueno && (miembros?.length ?? 0) <= 1;
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Eliminar cuenta',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+            children: [
+              Row(
+                children: [
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Eliminar cuenta',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
 
-            if (cargandoMiembros)
-              const Center(child: CircularProgressIndicator())
-            else if (bloqueado)
-              _AvisoBloqueado(
-                onIrAEmpleados:
-                    () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const EmpleadosScreen(),
+              if (cargandoMiembros)
+                const Center(child: CircularProgressIndicator())
+              else if (bloqueado)
+                _AvisoBloqueado(
+                  onIrAEmpleados: () => context.push(Routes.empleados),
+                )
+              else ...[
+                Column(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0x21F2A93C),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 32,
+                        color: LibretaColors.aviso,
                       ),
                     ),
-              )
-            else ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.peligroSuave,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                    const SizedBox(height: 16),
                     Text(
-                      esDueno
-                          ? 'Esto va a borrar tu negocio completo'
-                          : 'Esto va a borrar tu cuenta',
-                      style: const TextStyle(
-                        fontSize: 15,
+                      '¿Seguro que quieres eliminar tu cuenta?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.peligro,
+                        color: context.libreta.textoFuerte,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      esDueno
-                          ? 'Se borran tus productos, gastos y tu cuenta de '
-                              'acceso. No se puede deshacer.'
-                          : 'Sales del negocio y se borra tu cuenta de '
-                              'acceso. No se puede deshacer.',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.peligro,
-                      ),
+                      'Esta acción es permanente y no se puede deshacer.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
                     ),
-                    if (esDueno) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Las ventas que ya registraste NO se borran — la ley '
-                        'exige conservarlas para fines fiscales. Ya no '
-                        'tienen tu nombre ni tu correo, así que no queda '
-                        'nada personal ahí.',
-                        style: TextStyle(fontSize: 12, color: t.textSec),
-                      ),
-                    ],
                   ],
                 ),
-              ),
-              const SizedBox(height: 18),
+                const SizedBox(height: 20),
 
-              if (!esGoogle) ...[
-                Text(
-                  'Escribe tu contraseña para confirmar',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: t.textSec,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-                const SizedBox(height: 8),
-                NeuInput(
-                  controller: _contrasena,
-                  hint: 'Contraseña',
-                  height: 48,
-                  obscure: true,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 18),
-              ],
-
-              InkWell(
-                onTap: () => setState(() => _confirmado = !_confirmado),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Checkbox(
-                        value: _confirmado,
-                        onChanged:
-                            (v) => setState(() => _confirmado = v ?? false),
-                        activeColor: AppColors.peligro,
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Text(
-                            'Entiendo que esta acción no se puede deshacer',
-                            style: TextStyle(fontSize: 13, color: t.text),
-                          ),
+                      Text(
+                        'SE BORRARÁ PARA SIEMPRE',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                          color: context.libreta.textoFuerte,
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      _FilaBorrado(texto: 'Todas tus ventas y gastos'),
+                      _FilaBorrado(texto: 'Tu inventario y catálogo'),
+                      _FilaBorrado(texto: 'Los accesos de tus empleados'),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 18),
 
-              NeuButton(
-                label: _eliminando ? 'Eliminando…' : 'Eliminar mi cuenta',
-                height: 50,
-                color: AppColors.peligro,
-                loading: _eliminando,
-                onPressed:
-                    (_confirmado &&
+                if (!esGoogle) ...[
+                  Text(
+                    'Escribe tu contraseña para confirmar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: context.libreta.textoMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  LibretaInput(
+                    controller: _contrasena,
+                    hint: 'Contraseña',
+                    obscure: true,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+
+                InkWell(
+                  onTap: () => setState(() => _confirmado = !_confirmado),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Checkbox(
+                          value: _confirmado,
+                          onChanged: (v) => setState(() => _confirmado = v ?? false),
+                          activeColor: LibretaColors.peligro,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 12),
+                            child: Text(
+                              'Entiendo que esta acción no se puede deshacer',
+                              style: TextStyle(fontSize: 13, color: context.libreta.textoFuerte),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: (_confirmado &&
                             !_eliminando &&
                             (esGoogle || _contrasena.text.isNotEmpty))
                         ? () => _eliminar(
-                          esDueno: esDueno,
-                          negocioSolo: negocioSolo,
-                          negocioId: membresia.negocioId,
-                          membresiaId: membresia.id,
-                        )
+                              esDueno: esDueno,
+                              negocioSolo: negocioSolo,
+                              negocioId: membresia.negocioId,
+                              membresiaId: membresia.id,
+                            )
                         : null,
-              ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: LibretaColors.peligro,
+                      disabledBackgroundColor: LibretaColors.peligro.withValues(alpha: .5),
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: _eliminando
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Eliminar mi cuenta',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                          ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _FilaBorrado extends StatelessWidget {
+  const _FilaBorrado({required this.texto});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          const Icon(Icons.close, size: 15, color: LibretaColors.aviso),
+          const SizedBox(width: 10),
+          Text(
+            texto,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: context.libreta.textoFuerte,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -276,14 +332,13 @@ class _AvisoBloqueado extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.avisoSuave,
+            color: const Color(0x21F2A93C),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -294,20 +349,20 @@ class _AvisoBloqueado extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.aviso,
+                  color: LibretaColors.aviso,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 'No se puede borrar un negocio con gente todavía adentro. '
                 'Quítalos primero desde Empleados y vuelve aquí.',
-                style: TextStyle(fontSize: 13, color: t.textSec),
+                style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        NeuSecondaryButton(
+        LibretaSecondaryButton(
           label: 'Ir a Empleados',
           height: 48,
           onPressed: onIrAEmpleados,

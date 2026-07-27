@@ -10,7 +10,7 @@ import '../../features/negocio/data/negocio_repository.dart';
 /// estado `cargando` un momento para que la marca se aprecie; solo corre una
 /// vez por arranque de la app.
 final splashMinimoProvider = FutureProvider<void>(
-  (ref) => Future<void>.delayed(const Duration(milliseconds: 2200)),
+  (ref) => Future<void>.delayed(const Duration(milliseconds: 3500)),
 );
 
 /// Estado global de sesión que decide el destino de navegación (ver router).

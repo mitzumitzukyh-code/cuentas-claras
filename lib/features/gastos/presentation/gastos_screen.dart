@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
 import '../domain/gasto.dart';
-import 'registrar_gasto_screen.dart';
 
-/// Pantalla 9 — Gastos del mes.
+/// Pantalla 9 — Gastos del mes (réplica visual de `P0 · GASTOS`,
+/// `Lote C · Gastos y Productos`).
 ///
 /// Información financiera: solo el dueño (las reglas de Firestore lo exigen
 /// además de esta pantalla).
@@ -69,152 +70,115 @@ class GastosScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.tokens;
     final esDueno = ref.watch(esDuenoProvider);
     final gastos = ref.watch(gastosDelMesProvider).valueOrNull ?? const <Gasto>[];
     final total = gastos.fold<double>(0, (s, g) => s + g.monto);
 
     if (!esDueno) {
       return Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: NeuIconBtn(
-                    icon: Icons.arrow_back,
-                    onTap: () => Navigator.of(context).pop(),
+        backgroundColor: context.libreta.papel,
+        body: LibretaPageBackground(
+          child: SafeArea(
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: LibretaBackButton(
+                      oscuro: true,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              const Text('🔒', style: TextStyle(fontSize: 34)),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Text(
-                  'Los gastos del negocio solo los ve el dueño.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: t.textSec),
+                const Spacer(),
+                Icon(Icons.lock_outline, size: 34, color: context.libreta.textoMuted),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    'Los gastos del negocio solo los ve el dueño.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
+                  ),
                 ),
-              ),
-              const Spacer(flex: 2),
-            ],
+                const Spacer(flex: 2),
+              ],
+            ),
           ),
         ),
       );
     }
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.marca,
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const RegistrarGastoScreen(),
-          ),
-        ),
-        label: const Text(
-          'Registrar gasto',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-        icon: const Icon(Icons.add, color: Colors.white),
+      backgroundColor: context.libreta.papel,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: context.libreta.textoFuerte,
+        shape: const CircleBorder(),
+        onPressed: () => context.push(Routes.nuevoGasto),
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 30, 22, 96),
+            children: [
+              Text(
+                'Gastos',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: context.libreta.textoFuerte,
+                  letterSpacing: -0.4,
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Gastos',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            NeuCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              Row(
                 children: [
                   Text(
-                    'Gastado este mes',
-                    style: TextStyle(fontSize: 12, color: t.textSec),
+                    'Este mes · ',
+                    style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                   ),
-                  const SizedBox(height: 4),
                   Text(
-                    MoneyFormatter.usd(total),
-                    style: AppTypography.money(fontSize: 24, color: t.text),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${gastos.length} ${gastos.length == 1 ? "gasto" : "gastos"}',
-                    style: TextStyle(fontSize: 12, color: t.textSec),
+                    '−${MoneyFormatter.usd(total)}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-            if (gastos.isEmpty)
-              NeuCard(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-                child: Column(
-                  children: [
-                    const Text('🧾', style: TextStyle(fontSize: 28)),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Aún no registras gastos este mes',
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: t.textSec,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Registra lo que compras y paga el negocio para saber '
-                      'cuánto te queda de verdad.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: t.textSec),
-                    ),
-                  ],
-                ),
-              )
-            else
-              NeuCard(
-                clip: true,
-                child: Column(
-                  children: [
-                    for (var i = 0; i < gastos.length; i++)
-                      _FilaGasto(
-                        gasto: gastos[i],
-                        ultima: i == gastos.length - 1,
-                        onEliminar: () =>
-                            _confirmarEliminar(context, ref, gastos[i]),
-                      ),
-                  ],
-                ),
-              ),
-          ],
+              if (gastos.isEmpty)
+                LibretaEstadoVacio(
+                  titulo: 'Aún no registras gastos este mes',
+                  detalle: 'Registra lo que compras y paga el negocio para '
+                      'saber cuánto te queda de verdad.',
+                  tagline: 'cada gasto cuenta',
+                  boton: LibretaButton(
+                    label: 'Registrar gasto',
+                    onPressed: () => context.push(Routes.nuevoGasto),
+                  ),
+                )
+              else
+                for (var i = 0; i < gastos.length; i++)
+                  _FilaGasto(
+                    gasto: gastos[i],
+                    ultima: i == gastos.length - 1,
+                    onEliminar: () => _confirmarEliminar(context, ref, gastos[i]),
+                  ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+/// Quita el emoji de `categoriaLabel` — el ícono ya se dibuja aparte.
+String _sinEmoji(String etiqueta) =>
+    etiqueta.replaceFirst(RegExp(r'^\S+\s'), '').toLowerCase();
 
 class _FilaGasto extends StatelessWidget {
   const _FilaGasto({
@@ -227,14 +191,49 @@ class _FilaGasto extends StatelessWidget {
   final bool ultima;
   final VoidCallback onEliminar;
 
+  IconData get _icono => switch (gasto.categoria) {
+        CategoriaGasto.mercancia => Icons.inventory_2_outlined,
+        CategoriaGasto.transporte => Icons.local_shipping_outlined,
+        CategoriaGasto.servicios => Icons.bolt_outlined,
+        CategoriaGasto.otro => Icons.schedule,
+      };
+
+  Color _colorIcono(BuildContext context) => switch (gasto.categoria) {
+        CategoriaGasto.mercancia => LibretaColors.verde,
+        CategoriaGasto.servicios => LibretaColors.aviso,
+        _ => context.libreta.textoFuerte,
+      };
+
+  Color get _fondoIcono => switch (gasto.categoria) {
+        CategoriaGasto.mercancia => const Color(0x1F0E9F6E),
+        CategoriaGasto.servicios => const Color(0x26F2A93C),
+        _ => const Color(0x141E2A38),
+      };
+
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final f = gasto.fecha;
-    return NeuListTile(
-      divider: !ultima,
+    return Container(
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        border: ultima
+            ? null
+            : Border(bottom: BorderSide(color: context.libreta.renglon)),
+      ),
       child: Row(
         children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _fondoIcono,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(_icono, size: 17, color: _colorIcono(context)),
+          ),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,31 +245,35 @@ class _FilaGasto extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: t.text,
+                    color: context.libreta.textoFuerte,
                   ),
                 ),
                 Text(
-                  '${gasto.categoriaLabel} · ${f.day}/${f.month}/${f.year}',
-                  style: TextStyle(fontSize: 12, color: t.textSec),
+                  '${f.day}/${f.month} · ${_sinEmoji(gasto.categoriaLabel)}',
+                  style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
                 ),
               ],
             ),
           ),
           Text(
-            MoneyFormatter.usd(gasto.monto),
+            '−${MoneyFormatter.usd(gasto.monto)}',
             style: AppTypography.money(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: t.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: context.libreta.textoFuerte,
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: onEliminar,
-            icon: Icon(Icons.delete_outline, size: 18, color: t.textSec),
+            icon: Icon(
+              Icons.delete_outline,
+              size: 18,
+              color: context.libreta.textoMuted,
+            ),
           ),
         ],
       ),

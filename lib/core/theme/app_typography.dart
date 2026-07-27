@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Tipografía de Cuenta Clara: **Plus Jakarta Sans**, la fuente del bundle de
 /// diseño (`dise-o-de-app`). Pesos usados: 400/500/600/700/800.
 ///
-/// Se usa `google_fonts` para no empaquetar los `.ttf` en esta etapa. En
-/// producción conviene bundlearla para evitar la descarga en runtime.
+/// Se empaqueta (`assets/fonts/`, declarada en `pubspec.yaml`) para evitar la
+/// descarga en runtime de `google_fonts`, que sin red caía a Roboto.
 abstract final class AppTypography {
   const AppTypography._();
+
+  /// Nombre de la familia empaquetada (ver `pubspec.yaml`).
+  static const String familia = 'PlusJakartaSans';
 
   /// Números de ancho fijo — imprescindible para columnas de montos.
   static const List<FontFeature> tabular = [FontFeature.tabularFigures()];
 
   /// Construye el [TextTheme] de la app, tintado con el color de texto del modo.
   static TextTheme textTheme(TextTheme base, Color texto) {
-    final fuente = GoogleFonts.plusJakartaSansTextTheme(base);
+    final fuente = base.apply(fontFamily: familia);
     return fuente.apply(bodyColor: texto, displayColor: texto).copyWith(
           // El diseño usa 800 para todos los títulos y 700 para subtítulos.
           headlineSmall: fuente.headlineSmall?.copyWith(
@@ -41,7 +43,8 @@ abstract final class AppTypography {
     FontWeight fontWeight = FontWeight.w800,
     required Color color,
   }) {
-    return GoogleFonts.plusJakartaSans(
+    return TextStyle(
+      fontFamily: familia,
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,

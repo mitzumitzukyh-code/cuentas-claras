@@ -13,6 +13,12 @@ abstract final class FirestorePaths {
   static const String insumos = 'insumos';
   static const String ventas = 'ventas';
   static const String gastos = 'gastos';
+  static const String clientes = 'clientes';
+  static const String proveedores = 'proveedores';
+  static const String cierres = 'cierres';
+
+  /// Subcolección de un cliente o proveedor.
+  static const String movimientos = 'movimientos';
 
   /// ID de membresía: `usuarioId_negocioId` (debe coincidir con las reglas).
   static String membresiaId(String usuarioId, String negocioId) =>

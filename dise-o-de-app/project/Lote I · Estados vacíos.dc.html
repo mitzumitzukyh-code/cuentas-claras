@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #E4E0D8; }
+    * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+    a, a:hover { color: #0E9F6E; }
+    @keyframes floatBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes drawLoop { 0% { stroke-dashoffset: 1; } 42% { stroke-dashoffset: 0; } 82% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 1; } }
+    @keyframes penNod { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-2px,1px); } }
+    @keyframes fadeUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes wobble { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+    @keyframes arcBlink { 0%,70%,100% { opacity: .18; } 32% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; } }
+  </style>
+</helmet>
+
+<section style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:22px;padding:44px 20px 72px;background:#E4E0D8">
+  <div style="text-align:center;max-width:560px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:2px;color:#0E9F6E;text-transform:uppercase">Cuenta Clara · Lote I</div>
+    <h1 style="font-size:27px;font-weight:800;color:#1E2A38;letter-spacing:-.5px;margin:7px 0 6px">Estados vacíos</h1>
+    <p style="font-size:15px;color:#6f6f6f;margin:0;line-height:1.55;text-wrap:pretty">Sin ventas · Sin productos · Sin fiados · Búsqueda vacía · Sin conexión. Hoja en blanco con lápiz que escribe, tono cálido en Caveat. Usa las flechas o los puntos para hojear.</p>
+  </div>
+
+  <div ref="{{ navRef }}" style="display:flex;flex-direction:column;align-items:center;gap:18px">
+    <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 400 }}" height="{{ 850 }}" hint-size="400px,850px">
+      <div ref="{{ stageRef }}" style="height:100%;position:relative;perspective:1600px;overflow:hidden;background:#FAF8F3">
+
+        <!-- ══ P0 · SIN VENTAS ══ -->
+        <div data-page="0" style="position:absolute;inset:0;z-index:5;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#FAF8F3">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="position:absolute;top:6px;left:0;right:0;height:18px;z-index:3;background-image:radial-gradient(circle at center, transparent 3px, rgba(30,42,56,.30) 3px, rgba(30,42,56,.30) 5.5px, transparent 6px);background-size:26px 18px;background-repeat:repeat-x;background-position:center"></div>
+            <div style="padding:34px 22px 6px;position:relative;z-index:2"><div style="font-size:22px;font-weight:800;color:#1E2A38;letter-spacing:-.4px">Ventas</div></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 34px;text-align:center;gap:6px">
+              <div style="animation:floatBob 4.4s ease-in-out infinite"><svg width="150" height="150" viewBox="0 0 120 120"><rect x="22" y="16" width="76" height="88" rx="9" fill="#fff" stroke="#1E2A38" stroke-width="2.5"></rect><line x1="30" y1="18" x2="30" y2="102" stroke="rgba(193,80,58,.5)" stroke-width="2"></line><g fill="#fff" stroke="#1E2A38" stroke-width="2"><circle cx="34" cy="16" r="2.4"></circle><circle cx="46" cy="16" r="2.4"></circle><circle cx="58" cy="16" r="2.4"></circle><circle cx="70" cy="16" r="2.4"></circle><circle cx="82" cy="16" r="2.4"></circle></g><line x1="38" y1="46" x2="86" y2="46" stroke="rgba(30,42,56,.1)" stroke-width="2"></line><line x1="38" y1="60" x2="86" y2="60" stroke="rgba(30,42,56,.1)" stroke-width="2"></line><path d="M40 74 q10 -8 20 0 t20 0" fill="none" stroke="#0E9F6E" stroke-width="3" stroke-linecap="round" pathLength="1" style="stroke-dasharray:1;animation:drawLoop 3s ease-in-out infinite"></path><g transform="translate(84,76) rotate(38)"><g style="animation:penNod 1.5s ease-in-out infinite"><rect x="-4" y="-30" width="8" height="34" rx="2" fill="#F2A93C" stroke="#1E2A38" stroke-width="1.5"></rect><rect x="-4" y="-6" width="8" height="3" fill="#1E2A38"></rect><path d="M-4 4 L0 12 L4 4 Z" fill="#1E2A38"></path></g></g></svg></div>
+              <div style="font-size:20px;font-weight:800;color:#1E2A38;letter-spacing:-.3px;animation:fadeUp .5s .1s both">Aún no registras ventas hoy</div>
+              <div style="font-size:14px;color:#8A9A96;font-weight:500;line-height:1.5;max-width:260px;animation:fadeUp .5s .18s both">Cuando cobres, tus ventas del día aparecerán aquí, sumadas solas.</div>
+              <div style="font-family:'Caveat',cursive;font-weight:700;font-size:22px;color:#0E9F6E;margin-top:4px;animation:fadeUp .5s .26s both">tu primera venta te espera</div>
+              <button style="height:52px;padding:0 26px;border:none;border-radius:14px;background:#0E9F6E;color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 10px 22px rgba(14,159,110,.32);margin-top:16px;display:flex;align-items:center;gap:8px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.5 13h11l2-8H6"></path></svg>Cobrar ahora</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ P1 · SIN PRODUCTOS ══ -->
+        <div data-page="1" style="position:absolute;inset:0;z-index:4;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#FAF8F3">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="padding:34px 22px 6px;position:relative;z-index:2"><div style="font-size:22px;font-weight:800;color:#1E2A38;letter-spacing:-.4px">Productos</div></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 34px;text-align:center;gap:6px">
+              <div style="animation:floatBob 4.4s ease-in-out infinite"><svg width="150" height="150" viewBox="0 0 120 120"><rect x="22" y="16" width="76" height="88" rx="9" fill="#fff" stroke="#1E2A38" stroke-width="2.5"></rect><line x1="30" y1="18" x2="30" y2="102" stroke="rgba(193,80,58,.5)" stroke-width="2"></line><g fill="#fff" stroke="#1E2A38" stroke-width="2"><circle cx="34" cy="16" r="2.4"></circle><circle cx="46" cy="16" r="2.4"></circle><circle cx="58" cy="16" r="2.4"></circle><circle cx="70" cy="16" r="2.4"></circle><circle cx="82" cy="16" r="2.4"></circle></g><line x1="38" y1="46" x2="86" y2="46" stroke="rgba(30,42,56,.1)" stroke-width="2"></line><line x1="38" y1="60" x2="86" y2="60" stroke="rgba(30,42,56,.1)" stroke-width="2"></line><path d="M40 74 q10 -8 20 0 t20 0" fill="none" stroke="#0E9F6E" stroke-width="3" stroke-linecap="round" pathLength="1" style="stroke-dasharray:1;animation:drawLoop 3s ease-in-out infinite"></path><g transform="translate(84,76) rotate(38)"><g style="animation:penNod 1.5s ease-in-out infinite"><rect x="-4" y="-30" width="8" height="34" rx="2" fill="#F2A93C" stroke="#1E2A38" stroke-width="1.5"></rect><rect x="-4" y="-6" width="8" height="3" fill="#1E2A38"></rect><path d="M-4 4 L0 12 L4 4 Z" fill="#1E2A38"></path></g></g></svg></div>
+              <div style="font-size:20px;font-weight:800;color:#1E2A38;letter-spacing:-.3px;animation:fadeUp .5s .1s both">Tu inventario está vacío</div>
+              <div style="font-size:14px;color:#8A9A96;font-weight:500;line-height:1.5;max-width:260px;animation:fadeUp .5s .18s both">Agrega tus productos con foto, precio y stock para empezar a cobrar rápido.</div>
+              <div style="font-family:'Caveat',cursive;font-weight:700;font-size:22px;color:#0E9F6E;margin-top:4px;animation:fadeUp .5s .26s both">empieza a llenar tu cuaderno</div>
+              <button style="height:52px;padding:0 26px;border:none;border-radius:14px;background:#0E9F6E;color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 10px 22px rgba(14,159,110,.32);margin-top:16px;display:flex;align-items:center;gap:8px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>Agregar producto</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ P2 · SIN FIADOS ══ -->
+        <div data-page="2" style="position:absolute;inset:0;z-index:3;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#FAF8F3">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="padding:34px 22px 6px;position:relative;z-index:2"><div style="font-size:22px;font-weight:800;color:#1E2A38;letter-spacing:-.4px">Fiados</div></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 34px;text-align:center;gap:6px">
+              <div style="animation:floatBob 4.4s ease-in-out infinite"><svg width="150" height="150" viewBox="0 0 120 120"><rect x="22" y="16" width="76" height="88" rx="9" fill="#fff" stroke="#1E2A38" stroke-width="2.5"></rect><line x1="30" y1="18" x2="30" y2="102" stroke="rgba(193,80,58,.5)" stroke-width="2"></line><g fill="#fff" stroke="#1E2A38" stroke-width="2"><circle cx="34" cy="16" r="2.4"></circle><circle cx="46" cy="16" r="2.4"></circle><circle cx="58" cy="16" r="2.4"></circle><circle cx="70" cy="16" r="2.4"></circle><circle cx="82" cy="16" r="2.4"></circle></g><line x1="38" y1="46" x2="86" y2="46" stroke="rgba(30,42,56,.1)" stroke-width="2"></line><line x1="38" y1="60" x2="86" y2="60" stroke="rgba(30,42,56,.1)" stroke-width="2"></line><path d="M40 74 q10 -8 20 0 t20 0" fill="none" stroke="#0E9F6E" stroke-width="3" stroke-linecap="round" pathLength="1" style="stroke-dasharray:1;animation:drawLoop 3s ease-in-out infinite"></path><g transform="translate(84,76) rotate(38)"><g style="animation:penNod 1.5s ease-in-out infinite"><rect x="-4" y="-30" width="8" height="34" rx="2" fill="#F2A93C" stroke="#1E2A38" stroke-width="1.5"></rect><rect x="-4" y="-6" width="8" height="3" fill="#1E2A38"></rect><path d="M-4 4 L0 12 L4 4 Z" fill="#1E2A38"></path></g></g></svg></div>
+              <div style="font-size:20px;font-weight:800;color:#1E2A38;letter-spacing:-.3px;animation:fadeUp .5s .1s both">Nadie te debe… por ahora</div>
+              <div style="font-size:14px;color:#8A9A96;font-weight:500;line-height:1.5;max-width:260px;animation:fadeUp .5s .18s both">Aquí verás a quién le fiaste, cuánto y desde cuándo, para no perder la cuenta.</div>
+              <div style="font-family:'Caveat',cursive;font-weight:700;font-size:22px;color:#0E9F6E;margin-top:4px;animation:fadeUp .5s .26s both">cuentas claras, amistades largas</div>
+              <button style="height:52px;padding:0 26px;border:none;border-radius:14px;background:#0E9F6E;color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 10px 22px rgba(14,159,110,.32);margin-top:16px">Anotar un fiado</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ P3 · BÚSQUEDA VACÍA ══ -->
+        <div data-page="3" style="position:absolute;inset:0;z-index:2;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#FAF8F3">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="padding:26px 22px 12px;position:relative;z-index:2">
+              <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid rgba(30,42,56,.10);border-radius:13px;padding:11px 14px;color:#1E2A38;font-size:14px;font-weight:600"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A9A96" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4-4"></path></svg>harina pan integral<span style="margin-left:auto;color:#8A9A96;font-weight:700">✕</span></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 34px 40px;text-align:center;gap:6px">
+              <div style="animation:floatBob 4.4s ease-in-out infinite"><svg width="140" height="140" viewBox="0 0 120 120"><rect x="22" y="16" width="76" height="88" rx="9" fill="#fff" stroke="#1E2A38" stroke-width="2.5"></rect><line x1="30" y1="18" x2="30" y2="102" stroke="rgba(193,80,58,.5)" stroke-width="2"></line><g fill="#fff" stroke="#1E2A38" stroke-width="2"><circle cx="34" cy="16" r="2.4"></circle><circle cx="46" cy="16" r="2.4"></circle><circle cx="58" cy="16" r="2.4"></circle><circle cx="70" cy="16" r="2.4"></circle><circle cx="82" cy="16" r="2.4"></circle></g><circle cx="55" cy="62" r="15" fill="none" stroke="#8A9A96" stroke-width="3"></circle><line x1="66" y1="73" x2="80" y2="87" stroke="#8A9A96" stroke-width="3" stroke-linecap="round"></line><path d="M49 62 h12 M55 56 v12" stroke="rgba(30,42,56,.25)" stroke-width="2.4" stroke-linecap="round"></path></svg></div>
+              <div style="font-size:20px;font-weight:800;color:#1E2A38;letter-spacing:-.3px;animation:fadeUp .5s .1s both">Sin resultados</div>
+              <div style="font-size:14px;color:#8A9A96;font-weight:500;line-height:1.5;max-width:270px;animation:fadeUp .5s .18s both">No encontramos «harina pan integral». Revisa la ortografía o prueba con menos palabras.</div>
+              <button style="height:50px;padding:0 24px;border:1.5px solid rgba(30,42,56,.15);border-radius:13px;background:#fff;color:#1E2A38;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;margin-top:14px">Limpiar búsqueda</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ P4 · SIN CONEXIÓN ══ -->
+        <div data-page="4" style="position:absolute;inset:0;z-index:1;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#FAF8F3">
+          <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:34px;text-align:center;gap:6px">
+            <div style="width:96px;height:96px;border-radius:26px;background:rgba(242,169,60,.14);display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;animation:wobble 2.8s ease-in-out infinite">
+              <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#b07d1e" stroke-width="2" stroke-linecap="round">
+                <path d="M4 9a11 11 0 0 1 16 0" style="animation:arcBlink 1.8s ease-in-out infinite;animation-delay:.6s"></path>
+                <path d="M7.5 12.5a6.5 6.5 0 0 1 9 0" style="animation:arcBlink 1.8s ease-in-out infinite;animation-delay:.3s"></path>
+                <path d="M10.5 15.5a2.5 2.5 0 0 1 3 0" style="animation:arcBlink 1.8s ease-in-out infinite"></path>
+                <circle cx="12" cy="19" r="1.1" fill="#b07d1e" stroke="none"></circle>
+              </svg>
+            </div>
+            <div style="font-size:20px;font-weight:800;color:#1E2A38;letter-spacing:-.3px;margin-top:14px;animation:fadeUp .5s .1s both">Estás sin conexión</div>
+            <div style="font-size:14px;color:#8A9A96;font-weight:500;line-height:1.5;max-width:270px;animation:fadeUp .5s .18s both">Puedes seguir vendiendo con normalidad. Todo se sincroniza solo cuando vuelva el internet.</div>
+            <div style="font-family:'Caveat',cursive;font-weight:700;font-size:22px;color:#b07d1e;margin-top:4px;animation:fadeUp .5s .26s both">sin prisa, aquí está todo</div>
+            <button style="height:50px;padding:0 24px;border:1.5px solid rgba(30,42,56,.15);border-radius:13px;background:#fff;color:#1E2A38;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;margin-top:16px;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E2A38" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>Reintentar</button>
+          </div>
+        </div>
+
+      </div>
+    </x-import>
+
+    <div style="display:flex;align-items:center;gap:16px">
+      <button onClick="{{ prev }}" style="width:46px;height:46px;border-radius:100px;border:1.5px solid rgba(30,42,56,.16);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E2A38" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span data-dot onClick="{{ go0 }}" style="width:26px;height:9px;border-radius:100px;background:#0E9F6E;cursor:pointer;transition:all .3s"></span>
+        <span data-dot onClick="{{ go1 }}" style="width:9px;height:9px;border-radius:100px;background:rgba(30,42,56,.2);cursor:pointer;transition:all .3s"></span>
+        <span data-dot onClick="{{ go2 }}" style="width:9px;height:9px;border-radius:100px;background:rgba(30,42,56,.2);cursor:pointer;transition:all .3s"></span>
+        <span data-dot onClick="{{ go3 }}" style="width:9px;height:9px;border-radius:100px;background:rgba(30,42,56,.2);cursor:pointer;transition:all .3s"></span>
+        <span data-dot onClick="{{ go4 }}" style="width:9px;height:9px;border-radius:100px;background:rgba(30,42,56,.2);cursor:pointer;transition:all .3s"></span>
+      </div>
+      <button onClick="{{ next }}" style="width:46px;height:46px;border-radius:100px;border:none;background:#0E9F6E;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 18px rgba(14,159,110,.32)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg></button>
+    </div>
+    <div data-label style="font-size:13px;color:#8A9A96;font-weight:600">Sin ventas · 1 de 5</div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TR = 'transform .62s cubic-bezier(.2,.72,.24,1), box-shadow .62s ease';
+const LIFT = '0 26px 44px rgba(30,42,56,.3)';
+const GREEN = '#0E9F6E';
+const NAMES = ['Sin ventas', 'Sin productos', 'Sin fiados', 'Búsqueda', 'Sin conexión'];
+
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.stageRef = React.createRef();
+    this.navRef = React.createRef();
+    this.cur = 0; this.busy = false; this.reduce = false;
+  }
+  componentDidMount() {
+    this.reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this._raf = requestAnimationFrame(() => this.tryInit());
+  }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); }
+  tryInit() {
+    const s = this.stageRef.current;
+    if (!s) { this._raf = requestAnimationFrame(() => this.tryInit()); return; }
+    this.pages = Array.from(s.querySelectorAll('[data-page]'));
+    if (this.pages.length < 5) { this._raf = requestAnimationFrame(() => this.tryInit()); return; }
+    this.dots = this.navRef.current ? Array.from(this.navRef.current.querySelectorAll('[data-dot]')) : [];
+    this.label = this.navRef.current ? this.navRef.current.querySelector('[data-label]') : null;
+    this.layout(0, false);
+  }
+  setNav(cur) {
+    if (this.dots) this.dots.forEach((d, i) => { d.style.width = i === cur ? '26px' : '9px'; d.style.background = i === cur ? GREEN : 'rgba(30,42,56,.2)'; });
+    if (this.label) this.label.textContent = NAMES[cur] + ' · ' + (cur + 1) + ' de 5';
+  }
+  layout(cur, animate) {
+    this.cur = cur;
+    this.pages.forEach((p, i) => {
+      p.style.transition = animate ? TR : 'none';
+      p.style.boxShadow = 'none';
+      if (i < cur) { p.style.transform = 'rotateX(-181deg)'; p.style.zIndex = '1'; }
+      else if (i === cur) { p.style.transform = 'rotateX(0deg)'; p.style.zIndex = '3'; }
+      else { p.style.transform = 'rotateX(0deg)'; p.style.zIndex = '2'; }
+    });
+    if (!animate) { void this.pages[0].offsetHeight; this.pages.forEach(p => { p.style.transition = TR; }); }
+    this.setNav(cur);
+  }
+  go(target) {
+    if (this.busy || !this.pages || target === this.cur || target < 0 || target > 4) return;
+    if (this.reduce) { this.layout(target, false); return; }
+    this.busy = true;
+    const cur = this.cur;
+    this.setNav(target);
+    let mover;
+    const onEnd = () => { mover.removeEventListener('transitionend', onEnd); this.busy = false; this.layout(target, false); };
+    if (target > cur) {
+      const beneath = this.pages[target];
+      this.pages.forEach((p, i) => { if (i !== cur && i !== target) p.style.zIndex = '1'; });
+      beneath.style.transition = 'none'; beneath.style.transform = 'rotateX(0deg)'; beneath.style.zIndex = '2';
+      void beneath.offsetHeight; beneath.style.transition = TR;
+      mover = this.pages[cur];
+      mover.style.transition = TR; mover.style.zIndex = '10'; mover.style.boxShadow = LIFT;
+      void mover.offsetHeight; mover.style.transform = 'rotateX(-181deg)';
+    } else {
+      mover = this.pages[target];
+      mover.style.transition = 'none'; mover.style.transform = 'rotateX(-181deg)'; mover.style.zIndex = '10'; mover.style.boxShadow = LIFT;
+      void mover.offsetHeight; mover.style.transition = TR; mover.style.transform = 'rotateX(0deg)';
+    }
+    mover.addEventListener('transitionend', onEnd);
+  }
+  renderVals() {
+    return {
+      stageRef: this.stageRef,
+      navRef: this.navRef,
+      next: () => this.go(this.cur + 1),
+      prev: () => this.go(this.cur - 1),
+      go0: () => this.go(0), go1: () => this.go(1), go2: () => this.go(2), go3: () => this.go(3), go4: () => this.go(4),
+    };
+  }
+}
+</script>
+</body>
+</html>

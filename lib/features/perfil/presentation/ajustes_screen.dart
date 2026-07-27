@@ -3,32 +3,29 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
+import '../../../app/router/routes.dart';
+import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/theme_mode_provider.dart';
+import '../../../core/utils/money_formatter.dart';
+import '../../../services/bcv/bcv_rate_service.dart';
+import '../../../services/binance/binance_p2p_service.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../shared/presentation/foto_red.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
 import '../../notificaciones/presentation/avisos_tasa_seccion.dart';
 
-/// Ajustes de la cuenta (bloque `isAjustes` del diseño).
+/// Ajustes de la cuenta (réplica visual de `P3 · AJUSTES`, `Lote E ·
+/// Negocio y Perfil`).
 ///
-/// Los ajustes están agrupados por tema, de lo más identitario a lo más
-/// opcional: primero la foto, luego los datos del negocio, después recibos,
-/// avisos y por último la apariencia. Cada sección entra con una pequeña
-/// animación escalonada (fade + deslizamiento) para que la pantalla se sienta
-/// ordenada en vez de un bloque que aparece de golpe.
-///
-/// Los campos de texto ya NO se guardan solos mientras escribes — antes lo
-/// hacían con un pequeño retardo, pero eso hacía salir "Guardado" cada vez
-/// que el dueño hacía una pausa al teclear (por ejemplo, anotando un
-/// teléfono en varias tandas). Ahora solo se guardan al tocar "Guardar
-/// cambios". Los interruptores y la foto de perfil, al ser una sola acción
-/// deliberada, se siguen guardando al toque.
+/// Los ajustes están agrupados por tema: negocio, tasa de cambio, recibos,
+/// avisos y apariencia. Los campos de texto solo se guardan al tocar
+/// "Guardar cambios"; los interruptores y la foto, al ser una sola acción
+/// deliberada, se guardan al toque.
 class AjustesScreen extends ConsumerStatefulWidget {
   const AjustesScreen({super.key});
 
@@ -56,7 +53,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     super.dispose();
   }
 
-  /// Copia los valores del negocio a los campos la primera vez que llegan.
   void _sembrar(Negocio n) {
     if (_inicializado) return;
     _inicializado = true;
@@ -98,14 +94,12 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No se pudieron guardar los ajustes: $e'),
-          backgroundColor: AppColors.peligro,
+          backgroundColor: LibretaColors.peligro,
         ),
       );
     }
   }
 
-  /// Interruptores: se guardan al toque, sin botón — es una sola acción
-  /// deliberada, no una ráfaga de tecleo.
   Future<void> _guardarInterruptor(
     String negocioId, {
     bool? incluirIva,
@@ -126,7 +120,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No se pudo guardar: $e'),
-          backgroundColor: AppColors.peligro,
+          backgroundColor: LibretaColors.peligro,
         ),
       );
     }
@@ -141,12 +135,12 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Text('📷', style: TextStyle(fontSize: 20)),
+                  leading: const Icon(Icons.photo_camera_outlined),
                   title: const Text('Tomar foto'),
                   onTap: () => Navigator.of(c).pop(ImageSource.camera),
                 ),
                 ListTile(
-                  leading: const Text('🖼️', style: TextStyle(fontSize: 20)),
+                  leading: const Icon(Icons.image_outlined),
                   title: const Text('Elegir de la galería'),
                   onTap: () => Navigator.of(c).pop(ImageSource.gallery),
                 ),
@@ -184,7 +178,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No se pudo subir la foto: $e'),
-          backgroundColor: AppColors.peligro,
+          backgroundColor: LibretaColors.peligro,
         ),
       );
     }
@@ -192,10 +186,8 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final esDueno = ref.watch(esDuenoProvider);
-    final modoOscuro = ref.watch(themeModeProvider) == ThemeMode.dark;
 
     if (negocio == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -205,390 +197,554 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     final tieneFoto = negocio.fotoUrl != null && negocio.fotoUrl!.isNotEmpty;
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                children: [
-                  Row(
-                    children: [
-                      NeuIconBtn(
-                        icon: Icons.arrow_back,
-                        onTap: () => Navigator.of(context).pop(),
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+                child: Row(
+                  children: [
+                    LibretaBackButton(
+                      oscuro: true,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Ajustes',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: context.libreta.textoFuerte,
+                        letterSpacing: -0.4,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Ajustes de la cuenta',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: t.text,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: context.libreta.renglon),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+                  children: [
+                    if (!esDueno) ...[
+                      _EntradaSuave(
+                        orden: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0x21F2A93C),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Text(
+                            'Como empleado solo puedes cambiar tus preferencias '
+                            'personales, no la configuración del negocio.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: LibretaColors.aviso,
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Aquí puedes personalizar todo a tu manera 🙂',
-                    style: TextStyle(fontSize: 13, color: t.textSec),
-                  ),
 
-                  if (!esDueno) ...[
-                    const SizedBox(height: 16),
+                    // --- Foto de perfil ---
                     _EntradaSuave(
-                      orden: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
+                      orden: 1,
+                      child: Column(
+                        children: [
+                          Center(
+                            child: _AvatarEditable(
+                              fotoUrl: negocio.fotoUrl,
+                              inicial: negocio.nombre.isEmpty
+                                  ? '?'
+                                  : negocio.nombre[0].toUpperCase(),
+                              subiendo: _subiendoFoto,
+                              editable: esDueno,
+                              onTap: () => _abrirSelectorFoto(negocio.id),
+                            ),
+                          ),
+                          if (esDueno) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Toca la foto para cambiarla',
+                              style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // --- 1. Negocio ---
+                    _EntradaSuave(
+                      orden: 2,
+                      child: _Seccion(
+                        titulo: 'Negocio',
+                        child: Column(
+                          children: [
+                            _Fila(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Nombre del negocio',
+                                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _nombre,
+                                    enabled: esDueno,
+                                    onChanged: (_) => _marcarSucio(),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      filled: false,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _Fila(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Rubro',
+                                    style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                                  ),
+                                  Text(
+                                    negocio.rubro.etiqueta,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _Fila(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Meta de ventas mensual (USD)',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  LibretaInput(
+                                    controller: _meta,
+                                    hint: '0',
+                                    height: 42,
+                                    enabled: esDueno,
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (_) => _marcarSucio(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _Fila(
+                              ultima: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'WhatsApp del proveedor',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Para pedir reabastecimiento cuando el '
+                                    'stock esté bajo',
+                                    style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  LibretaInput(
+                                    controller: _proveedor,
+                                    hint: 'Ej: 584121234567',
+                                    height: 42,
+                                    enabled: esDueno,
+                                    keyboardType: TextInputType.phone,
+                                    onChanged: (_) => _marcarSucio(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.avisoSuave,
-                          borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // --- 2. Tasa de cambio · usar al cobrar ---
+                    _EntradaSuave(
+                      orden: 3,
+                      child: _Seccion(
+                        titulo: 'Tasa de cambio · usar al cobrar',
+                        child: const _SelectorTasaAjustes(),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 2),
+                      child: Text(
+                        'La tasa elegida se usa para convertir el total a '
+                        'bolívares al momento de cobrar.',
+                        style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // --- 3. Recibos e impuestos ---
+                    _EntradaSuave(
+                      orden: 4,
+                      child: _Seccion(
+                        titulo: 'Recibos e impuestos',
+                        child: Column(
+                          children: [
+                            _Fila(
+                              child: _FilaInterruptor(
+                                titulo: 'Incluir IVA en recibos',
+                                detalle: 'Sumamos el 16% automáticamente al total',
+                                value: negocio.incluirIva,
+                                onChanged: esDueno
+                                    ? (v) => _guardarInterruptor(negocio.id, incluirIva: v)
+                                    : null,
+                              ),
+                            ),
+                            _Fila(
+                              ultima: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mensaje en el recibo',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _reciboMensaje,
+                                    enabled: esDueno,
+                                    onChanged: (_) => _marcarSucio(),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: context.libreta.textoMuted,
+                                    ),
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      filled: false,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintText: 'Gracias por su compra',
+                                      hintStyle: TextStyle(color: context.libreta.textoMuted),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'Como empleado solo puedes cambiar tus preferencias '
-                          'personales, no la configuración del negocio.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.aviso,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // --- 4. Avisos ---
+                    _EntradaSuave(
+                      orden: 5,
+                      child: _Seccion(
+                        titulo: 'Avisos',
+                        child: Column(
+                          children: [
+                            _Fila(
+                              child: _FilaInterruptor(
+                                titulo: 'Avísame si baja el stock',
+                                detalle: 'Te avisamos antes de que se agote algo',
+                                value: negocio.alertaStockActiva,
+                                onChanged: esDueno
+                                    ? (v) => _guardarInterruptor(negocio.id, alertaStock: v)
+                                    : null,
+                              ),
+                            ),
+                            _Fila(
+                              ultima: true,
+                              onTap: () => context.push(Routes.notificaciones),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Ver mis notificaciones',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: context.libreta.textoFuerte,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 19,
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const _EntradaSuave(orden: 6, child: AvisosTasaSeccion()),
+                    const SizedBox(height: 18),
+
+                    // --- 5. Apariencia ---
+                    _EntradaSuave(
+                      orden: 7,
+                      child: _Seccion(
+                        titulo: 'Apariencia',
+                        child: Column(
+                          children: [
+                            _Fila(
+                              ultima: !tieneFoto,
+                              child: _FilaInterruptor(
+                                titulo: 'Modo oscuro',
+                                detalle:
+                                    'Reduce la fatiga visual con una interfaz '
+                                    'más oscura',
+                                value: ref.watch(themeModeProvider) ==
+                                    ThemeMode.dark,
+                                onChanged: (v) =>
+                                    ref.read(themeModeProvider.notifier).alternar(),
+                              ),
+                            ),
+                            if (tieneFoto)
+                              _Fila(
+                                ultima: true,
+                                child: _FilaInterruptor(
+                                  titulo:
+                                      'Usar tu foto de fondo en el Inicio',
+                                  detalle:
+                                      'Se muestra detrás del dashboard, con '
+                                      'un velo para que el texto se siga '
+                                      'leyendo',
+                                  value: negocio.fotoComoFondo,
+                                  onChanged: esDueno
+                                      ? (v) => _guardarInterruptor(
+                                          negocio.id,
+                                          fotoComoFondo: v,
+                                        )
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // --- 6. Ayuda ---
+                    _EntradaSuave(
+                      orden: 8,
+                      child: _Seccion(
+                        titulo: 'Ayuda',
+                        child: _Fila(
+                          ultima: true,
+                          onTap: () => context.push(Routes.ayuda),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Centro de ayuda',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.libreta.textoFuerte,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 19,
+                                color: context.libreta.textoMuted,
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 20),
-
-                  // --- Foto de perfil ---
-                  _EntradaSuave(
-                    orden: 1,
-                    child: Column(
-                      children: [
-                        Center(
-                          child: _AvatarEditable(
-                            fotoUrl: negocio.fotoUrl,
-                            inicial:
-                                negocio.nombre.isEmpty
-                                    ? '?'
-                                    : negocio.nombre[0].toUpperCase(),
-                            subiendo: _subiendoFoto,
-                            editable: esDueno,
-                            onTap: () => _abrirSelectorFoto(negocio.id),
-                          ),
-                        ),
-                        if (esDueno) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Toca la foto para cambiarla',
-                            style: TextStyle(fontSize: 12, color: t.textSec),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  // --- 1. Negocio: identidad y datos de trabajo ---
-                  _EntradaSuave(
-                    orden: 2,
-                    child: _Seccion(
-                      titulo: '🏪 Negocio',
-                      child: Column(
-                        children: [
-                          NeuListTile(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Nombre del negocio',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: t.textSec,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: _nombre,
-                                  enabled: esDueno,
-                                  onChanged: (_) => _marcarSucio(),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: t.text,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          NeuListTile(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Rubro',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: t.textSec,
-                                  ),
-                                ),
-                                Text(
-                                  negocio.rubro.etiqueta,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: t.text,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          NeuListTile(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '🎯 Meta de ventas mensual (USD)',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: t.text,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                NeuInput(
-                                  controller: _meta,
-                                  hint: '0',
-                                  height: 42,
-                                  radius: 14,
-                                  fillWithPageBg: true,
-                                  enabled: esDueno,
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (_) => _marcarSucio(),
-                                ),
-                              ],
-                            ),
-                          ),
-                          NeuListTile(
-                            divider: false,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '🚚 WhatsApp del proveedor',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: t.text,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Para pedir reabastecimiento cuando el '
-                                  'stock esté bajo',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: t.textSec,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                NeuInput(
-                                  controller: _proveedor,
-                                  hint: 'Ej: 584121234567',
-                                  height: 42,
-                                  radius: 14,
-                                  fillWithPageBg: true,
-                                  enabled: esDueno,
-                                  keyboardType: TextInputType.phone,
-                                  onChanged: (_) => _marcarSucio(),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // --- 2. Recibos e impuestos ---
-                  _EntradaSuave(
-                    orden: 3,
-                    child: _Seccion(
-                      titulo: '🧾 Recibos e impuestos',
-                      child: Column(
-                        children: [
-                          NeuListTile(
-                            child: _FilaInterruptor(
-                              titulo: 'Incluir IVA en recibos',
-                              detalle:
-                                  'Sumamos el 16% automáticamente al total',
-                              value: negocio.incluirIva,
-                              onChanged:
-                                  esDueno
-                                      ? (v) => _guardarInterruptor(
-                                        negocio.id,
-                                        incluirIva: v,
-                                      )
-                                      : null,
-                            ),
-                          ),
-                          NeuListTile(
-                            divider: false,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mensaje en el recibo 💬',
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: t.text,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                TextField(
-                                  controller: _reciboMensaje,
-                                  enabled: esDueno,
-                                  onChanged: (_) => _marcarSucio(),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: t.textSec,
-                                  ),
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                    hintText: 'Gracias por su compra',
-                                    hintStyle: TextStyle(color: t.muted),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // --- 3. Avisos: stock bajo + tasa del dólar, juntos ---
-                  _EntradaSuave(
-                    orden: 4,
-                    child: _Seccion(
-                      titulo: '🔔 Avisos',
-                      child: NeuListTile(
-                        divider: false,
-                        child: _FilaInterruptor(
-                          titulo: 'Avísame si baja el stock',
-                          detalle: 'Te avisamos antes de que se agote algo',
-                          value: negocio.alertaStockActiva,
-                          onChanged:
-                              esDueno
-                                  ? (v) => _guardarInterruptor(
-                                    negocio.id,
-                                    alertaStock: v,
-                                  )
-                                  : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const _EntradaSuave(orden: 5, child: AvisosTasaSeccion()),
-                  const SizedBox(height: 18),
-
-                  // --- 4. Apariencia: cómo se ve la app ---
-                  _EntradaSuave(
-                    orden: 6,
-                    child: _Seccion(
-                      titulo: '🎨 Apariencia',
-                      child: Column(
-                        children: [
-                          NeuListTile(
-                            divider: tieneFoto,
-                            child: _FilaInterruptor(
-                              titulo: 'Modo oscuro 🌙',
-                              detalle: 'Más cómodo para tus ojos de noche',
-                              value: modoOscuro,
-                              // Es preferencia del dispositivo, no del negocio:
-                              // la puede cambiar cualquiera.
-                              onChanged:
-                                  (_) =>
-                                      ref
-                                          .read(themeModeProvider.notifier)
-                                          .alternar(),
-                            ),
-                          ),
-                          if (tieneFoto)
-                            NeuListTile(
-                              divider: false,
-                              child: _FilaInterruptor(
-                                titulo: 'Usar tu foto de fondo en el Inicio',
-                                detalle:
-                                    'Se muestra detrás del dashboard, con un '
-                                    'velo para que el texto se siga leyendo',
-                                value: negocio.fotoComoFondo,
-                                onChanged:
-                                    esDueno
-                                        ? (v) => _guardarInterruptor(
-                                          negocio.id,
-                                          fotoComoFondo: v,
-                                        )
-                                        : null,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
 
-            // Solo aparece cuando hay algo sin guardar: nada de avisos por
-            // cada pausa al escribir, y el dueño siempre sabe si le falta
-            // confirmar. Entra y sale con una animación de tamaño.
-            AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              child:
-                  (_sucio && esDueno)
-                      ? _BarraGuardar(
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                child: (_sucio && esDueno)
+                    ? _BarraGuardar(
                         guardando: _guardando,
                         onGuardar: () => _guardarTexto(negocio.id),
                       )
-                      : const SizedBox(width: double.infinity),
-            ),
-          ],
+                    : const SizedBox(width: double.infinity),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+/// Selector de tasa BCV/Binance (réplica exacta de `P3 · AJUSTES`) — usa el
+/// mismo `tasaActivaProvider` que Cobrar (Lote B): la elección se comparte en
+/// toda la app.
+class _SelectorTasaAjustes extends ConsumerWidget {
+  const _SelectorTasaAjustes();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tipo = ref.watch(tasaActivaProvider);
+    final bcv = ref.watch(bcvRateProvider).valueOrNull?.tasa;
+    final binance = ref.watch(binanceP2PRateProvider).valueOrNull?.precio;
+
+    return Column(
+      children: [
+        _FilaTasa(
+          seleccionada: tipo == TipoTasa.bcv,
+          titulo: 'BCV',
+          subtitulo: 'Banco Central de Venezuela',
+          calificador: 'oficial',
+          valor: bcv,
+          onTap: () => ref.read(tasaActivaProvider.notifier).elegir(TipoTasa.bcv),
+        ),
+        _FilaTasa(
+          seleccionada: tipo == TipoTasa.binance,
+          titulo: 'Binance USDT',
+          subtitulo: 'Promedio del mercado P2P',
+          calificador: 'paralelo',
+          valor: binance,
+          ultima: true,
+          onTap: () => ref.read(tasaActivaProvider.notifier).elegir(TipoTasa.binance),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilaTasa extends StatelessWidget {
+  const _FilaTasa({
+    required this.seleccionada,
+    required this.titulo,
+    required this.subtitulo,
+    required this.calificador,
+    required this.valor,
+    required this.onTap,
+    this.ultima = false,
+  });
+
+  final bool seleccionada;
+  final String titulo;
+  final String subtitulo;
+  final String calificador;
+  final double? valor;
+  final VoidCallback onTap;
+  final bool ultima;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = valor;
+    return _Fila(
+      ultima: ultima,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: seleccionada ? LibretaColors.verde : Colors.transparent,
+              shape: BoxShape.circle,
+              border: seleccionada
+                  ? null
+                  : Border.all(color: context.libreta.bordeSuave, width: 2),
+            ),
+            alignment: Alignment.center,
+            child: seleccionada
+                ? const Icon(Icons.check, size: 13, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      titulo,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: context.libreta.textoFuerte,
+                      ),
+                    ),
+                    Text(
+                      ' · $calificador',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.libreta.textoMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  subtitulo,
+                  style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            v == null ? '—' : MoneyFormatter.bs(v),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: context.libreta.textoFuerte,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Fade + deslizamiento hacia arriba al entrar, escalonado por [orden].
-///
-/// Cada sección espera `orden × 60 ms` antes de aparecer, así la pantalla se
-/// "construye" de arriba hacia abajo en vez de caer toda de golpe.
 class _EntradaSuave extends StatefulWidget {
   const _EntradaSuave({required this.orden, required this.child});
 
@@ -634,8 +790,6 @@ class _EntradaSuaveState extends State<_EntradaSuave> {
 }
 
 /// Fila estándar "título + detalle + interruptor" de las secciones.
-///
-/// Con [onChanged] nulo el interruptor se ve pero no responde (empleados).
 class _FilaInterruptor extends StatelessWidget {
   const _FilaInterruptor({
     required this.titulo,
@@ -651,7 +805,6 @@ class _FilaInterruptor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Row(
       children: [
         Expanded(
@@ -663,18 +816,18 @@ class _FilaInterruptor extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
-                  color: t.text,
+                  color: context.libreta.textoFuerte,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 detalle,
-                style: TextStyle(fontSize: 11.5, color: t.textSec),
+                style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
               ),
             ],
           ),
         ),
-        NeuToggle(value: value, onChanged: onChanged ?? (_) {}),
+        LibretaToggle(value: value, onChanged: onChanged ?? (_) {}),
       ],
     );
   }
@@ -689,14 +842,13 @@ class _BarraGuardar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       decoration: BoxDecoration(
-        color: t.surface,
-        border: Border(top: BorderSide(color: t.border2)),
+        color: context.libreta.superficie,
+        border: Border(top: BorderSide(color: context.libreta.renglon)),
       ),
-      child: NeuButton(
+      child: LibretaButton(
         label: guardando ? 'Guardando…' : 'Guardar cambios',
         height: 48,
         loading: guardando,
@@ -706,8 +858,7 @@ class _BarraGuardar extends StatelessWidget {
   }
 }
 
-/// Avatar circular con badge de cámara; mientras sube muestra un spinner y la
-/// foto hace un pequeño "respiro" (escala) al tocarse.
+/// Avatar circular con badge de cámara.
 class _AvatarEditable extends StatefulWidget {
   const _AvatarEditable({
     required this.fotoUrl,
@@ -732,7 +883,6 @@ class _AvatarEditableState extends State<_AvatarEditable> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final tieneFoto = widget.fotoUrl != null && widget.fotoUrl!.isNotEmpty;
     final inicialBlanca = Text(
       widget.inicial,
@@ -757,25 +907,23 @@ class _AvatarEditableState extends State<_AvatarEditable> {
               width: 88,
               height: 88,
               clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: AppColors.marca,
+              decoration: const BoxDecoration(
+                color: LibretaColors.verde,
                 shape: BoxShape.circle,
-                boxShadow: t.shadowBtn,
               ),
               alignment: Alignment.center,
-              child:
-                  widget.subiendo
-                      ? const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2.5,
-                      )
-                      : tieneFoto
+              child: widget.subiendo
+                  ? const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    )
+                  : tieneFoto
                       ? FotoRed(
-                        widget.fotoUrl!,
-                        width: 88,
-                        height: 88,
-                        alError: inicialBlanca,
-                      )
+                          widget.fotoUrl!,
+                          width: 88,
+                          height: 88,
+                          alError: inicialBlanca,
+                        )
                       : inicialBlanca,
             ),
             if (widget.editable)
@@ -786,13 +934,16 @@ class _AvatarEditableState extends State<_AvatarEditable> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: t.surface,
+                    color: context.libreta.superficie,
                     shape: BoxShape.circle,
-                    border: Border.all(color: t.pageBg, width: 2),
-                    boxShadow: t.shadowRaisedSm,
+                    border: Border.all(color: context.libreta.papel, width: 2),
                   ),
                   alignment: Alignment.center,
-                  child: const Text('📷', style: TextStyle(fontSize: 13)),
+                  child: Icon(
+                    Icons.photo_camera_outlined,
+                    size: 14,
+                    color: context.libreta.textoFuerte,
+                  ),
                 ),
               ),
           ],
@@ -811,21 +962,53 @@ class _Seccion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          titulo,
+          titulo.toUpperCase(),
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: t.textSec,
+            letterSpacing: 0.5,
+            color: context.libreta.textoMuted,
           ),
         ),
         const SizedBox(height: 8),
-        NeuCard(clip: true, child: child),
+        Container(
+          decoration: BoxDecoration(
+            color: context.libreta.superficie,
+            border: Border.all(color: const Color(0x141E2A38)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: child,
+        ),
       ],
     );
+  }
+}
+
+/// Fila con separador inferior opcional (réplica de `NeuListTile` en plano).
+class _Fila extends StatelessWidget {
+  const _Fila({required this.child, this.ultima = false, this.onTap});
+
+  final Widget child;
+  final bool ultima;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final contenido = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        border: ultima
+            ? null
+            : Border(bottom: BorderSide(color: context.libreta.renglon)),
+      ),
+      child: child,
+    );
+    if (onTap == null) return contenido;
+    return GestureDetector(onTap: onTap, child: contenido);
   }
 }

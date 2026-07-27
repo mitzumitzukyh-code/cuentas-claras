@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../domain/rubro.dart';
 import 'unirse_codigo_screen.dart';
 
-/// Pantalla 3 — Onboarding (bloque `isOnboarding` del diseño).
+/// Pantalla 3 — Onboarding (réplica visual de `P0 · RUBRO`, `Lote F ·
+/// Onboarding y Sistema`).
 ///
 /// El prototipo lo plantea en 4 pasos; aquí se implementan los que aplican a un
 /// usuario ya autenticado: **negocio + rubro**, **moneda + tasa BCV** y el
@@ -71,7 +69,7 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No se pudo crear el negocio: $e'),
-          backgroundColor: AppColors.peligro,
+          backgroundColor: LibretaColors.peligro,
         ),
       );
     }
@@ -80,55 +78,57 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _BarraPasos(
-                paso: _paso,
-                total: _totalPasos,
-                onAtras: _paso == 0 ? null : _atras,
-              ),
-              const SizedBox(height: 20),
-              // Cada paso usa `Spacer` para empujar el botón al pie. Al subir
-              // el teclado la altura disponible se reduce, así que el contenido
-              // tiene que poder desplazarse en vez de desbordar.
-              Expanded(
-                child: LayoutBuilder(
-                  builder:
-                      (context, c) => SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: c.maxHeight),
-                          child: IntrinsicHeight(
-                            child: switch (_paso) {
-                              0 => _PasoNegocio(
-                                nombre: _nombre,
-                                rubro: _rubro,
-                                onRubro: (r) => setState(() => _rubro = r),
-                                onCambio: () => setState(() {}),
-                                onSiguiente: _siguiente,
-                              ),
-                              1 => _PasoMoneda(
-                                moneda: _moneda,
-                                onMoneda: (m) => setState(() => _moneda = m),
-                                onSiguiente: _siguiente,
-                              ),
-                              _ => _PasoResumen(
-                                nombreNegocio: _nombre.text.trim(),
-                                rubro: _rubro,
-                                moneda: _moneda,
-                                cargando: _cargando,
-                                onEmpezar: _crearNegocio,
-                              ),
-                            },
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        spiral: false,
+        coralMargin: false,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _BarraPasos(
+                  paso: _paso,
+                  total: _totalPasos,
+                  onAtras: _paso == 0 ? null : _atras,
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder:
+                        (context, c) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: c.maxHeight),
+                            child: IntrinsicHeight(
+                              child: switch (_paso) {
+                                0 => _PasoNegocio(
+                                  nombre: _nombre,
+                                  rubro: _rubro,
+                                  onRubro: (r) => setState(() => _rubro = r),
+                                  onCambio: () => setState(() {}),
+                                  onSiguiente: _siguiente,
+                                ),
+                                1 => _PasoMoneda(
+                                  moneda: _moneda,
+                                  onMoneda: (m) => setState(() => _moneda = m),
+                                  onSiguiente: _siguiente,
+                                ),
+                                _ => _PasoResumen(
+                                  nombreNegocio: _nombre.text.trim(),
+                                  rubro: _rubro,
+                                  moneda: _moneda,
+                                  cargando: _cargando,
+                                  onEmpezar: _crearNegocio,
+                                ),
+                              },
+                            ),
                           ),
                         ),
-                      ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -150,31 +150,31 @@ class _BarraPasos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Row(
       children: [
         SizedBox(
           width: 36,
-          child:
-              onAtras == null
-                  ? null
-                  : NeuIconBtn(icon: Icons.arrow_back, onTap: onAtras),
+          child: onAtras == null
+              ? null
+              : LibretaBackButton(oscuro: true, onTap: onAtras),
         ),
         Expanded(
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var i = 0; i < total; i++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == paso ? 22 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i <= paso ? AppColors.marca : t.border,
-                    borderRadius: BorderRadius.circular(3),
+              for (var i = 0; i < total; i++) ...[
+                if (i > 0) const SizedBox(width: 5),
+                Expanded(
+                  child: Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: i <= paso
+                          ? LibretaColors.verde
+                          : context.libreta.bordeSuave,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
                   ),
                 ),
+              ],
             ],
           ),
         ),
@@ -198,7 +198,6 @@ class _Encabezado extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -207,7 +206,7 @@ class _Encabezado extends StatelessWidget {
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppColors.marca,
+            color: LibretaColors.verde,
           ),
         ),
         const SizedBox(height: 4),
@@ -216,11 +215,11 @@ class _Encabezado extends StatelessWidget {
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
-            color: t.text,
+            color: context.libreta.textoFuerte,
           ),
         ),
         const SizedBox(height: 6),
-        Text(subtitulo, style: TextStyle(fontSize: 14, color: t.textSec)),
+        Text(subtitulo, style: TextStyle(fontSize: 14, color: context.libreta.textoMuted)),
       ],
     );
   }
@@ -244,7 +243,6 @@ class _PasoNegocio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final listo = nombre.text.trim().isNotEmpty && rubro != null;
 
     return Column(
@@ -256,22 +254,17 @@ class _PasoNegocio extends StatelessWidget {
           subtitulo: 'Así lo verán tus recibos y tu equipo.',
         ),
         const SizedBox(height: 16),
-        // Antes vivía como un texto chiquito al pie de este paso, fácil de
-        // no ver — quien fue invitado terminaba sin saber dónde poner su
-        // código. Ahora es lo primero que se ve, antes de pedirle un nombre
-        // de negocio que ni siquiera necesita escribir.
-        NeuSecondaryButton(
+        LibretaSecondaryButton(
           label: '¿Te invitaron? Entra con tu código',
           height: 46,
-          onPressed:
-              () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const UnirseCodigoScreen(),
-                ),
-              ),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const UnirseCodigoScreen(),
+            ),
+          ),
         ),
         const SizedBox(height: 22),
-        NeuInput(
+        LibretaInput(
           controller: nombre,
           hint: 'Ej: Abasto La Esquina',
           height: 52,
@@ -283,25 +276,81 @@ class _PasoNegocio extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: t.textSec,
+            color: context.libreta.textoMuted,
           ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.7,
           children: [
             for (final r in Rubro.values)
-              NeuChip(
-                label: r.etiqueta,
-                selected: rubro == r,
+              _TarjetaRubro(
+                rubro: r,
+                seleccionado: rubro == r,
                 onTap: () => onRubro(r),
               ),
           ],
         ),
         const Spacer(),
-        NeuButton(label: 'Continuar', onPressed: listo ? onSiguiente : null),
+        const SizedBox(height: 18),
+        LibretaButton(label: 'Continuar', onPressed: listo ? onSiguiente : null),
       ],
+    );
+  }
+}
+
+class _TarjetaRubro extends StatelessWidget {
+  const _TarjetaRubro({
+    required this.rubro,
+    required this.seleccionado,
+    required this.onTap,
+  });
+
+  final Rubro rubro;
+  final bool seleccionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: seleccionado ? const Color(0x0F0E9F6E) : context.libreta.superficie,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
+            width: seleccionado ? 2 : 1.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              rubro.icono,
+              size: 26,
+              color: seleccionado ? LibretaColors.verde : context.libreta.textoFuerte,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              rubro.etiqueta,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: context.libreta.textoFuerte,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -350,7 +399,8 @@ class _PasoMoneda extends ConsumerWidget {
           onRefrescar: () => ref.invalidate(bcvRateProvider),
         ),
         const Spacer(),
-        NeuButton(label: 'Continuar', onPressed: onSiguiente),
+        const SizedBox(height: 18),
+        LibretaButton(label: 'Continuar', onPressed: onSiguiente),
       ],
     );
   }
@@ -371,7 +421,6 @@ class _OpcionMoneda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -379,10 +428,10 @@ class _OpcionMoneda extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: seleccionado ? t.tint : t.surface,
+          color: seleccionado ? const Color(0x0F0E9F6E) : context.libreta.superficie,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: seleccionado ? AppColors.marca : t.border,
+            color: seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
             width: 1.5,
           ),
         ),
@@ -397,13 +446,13 @@ class _OpcionMoneda extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: t.text,
+                      color: context.libreta.textoFuerte,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     detalle,
-                    style: TextStyle(fontSize: 13, color: t.textSec),
+                    style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                   ),
                 ],
               ),
@@ -413,12 +462,15 @@ class _OpcionMoneda extends StatelessWidget {
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: seleccionado ? AppColors.marca : Colors.transparent,
+                color: seleccionado ? LibretaColors.verde : Colors.transparent,
                 border: Border.all(
-                  color: seleccionado ? AppColors.marca : t.border,
+                  color: seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
                   width: 2,
                 ),
               ),
+              child: seleccionado
+                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                  : null,
             ),
           ],
         ),
@@ -436,10 +488,13 @@ class _TarjetaTasa extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return NeuCard(
-      radius: 20,
+    return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: context.libreta.superficie,
+        border: Border.all(color: const Color(0x141E2A38)),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -451,12 +506,12 @@ class _TarjetaTasa extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: t.textSec,
+                  color: context.libreta.textoMuted,
                 ),
               ),
               GestureDetector(
                 onTap: onRefrescar,
-                child: Icon(Icons.refresh, size: 18, color: t.textSec),
+                child: Icon(Icons.refresh, size: 18, color: context.libreta.textoMuted),
               ),
             ],
           ),
@@ -465,40 +520,39 @@ class _TarjetaTasa extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('Bs', style: TextStyle(fontSize: 15, color: t.textSec)),
+              Text('Bs', style: TextStyle(fontSize: 15, color: context.libreta.textoMuted)),
               const SizedBox(width: 8),
               Expanded(
                 child: tasaAsync.when(
-                  loading:
-                      () => Text(
-                        '—',
-                        style: AppTypography.money(
-                          fontSize: 20,
-                          color: AppColors.marca,
-                        ),
-                      ),
-                  error:
-                      (_, __) => Text(
-                        'sin conexión',
-                        style: TextStyle(fontSize: 14, color: t.textSec),
-                      ),
-                  data:
-                      (r) => Text(
-                        MoneyFormatter.bs(r.tasa).replaceFirst('Bs ', ''),
-                        style: AppTypography.money(
-                          fontSize: 20,
-                          color: AppColors.marca,
-                        ),
-                      ),
+                  loading: () => const Text(
+                    '—',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: LibretaColors.verde,
+                    ),
+                  ),
+                  error: (_, __) => Text(
+                    'sin conexión',
+                    style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
+                  ),
+                  data: (r) => Text(
+                    MoneyFormatter.bs(r.tasa).replaceFirst('Bs ', ''),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: LibretaColors.verde,
+                    ),
+                  ),
                 ),
               ),
-              Text('por \$1', style: TextStyle(fontSize: 13, color: t.textSec)),
+              Text('por \$1', style: TextStyle(fontSize: 13, color: context.libreta.textoMuted)),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             'Se actualiza automáticamente con la publicada por el BCV',
-            style: TextStyle(fontSize: 11.5, color: t.textSec),
+            style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
           ),
         ],
       ),
@@ -524,7 +578,6 @@ class _PasoResumen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.tokens;
     final tasa = ref.watch(bcvRateProvider).valueOrNull;
 
     return Column(
@@ -533,9 +586,9 @@ class _PasoResumen extends ConsumerWidget {
         Container(
           width: 88,
           height: 88,
-          decoration: BoxDecoration(color: t.tint, shape: BoxShape.circle),
+          decoration: const BoxDecoration(color: Color(0x1F0E9F6E), shape: BoxShape.circle),
           alignment: Alignment.center,
-          child: const Text('✓', style: TextStyle(fontSize: 36)),
+          child: const Icon(Icons.check, size: 40, color: LibretaColors.verde),
         ),
         const SizedBox(height: 18),
         const Text(
@@ -543,7 +596,7 @@ class _PasoResumen extends ConsumerWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppColors.marca,
+            color: LibretaColors.verde,
           ),
         ),
         const SizedBox(height: 4),
@@ -553,7 +606,7 @@ class _PasoResumen extends ConsumerWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
-            color: t.text,
+            color: context.libreta.textoFuerte,
           ),
         ),
         const SizedBox(height: 8),
@@ -562,13 +615,17 @@ class _PasoResumen extends ConsumerWidget {
           child: Text(
             'Configuramos tu cuenta para empezar a vender hoy mismo.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: t.textSec),
+            style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
           ),
         ),
         const SizedBox(height: 18),
-        NeuCard(
-          radius: 20,
-          clip: true,
+        Container(
+          decoration: BoxDecoration(
+            color: context.libreta.superficie,
+            border: Border.all(color: const Color(0x141E2A38)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               _FilaResumen(etiqueta: 'Rubro', valor: rubro?.etiqueta ?? '—'),
@@ -582,7 +639,8 @@ class _PasoResumen extends ConsumerWidget {
           ),
         ),
         const Spacer(),
-        NeuButton(
+        const SizedBox(height: 18),
+        LibretaButton(
           label: 'Empezar a vender',
           loading: cargando,
           onPressed: onEmpezar,
@@ -605,19 +663,23 @@ class _FilaResumen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return NeuListTile(
-      divider: !ultima,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        border: ultima
+            ? null
+            : Border(bottom: BorderSide(color: context.libreta.renglon)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(etiqueta, style: TextStyle(fontSize: 13, color: t.textSec)),
+          Text(etiqueta, style: TextStyle(fontSize: 13, color: context.libreta.textoMuted)),
           Text(
             valor,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: t.text,
+              color: context.libreta.textoFuerte,
             ),
           ),
         ],

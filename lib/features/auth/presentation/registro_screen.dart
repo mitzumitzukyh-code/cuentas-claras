@@ -1,13 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/auth_repository.dart';
 
-/// Crear cuenta (bloque `isObCreds` del diseño — "PASO 1 DE 4").
+/// Crear cuenta (réplica visual de `P2 · REGISTRO`, `Lote A · Identidad`).
 ///
 /// Al registrarse, el usuario queda autenticado pero sin negocio, así que el
 /// router lo lleva solo al onboarding para configurarlo.
@@ -86,69 +85,72 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 52),
-                child: IntrinsicHeight(
+      backgroundColor: LibretaColors.degradadoAuth.last,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: LibretaColors.degradadoAuth,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: LibretaBackButton(
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const LibretaLogo(size: 52),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Abre tu cuaderno',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFFAF8F3),
+                      ),
+                    ),
+                    Text(
+                      'gratis, en un minuto',
+                      style: GoogleFonts.caveat(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: LibretaColors.tagline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              LibretaPaperCard(
+                child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: NeuIconBtn(
-                          icon: Icons.arrow_back,
-                          onTap: () => Navigator.of(context).pop(),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'PASO 1 DE 4',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.marca,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Creemos tu cuenta',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: t.text,
-                        ),
-                      ),
                       const SizedBox(height: 6),
-                      Text(
-                        'Con esto entrarás la próxima vez que abras la app.',
-                        style: TextStyle(fontSize: 14, color: t.textSec),
-                      ),
-                      const SizedBox(height: 22),
-
-                      NeuInput(
+                      LibretaInput(
                         controller: _correo,
                         label: 'Correo',
                         hint: 'tu@negocio.com',
-                        height: 52,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.email],
                         textInputAction: TextInputAction.next,
                         onChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(height: 18),
-
-                      NeuInput(
+                      const SizedBox(height: 16),
+                      LibretaInput(
                         controller: _contrasena,
                         label: 'Crea una contraseña',
                         hint: '••••••••',
-                        height: 52,
                         obscure: !_verContrasena,
                         autofillHints: const [AutofillHints.newPassword],
                         textInputAction: TextInputAction.next,
@@ -162,15 +164,16 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                       const SizedBox(height: 6),
                       Text(
                         'Mínimo $_minimo caracteres.',
-                        style: TextStyle(fontSize: 12, color: t.textSec),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: LibretaColors.textoMuted,
+                        ),
                       ),
-                      const SizedBox(height: 18),
-
-                      NeuInput(
+                      const SizedBox(height: 12),
+                      LibretaInput(
                         controller: _confirmacion,
                         label: 'Confirma tu contraseña',
                         hint: '••••••••',
-                        height: 52,
                         obscure: !_verConfirmacion,
                         textInputAction: TextInputAction.done,
                         onChanged: (_) => setState(() {}),
@@ -193,25 +196,27 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                                 : 'Las contraseñas no coinciden',
                         style: TextStyle(
                           fontSize: 12,
-                          color: _coinciden ? AppColors.marca : AppColors.peligro,
+                          color: _coinciden
+                              ? LibretaColors.verde
+                              : LibretaColors.peligro,
                         ),
                       ),
 
                       if (_error != null) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.peligroSuave,
+                            color: LibretaColors.peligro.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(
                             _error!,
-                            style: const TextStyle(
-                              color: AppColors.peligro,
+                            style: TextStyle(
+                              color: LibretaColors.peligro,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -219,19 +224,73 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                         ),
                       ],
 
-                      const Spacer(),
-                      const SizedBox(height: 20),
-                      NeuButton(
-                        label: 'Continuar',
+                      const SizedBox(height: 18),
+                      LibretaButton(
+                        label: 'Crear cuenta',
                         loading: _creando,
                         onPressed: _puedeContinuar ? _crearCuenta : null,
                       ),
+                      const SizedBox(height: 12),
+                      Text.rich(
+                        TextSpan(
+                          text: 'Al continuar aceptas los ',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: LibretaColors.textoMuted,
+                          ),
+                          children: const [
+                            TextSpan(
+                              text: 'Términos',
+                              style: TextStyle(
+                                color: LibretaColors.verde,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            TextSpan(text: ' y la '),
+                            TextSpan(
+                              text: 'Privacidad',
+                              style: TextStyle(
+                                color: LibretaColors.verde,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              '¿Ya tienes cuenta? ',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: LibretaColors.textoMuted,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: const Text(
+                                'Inicia sesión',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: LibretaColors.verde,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                     ],
                   ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -247,13 +306,12 @@ class _OjoContrasena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return GestureDetector(
       onTap: onTap,
       child: Icon(
         visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
         size: 20,
-        color: t.textSec,
+        color: LibretaColors.textoMuted,
       ),
     );
   }

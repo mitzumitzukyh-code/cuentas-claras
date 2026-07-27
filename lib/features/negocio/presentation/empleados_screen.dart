@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/negocio_repository.dart';
 import '../domain/invitacion.dart';
 import '../domain/membresia.dart';
 
-/// Empleados (bloque `isEmpleados` del diseño).
+/// Empleados (réplica visual de `P0 · EMPLEADOS`, `Lote E · Negocio y
+/// Perfil`).
 ///
 /// Lista los miembros del negocio, permite cambiarles el rol, quitarlos y
 /// generar un código de invitación de 24 h para sumar a alguien.
@@ -102,7 +101,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(d).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.peligro),
+            style: TextButton.styleFrom(foregroundColor: LibretaColors.peligro),
             child: const Text('Quitar'),
           ),
         ],
@@ -125,137 +124,165 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final miembros = ref.watch(miembrosNegocioProvider);
     final yo = ref.watch(authStateProvider).valueOrNull?.uid;
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Empleados',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: t.text,
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.marca,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: t.shadowBtn,
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: _generando ? null : _invitar,
-                      child: _generando
-                          ? const Padding(
-                              padding: EdgeInsets.all(9),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.add, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            miembros.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No se pudo cargar el equipo.\n$e',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: t.textSec),
-                ),
-              ),
-              data: (lista) {
-                if (lista.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
-                    child: Column(
-                      children: [
-                        const Text('👥', style: TextStyle(fontSize: 32)),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Todavía trabajas solo',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: t.textSec,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Toca + para invitar a alguien',
-                          style: TextStyle(fontSize: 13, color: t.textSec),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Column(
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+                child: Row(
                   children: [
-                    for (final m in lista)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _FilaMiembro(
-                          miembro: m,
-                          esYo: m.usuarioId == yo,
-                          onRol: () => _cambiarRol(m),
-                          onQuitar: () => _quitar(m),
+                    LibretaBackButton(
+                      oscuro: true,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Empleados',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: context.libreta.textoFuerte,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: context.libreta.renglon),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                  children: [
+                    miembros.when(
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
                         ),
                       ),
-                  ],
-                );
-              },
-            ),
+                      error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No se pudo cargar el equipo.\n$e',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: context.libreta.textoMuted),
+                        ),
+                      ),
+                      data: (lista) {
+                        if (lista.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.groups_outlined,
+                                  size: 30,
+                                  color: context.libreta.textoMuted,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Todavía trabajas solo',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Invita a alguien con el botón de abajo',
+                                  style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
 
-            const SizedBox(height: 12),
-            Text(
-              'Dueño: acceso total. Vendedor: solo puede cobrar y ver '
-              'productos, sin reportes ni anulaciones.',
-              style: TextStyle(fontSize: 12, color: t.textSec),
-            ),
-          ],
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'EQUIPO · ${lista.length} '
+                              '${lista.length == 1 ? "persona" : "personas"}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                                color: context.libreta.textoMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: context.libreta.superficie,
+                                border: Border.all(color: const Color(0x141E2A38)),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                children: [
+                                  for (var i = 0; i < lista.length; i++)
+                                    _FilaMiembro(
+                                      miembro: lista[i],
+                                      esYo: lista[i].usuarioId == yo,
+                                      ultima: i == lista.length - 1,
+                                      onRol: () => _cambiarRol(lista[i]),
+                                      onQuitar: () => _quitar(lista[i]),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+                    Text(
+                      'INVITACIÓN PENDIENTE',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: context.libreta.textoMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Genera un código y compártelo con quien quieras sumar '
+                      'al equipo. Vence en 24 horas.',
+                      style: TextStyle(fontSize: 12.5, color: context.libreta.textoMuted),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: LibretaButton(
+                  label: 'Invitar empleado',
+                  loading: _generando,
+                  onPressed: _generando ? null : _invitar,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Tarjeta de un miembro del equipo.
+/// Fila de un miembro del equipo.
 class _FilaMiembro extends StatelessWidget {
   const _FilaMiembro({
     required this.miembro,
     required this.esYo,
+    required this.ultima,
     required this.onRol,
     required this.onQuitar,
   });
@@ -265,6 +292,7 @@ class _FilaMiembro extends StatelessWidget {
   /// El dueño no puede degradarse ni expulsarse a sí mismo: se quedaría el
   /// negocio sin nadie que lo administre.
   final bool esYo;
+  final bool ultima;
 
   final VoidCallback onRol;
   final VoidCallback onQuitar;
@@ -278,13 +306,16 @@ class _FilaMiembro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final color =
         _colores[miembro.usuarioId.hashCode.abs() % _colores.length];
 
-    return NeuCard(
-      radius: 20,
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        border: ultima
+            ? null
+            : Border(bottom: BorderSide(color: context.libreta.renglon)),
+      ),
       child: Row(
         children: [
           Container(
@@ -313,7 +344,7 @@ class _FilaMiembro extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: t.text,
+                    color: context.libreta.textoFuerte,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -321,7 +352,7 @@ class _FilaMiembro extends StatelessWidget {
                   miembro.correo ?? miembro.rol.etiqueta,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: t.textSec),
+                  style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
                 ),
               ],
             ),
@@ -332,7 +363,9 @@ class _FilaMiembro extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: miembro.rol.esDueno ? t.tint : t.chip,
+                color: miembro.rol.esDueno
+                    ? const Color(0x1F0E9F6E)
+                    : const Color(0x0F1E2A38),
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Text(
@@ -340,7 +373,9 @@ class _FilaMiembro extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: miembro.rol.esDueno ? AppColors.marca : t.textSec,
+                  color: miembro.rol.esDueno
+                      ? LibretaColors.verde
+                      : context.libreta.textoMuted,
                 ),
               ),
             ),
@@ -350,8 +385,8 @@ class _FilaMiembro extends StatelessWidget {
             GestureDetector(
               onTap: onQuitar,
               child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.close, size: 18, color: t.muted),
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close, size: 18, color: context.libreta.textoMuted),
               ),
             ),
           ],
@@ -373,7 +408,6 @@ class _DialogoCodigo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final mensaje =
         '¡Te invito a manejar "$negocioNombre" conmigo en Cuenta Clara!\n\n'
         'Tu código es: ${invitacion.codigo}\n\n'
@@ -389,7 +423,7 @@ class _DialogoCodigo extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 18),
             decoration: BoxDecoration(
-              color: t.tint,
+              color: const Color(0x1F0E9F6E),
               borderRadius: BorderRadius.circular(16),
             ),
             alignment: Alignment.center,
@@ -399,7 +433,7 @@ class _DialogoCodigo extends StatelessWidget {
                 fontSize: 30,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 6,
-                color: AppColors.marca,
+                color: LibretaColors.verde,
               ),
             ),
           ),
@@ -407,7 +441,7 @@ class _DialogoCodigo extends StatelessWidget {
           Text(
             'Vence en 24 horas y solo sirve una vez.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: t.textSec),
+            style: TextStyle(fontSize: 12.5, color: context.libreta.textoMuted),
           ),
         ],
       ),

@@ -1,15 +1,49 @@
-import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/session/sesion_provider.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/cierre/presentation/arqueo_caja_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/fiados/presentation/fiados_screen.dart';
+import '../../features/gastos/presentation/gastos_screen.dart';
+import '../../features/negocio/presentation/empleados_screen.dart';
+import '../../features/negocio/presentation/impresora_screen.dart';
+import '../../features/negocio/presentation/metodos_pago_screen.dart';
 import '../../features/onboarding/presentation/rubro_selection_screen.dart';
+import '../../features/perfil/presentation/ajustes_screen.dart';
+import '../../features/perfil/presentation/centro_ayuda_screen.dart';
+import '../../features/perfil/presentation/mi_perfil_screen.dart';
 import '../../features/perfil/presentation/perfil_screen.dart';
+import '../../features/planes/presentation/planes_screen.dart';
 import '../../features/productos/presentation/nuevo_producto_screen.dart';
 import '../../features/productos/presentation/productos_screen.dart';
+import '../../features/proveedores/presentation/proveedores_screen.dart';
+import '../../features/reportes/presentation/reportes_screen.dart';
 import '../../features/ventas/presentation/cobrar_screen.dart';
+import '../../features/ventas/presentation/historial_screen.dart';
+import '../../features/catalogo/presentation/catalogo_screen.dart';
+import '../../features/catalogo/presentation/estado_screen.dart';
+import '../../features/cierre/domain/cierre_caja.dart';
+import '../../features/cierre/presentation/resumen_dia_screen.dart';
+import '../../features/fiados/domain/cliente_fiado.dart';
+import '../../features/fiados/presentation/anotar_movimiento_screen.dart';
+import '../../features/fiados/presentation/cliente_fiado_detalle_screen.dart';
+import '../../features/gastos/presentation/registrar_gasto_screen.dart';
+import '../../features/notificaciones/presentation/notificaciones_screen.dart';
+import '../../features/onboarding/presentation/tutorial_screen.dart';
+import '../../features/perfil/presentation/eliminar_cuenta_screen.dart';
+import '../../features/productos/domain/producto.dart';
+import '../../features/productos/presentation/importar_inventario_screen.dart';
+import '../../features/productos/presentation/migrar_otra_app_screen.dart';
+import '../../features/proveedores/domain/proveedor.dart';
+import '../../features/proveedores/presentation/anotar_movimiento_proveedor_screen.dart';
+import '../../features/proveedores/presentation/proveedor_detalle_screen.dart';
+import '../../features/ventas/presentation/venta_detalle_screen.dart';
+import '../../features/ventas/presentation/ventas_pendientes_screen.dart';
 import '../../shared/presentation/sesion_error_screen.dart';
 import '../../shared/presentation/splash_screen.dart';
 import 'routes.dart';
@@ -59,40 +93,248 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: Routes.splash,
-        builder: (_, __) => const SplashScreen(),
+        pageBuilder: (_, s) => _pagina(s, const SplashScreen()),
       ),
       GoRoute(
         path: Routes.login,
-        builder: (_, __) => const LoginScreen(),
+        pageBuilder: (_, s) => _pagina(s, const LoginScreen()),
       ),
       GoRoute(
         path: Routes.onboarding,
-        builder: (_, __) => const RubroSelectionScreen(),
+        pageBuilder: (_, s) => _pagina(s, const RubroSelectionScreen()),
       ),
       GoRoute(
         path: Routes.dashboard,
-        builder: (_, __) => const DashboardScreen(),
+        pageBuilder: (_, s) => _pagina(s, const DashboardScreen()),
       ),
       GoRoute(
         path: Routes.productos,
-        builder: (_, __) => const ProductosScreen(),
+        pageBuilder: (_, s) => _pagina(s, const ProductosScreen()),
       ),
       GoRoute(
         path: Routes.nuevoProducto,
-        builder: (_, __) => const NuevoProductoScreen(),
+        pageBuilder: (_, s) => _pagina(s, const NuevoProductoScreen()),
       ),
       GoRoute(
         path: Routes.cobrar,
-        builder: (_, __) => const CobrarScreen(),
+        pageBuilder: (_, s) => _pagina(s, const CobrarScreen()),
+      ),
+      GoRoute(
+        path: Routes.reportes,
+        pageBuilder: (_, s) => _pagina(s, const ReportesScreen()),
       ),
       GoRoute(
         path: Routes.perfil,
-        builder: (_, __) => const PerfilScreen(),
+        pageBuilder: (_, s) => _pagina(s, const PerfilScreen()),
+      ),
+      GoRoute(
+        path: Routes.ajustes,
+        pageBuilder: (_, s) => _pagina(s, const AjustesScreen()),
+      ),
+      GoRoute(
+        path: Routes.gastos,
+        pageBuilder: (_, s) => _pagina(s, const GastosScreen()),
+      ),
+      GoRoute(
+        path: Routes.fiados,
+        pageBuilder: (_, s) => _pagina(s, const FiadosScreen()),
+      ),
+      GoRoute(
+        path: Routes.arqueo,
+        pageBuilder: (_, s) => _pagina(s, const ArqueoCajaScreen()),
+      ),
+      GoRoute(
+        path: Routes.proveedores,
+        pageBuilder: (_, s) => _pagina(s, const ProveedoresScreen()),
+      ),
+      GoRoute(
+        path: Routes.empleados,
+        pageBuilder: (_, s) => _pagina(s, const EmpleadosScreen()),
+      ),
+      GoRoute(
+        path: Routes.metodosPago,
+        pageBuilder: (_, s) => _pagina(s, const MetodosPagoScreen()),
+      ),
+      GoRoute(
+        path: Routes.impresora,
+        pageBuilder: (_, s) => _pagina(s, const ImpresoraScreen()),
+      ),
+      GoRoute(
+        path: Routes.planes,
+        pageBuilder: (_, s) => _pagina(s, const PlanesScreen()),
+      ),
+      GoRoute(
+        path: Routes.catalogo,
+        pageBuilder: (_, s) => _pagina(s, const CatalogoScreen()),
+      ),
+      GoRoute(
+        path: Routes.miPerfil,
+        pageBuilder: (_, s) => _pagina(s, const MiPerfilScreen()),
+      ),
+      GoRoute(
+        path: Routes.ayuda,
+        pageBuilder: (_, s) => _pagina(s, const CentroAyudaScreen()),
+      ),
+      GoRoute(
+        path: Routes.historialVentas,
+        pageBuilder: (_, s) => _pagina(s, const HistorialScreen()),
+      ),
+      GoRoute(
+        path: Routes.tutorial,
+        pageBuilder: (_, s) => _pagina(s, const TutorialScreen()),
+      ),
+      GoRoute(
+        path: Routes.ventasPendientes,
+        pageBuilder: (_, s) => _pagina(s, const VentasPendientesScreen()),
+      ),
+      GoRoute(
+        path: Routes.nuevoGasto,
+        pageBuilder: (_, s) => _pagina(s, const RegistrarGastoScreen()),
+      ),
+      GoRoute(
+        path: Routes.fiadoDetalle,
+        pageBuilder: (_, s) => _pagina(s, ClienteFiadoDetalleScreen(cliente: s.extra as ClienteFiado)),
+      ),
+      GoRoute(
+        path: Routes.fiadoMovimiento,
+        pageBuilder: (_, s) {
+          final extra = s.extra as Map<String, dynamic>?;
+          return _pagina(
+            s,
+            AnotarMovimientoScreen(
+              clientePreseleccionado: extra?['clientePreseleccionado'] as ClienteFiado?,
+              tipoInicial: extra?['tipoInicial'] as TipoMovimientoFiado? ?? TipoMovimientoFiado.fiado,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.ventaDetalle,
+        pageBuilder: (_, s) => _pagina(s, VentaDetalleScreen(ventaId: s.pathParameters['ventaId'] ?? '')),
+      ),
+      GoRoute(
+        path: Routes.resumenDia,
+        pageBuilder: (_, s) => _pagina(s, ResumenDiaScreen(cierre: s.extra as CierreCaja)),
+      ),
+      GoRoute(
+        path: Routes.notificaciones,
+        pageBuilder: (_, s) => _pagina(s, const NotificacionesScreen()),
+      ),
+      GoRoute(
+        path: Routes.importarInventario,
+        pageBuilder: (_, s) => _pagina(s, const ImportarInventarioScreen()),
+      ),
+      GoRoute(
+        path: Routes.migrarOtraApp,
+        pageBuilder: (_, s) => _pagina(s, const MigrarOtraAppScreen()),
+      ),
+      GoRoute(
+        path: Routes.proveedorDetalle,
+        pageBuilder: (_, s) => _pagina(s, ProveedorDetalleScreen(proveedor: s.extra as Proveedor)),
+      ),
+      GoRoute(
+        path: Routes.proveedorMovimiento,
+        pageBuilder: (_, s) {
+          final extra = s.extra as Map<String, dynamic>?;
+          return _pagina(
+            s,
+            AnotarMovimientoProveedorScreen(
+              proveedorPreseleccionado: extra?['proveedorPreseleccionado'] as Proveedor?,
+              tipoInicial: extra?['tipoInicial'] as TipoMovimientoProveedor? ?? TipoMovimientoProveedor.compra,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.eliminarCuenta,
+        pageBuilder: (_, s) => _pagina(s, const EliminarCuentaScreen()),
+      ),
+      GoRoute(
+        path: Routes.estadoWhatsApp,
+        pageBuilder: (_, s) => _pagina(s, EstadoScreen(productos: (s.extra as List<dynamic>).cast<Producto>())),
       ),
       GoRoute(
         path: Routes.sesionError,
-        builder: (_, __) => const SesionErrorScreen(),
+        pageBuilder: (_, s) => _pagina(s, const SesionErrorScreen()),
       ),
     ],
   );
 });
+
+/// Transición de "hojeo": la página nueva entra con un giro 3D desde la
+/// derecha, como si estuvieras pasando la hoja de una libreta. La página que
+/// se va se desvanece y se corre ligeramente a la izquierda.
+CustomTransitionPage<void> _pagina(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    transitionDuration: const Duration(milliseconds: 450),
+    reverseTransitionDuration: const Duration(milliseconds: 300),
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return _PageFlip(animation: animation, child: child);
+    },
+  );
+}
+
+/// Efecto visual de hojeo: rotación 3D con perspectiva + sombra de lomo.
+class _PageFlip extends StatelessWidget {
+  const _PageFlip({required this.animation, required this.child});
+
+  final Animation<double> animation;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final value = Curves.easeOutCubic.transform(animation.value);
+
+        // La página se levanta desde abajo (eje X), como pasando la hoja de
+        // una libreta con espiral arriba.
+        final angle = math.pi / 3 * (1 - value);
+        final transform = Matrix4.identity()
+          ..setEntry(3, 2, 0.002)
+          ..rotateX(-angle);
+
+        final sombraPliegue = (1 - value) * 0.18;
+        final opacidad = 0.7 + 0.3 * value;
+
+        return Stack(
+          children: [
+            Opacity(
+              opacity: opacidad,
+              child: Transform(
+                transform: transform,
+                alignment: Alignment.topCenter,
+                child: child,
+              ),
+            ),
+            if (sombraPliegue > 0)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: sombraPliegue),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+      child: child,
+    );
+  }
+}

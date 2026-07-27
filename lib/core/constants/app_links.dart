@@ -9,4 +9,8 @@ abstract final class AppLinks {
   /// ni reimprimir nada que ya se compartió.
   static const String descargar =
       'https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev/descargar';
+
+  /// Correo de soporte (CLAUDE.md §8). No hay número de WhatsApp de soporte
+  /// configurado todavía, así que el Centro de ayuda usa este canal.
+  static const String correoSoporte = 'soporte.cuentaclara@gmail.com';
 }

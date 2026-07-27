@@ -98,6 +98,53 @@ service cloud.firestore {
       match /gastos/{gastoId} {
         allow read, write: if esDueno(negocioId);
       }
+
+      // --- Fiados (Lote G) ---
+      // Igual que Ventas: cualquier miembro anota fiados/abonos y ve la
+      // lista de deudas (decisión de producto — no es información
+      // financiera reservada al dueño como Gastos).
+      match /clientes/{clienteId} {
+        allow read:   if esMiembro(negocioId);
+        allow create: if esMiembro(negocioId);
+        // Update cubre el ajuste de `saldoUSD` al fiar/abonar.
+        allow update: if esMiembro(negocioId);
+        allow delete: if esDueno(negocioId);
+
+        // El libro mayor de cada cliente nunca se edita ni se borra.
+        match /movimientos/{movimientoId} {
+          allow read:   if esMiembro(negocioId);
+          allow create: if esMiembro(negocioId);
+          allow update: if false;
+          allow delete: if false;
+        }
+      }
+
+      // --- Proveedores / cuentas por pagar (Lote H) ---
+      // Mismo criterio que Fiados: dueño y empleados anotan y ven las deudas.
+      match /proveedores/{proveedorId} {
+        allow read:   if esMiembro(negocioId);
+        allow create: if esMiembro(negocioId);
+        allow update: if esMiembro(negocioId);
+        allow delete: if esDueno(negocioId);
+
+        match /movimientos/{movimientoId} {
+          allow read:   if esMiembro(negocioId);
+          allow create: if esMiembro(negocioId);
+          allow update: if false;
+          allow delete: if false;
+        }
+      }
+
+      // --- Cierres de caja (Lote H) ---
+      // Igual que Fiados/Proveedores: dueño y empleados pueden cerrar caja.
+      // Un cierre nunca se edita ni se borra: es el registro de lo que pasó
+      // ese día, aunque haya descuadre.
+      match /cierres/{cierreId} {
+        allow read:   if esMiembro(negocioId);
+        allow create: if esMiembro(negocioId);
+        allow update: if false;
+        allow delete: if false;
+      }
     }
 
     // ----- Membresías -----

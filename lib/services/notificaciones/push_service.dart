@@ -85,6 +85,39 @@ class PushService {
   static const _clavePermiso = 'aviso_tasa_permiso';
   static const _claveTopics = 'aviso_tasa_topics_suscritos';
   static const _clavePreguntoAuto = 'aviso_tasa_pregunto_auto';
+  static const _claveAvisoDescartado = 'aviso_notif_descartado';
+
+  /// Cada cuánto vuelve a asomar el aviso de "activa las notificaciones" tras
+  /// descartarlo: ni molesto (no sale en cada apertura) ni resignado (no se
+  /// rinde para siempre — el permiso apagado deja al usuario sin tasa, ventas
+  /// ni stock, así que vale la pena recordárselo de vez en cuando).
+  static const _reasomarAviso = Duration(days: 14);
+
+  /// `true` si el empujón se descartó hace menos de [_reasomarAviso] — es
+  /// decir, si todavía NO toca volver a mostrarlo en el Inicio.
+  bool get avisoNotifDescartadoReciente {
+    final ms = _prefs.getInt(_claveAvisoDescartado);
+    if (ms == null) return false;
+    final descartadoEn = DateTime.fromMillisecondsSinceEpoch(ms);
+    return DateTime.now().difference(descartadoEn) <= _reasomarAviso;
+  }
+
+  Future<void> descartarAvisoNotif() =>
+      _prefs.setInt(_claveAvisoDescartado, DateTime.now().millisecondsSinceEpoch);
+
+  /// Estado REAL del permiso del sistema en este momento (sin mostrar diálogo).
+  ///
+  /// No basta el booleano guardado: el usuario puede prender o apagar las
+  /// notificaciones desde los ajustes del teléfono sin que la app se entere. Se
+  /// pregunta en vivo y de paso se reconcilia el guardado.
+  Future<bool> permisoVivo() async {
+    final ajustes = await _messaging.getNotificationSettings();
+    final ok =
+        ajustes.authorizationStatus == AuthorizationStatus.authorized ||
+        ajustes.authorizationStatus == AuthorizationStatus.provisional;
+    await _prefs.setBool(_clavePermiso, ok);
+    return ok;
+  }
 
   /// Prepara el canal y los manejadores. Se llama una vez al arrancar.
   Future<void> iniciar() async {
@@ -300,6 +333,13 @@ final pushServiceProvider = Provider<PushService>((ref) {
     ref.watch(notificacionesLocalesProvider),
     ref.watch(sharedPreferencesProvider),
   );
+});
+
+/// Estado real del permiso de notificaciones del sistema. Lo observa el
+/// empujón (`AvisoNotificaciones`) para saber si mostrarse; se invalida al
+/// volver a primer plano para reflejar cambios hechos desde los ajustes.
+final permisoNotifVivoProvider = FutureProvider<bool>((ref) {
+  return ref.watch(pushServiceProvider).permisoVivo();
 });
 
 /// Preferencias de avisos, con las suscripciones ya reconciliadas al cambiar.

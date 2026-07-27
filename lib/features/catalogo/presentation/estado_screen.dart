@@ -3,19 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_links.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/captura_widget.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../productos/domain/producto.dart';
 
 /// Formato de la imagen para el Estado de WhatsApp.
 enum FormatoEstado { grilla, flyer }
 
-/// Publicar en Estado (bloques `isEstado`, `isEstadoGrilla`, `isEstadoFlyer`).
+/// Publicar en Estado (réplica visual de `P2 · ESTADO`, `Lote D · Planes y
+/// Catálogo`).
 ///
 /// Genera una imagen vertical 9:16 lista para subir. En grilla entran varios
 /// productos; en flyer se destaca uno solo.
@@ -30,11 +29,17 @@ class EstadoScreen extends ConsumerStatefulWidget {
 
 class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   final _lienzo = GlobalKey();
+  final _precioAnterior = TextEditingController();
 
   FormatoEstado _formato = FormatoEstado.grilla;
   Producto? _destacado;
   int _plantilla = 0;
   bool _generando = false;
+
+  /// "¡Oferta de hoy!" (réplica de `P4 · ESTADO EN WHATSAPP`) — es una
+  /// anotación solo para esta imagen: no cambia el precio real del producto,
+  /// que sigue viviendo en `Producto.precio`.
+  bool _esOferta = false;
 
   /// Plantillas de color del diseño.
   static const _plantillas = [
@@ -48,6 +53,12 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   void initState() {
     super.initState();
     _destacado = widget.productos.firstOrNull;
+  }
+
+  @override
+  void dispose() {
+    _precioAnterior.dispose();
+    super.dispose();
   }
 
   Future<void> _compartir() async {
@@ -76,7 +87,6 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
 
@@ -84,6 +94,8 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final precioAnterior =
+        double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
     final lienzo = _LienzoEstado(
       formato: _formato,
       negocioNombre: negocio.nombre,
@@ -91,190 +103,244 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
       destacado: _destacado,
       colores: _plantillas[_plantilla],
       tasa: tasa,
+      esOferta: _formato == FormatoEstado.flyer && _esOferta,
+      precioAnterior: precioAnterior,
     );
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 32),
+            children: [
+              Row(
+                children: [
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Publicar en Estado',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // --- Formato ---
+              Row(
+                children: [
+                  Expanded(
+                    child: _Pestana(
+                      texto: 'Grilla',
+                      activa: _formato == FormatoEstado.grilla,
+                      onTap: () =>
+                          setState(() => _formato = FormatoEstado.grilla),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _Pestana(
+                      texto: 'Flyer destacado',
+                      activa: _formato == FormatoEstado.flyer,
+                      onTap: () =>
+                          setState(() => _formato = FormatoEstado.flyer),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              if (_formato == FormatoEstado.grilla)
                 Text(
-                  'Publicar en Estado',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
-                  ),
+                  'Se incluirán ${widget.productos.length.clamp(0, 6)} productos '
+                  'del catálogo.',
+                  style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                )
+              else ...[
+                Text(
+                  'Elige el producto a destacar',
+                  style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // --- Formato ---
-            Row(
-              children: [
-                Expanded(
-                  child: _Pestana(
-                    texto: 'Grilla',
-                    activa: _formato == FormatoEstado.grilla,
-                    onTap: () =>
-                        setState(() => _formato = FormatoEstado.grilla),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _Pestana(
-                    texto: 'Flyer destacado',
-                    activa: _formato == FormatoEstado.flyer,
-                    onTap: () =>
-                        setState(() => _formato = FormatoEstado.flyer),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            if (_formato == FormatoEstado.grilla)
-              Text(
-                'Se incluirán ${widget.productos.length.clamp(0, 6)} productos '
-                'del catálogo.',
-                style: TextStyle(fontSize: 13, color: t.textSec),
-              )
-            else ...[
-              Text(
-                'Elige el producto a destacar',
-                style: TextStyle(fontSize: 13, color: t.textSec),
-              ),
-              const SizedBox(height: 10),
-              for (final p in widget.productos)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: NeuCard(
-                    small: true,
-                    radius: 18,
-                    onTap: () => setState(() => _destacado = p),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _destacado?.id == p.id
-                                ? AppColors.marca
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: _destacado?.id == p.id
-                                  ? AppColors.marca
-                                  : t.border,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            p.nombre,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: t.text,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          MoneyFormatter.usd(p.precio),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: t.text,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-
-            const SizedBox(height: 18),
-
-            // --- Plantillas de color ---
-            Text(
-              'Color',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: t.textSec,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (var i = 0; i < _plantillas.length; i++)
+                const SizedBox(height: 10),
+                for (final p in widget.productos)
                   Padding(
-                    padding: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: GestureDetector(
-                      onTap: () => setState(() => _plantilla = i),
+                      onTap: () => setState(() => _destacado = p),
                       child: Container(
-                        width: 44,
-                        height: 44,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              _plantillas[i].$1,
-                              _plantillas[i].$2,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: _plantilla == i
-                                ? AppColors.marca
-                                : Colors.transparent,
-                            width: 3,
-                          ),
+                          color: context.libreta.superficie,
+                          border: Border.all(color: const Color(0x141E2A38)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _destacado?.id == p.id
+                                    ? LibretaColors.verde
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: _destacado?.id == p.id
+                                      ? LibretaColors.verde
+                                      : context.libreta.bordeSuave,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                p.nombre,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: context.libreta.textoFuerte,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              MoneyFormatter.usd(p.precio),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: context.libreta.textoFuerte,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '¡Oferta de hoy!',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: context.libreta.textoFuerte,
+                              ),
+                            ),
+                          ),
+                          LibretaToggle(
+                            value: _esOferta,
+                            onChanged: (v) => setState(() => _esOferta = v),
+                          ),
+                        ],
+                      ),
+                      if (_esOferta) ...[
+                        const SizedBox(height: 10),
+                        LibretaInput(
+                          controller: _precioAnterior,
+                          label: 'Precio anterior (USD)',
+                          hint: 'Opcional — para mostrar el tachado',
+                          height: 44,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ],
-            ),
-            const SizedBox(height: 18),
 
-            // --- Vista previa (el mismo widget que se captura) ---
-            Center(
-              child: FittedBox(
-                child: RepaintBoundary(key: _lienzo, child: lienzo),
+              const SizedBox(height: 18),
+
+              // --- Plantillas de color ---
+              Text(
+                'Color',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.libreta.textoMuted,
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (var i = 0; i < _plantillas.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _plantilla = i),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                _plantillas[i].$1,
+                                _plantillas[i].$2,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _plantilla == i
+                                  ? LibretaColors.verde
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
 
-            NeuButton(
-              label: 'Compartir en Estado',
-              loading: _generando,
-              onPressed: widget.productos.isEmpty ? null : _compartir,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Se abre WhatsApp para que la subas a tu Estado.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: t.muted),
-            ),
-          ],
+              // --- Vista previa (el mismo widget que se captura) ---
+              Center(
+                child: FittedBox(
+                  child: RepaintBoundary(key: _lienzo, child: lienzo),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              LibretaButton(
+                label: 'Compartir en Estado',
+                loading: _generando,
+                onPressed: widget.productos.isEmpty ? null : _compartir,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Se abre WhatsApp para que la subas a tu Estado.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -294,16 +360,15 @@ class _Pestana extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: activa ? AppColors.marca : t.surface,
+          color: activa ? LibretaColors.verde : context.libreta.superficie,
+          border: activa ? null : Border.all(color: context.libreta.bordeSuave),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: activa ? t.shadowBtn : t.shadowRaisedSm,
         ),
         alignment: Alignment.center,
         child: Text(
@@ -311,7 +376,7 @@ class _Pestana extends StatelessWidget {
           style: TextStyle(
             fontSize: 13.5,
             fontWeight: FontWeight.w700,
-            color: activa ? Colors.white : t.text,
+            color: activa ? Colors.white : context.libreta.textoFuerte,
           ),
         ),
       ),
@@ -328,6 +393,8 @@ class _LienzoEstado extends StatelessWidget {
     required this.destacado,
     required this.colores,
     required this.tasa,
+    required this.esOferta,
+    required this.precioAnterior,
   });
 
   final FormatoEstado formato;
@@ -336,6 +403,11 @@ class _LienzoEstado extends StatelessWidget {
   final Producto? destacado;
   final (Color, Color) colores;
   final double? tasa;
+
+  /// "¡Oferta de hoy!" — solo aplica al formato flyer (`P4 · ESTADO EN
+  /// WHATSAPP`).
+  final bool esOferta;
+  final double? precioAnterior;
 
   @override
   Widget build(BuildContext context) {
@@ -365,16 +437,40 @@ class _LienzoEstado extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Disponible ahora',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Color(0xB3FFFFFF)),
-          ),
+          if (esOferta)
+            Align(
+              alignment: Alignment.center,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2A93C),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: const Text(
+                  '¡OFERTA DE HOY!',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E2A38),
+                  ),
+                ),
+              ),
+            )
+          else
+            const Text(
+              'Disponible ahora',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Color(0xB3FFFFFF)),
+            ),
           const SizedBox(height: 28),
 
           Expanded(
             child: formato == FormatoEstado.flyer
-                ? _Flyer(producto: destacado, tasa: tasa)
+                ? _Flyer(
+                    producto: destacado,
+                    tasa: tasa,
+                    precioAnterior: esOferta ? precioAnterior : null,
+                  )
                 : _Grilla(productos: productos, tasa: tasa),
           ),
 
@@ -471,10 +567,17 @@ class _Grilla extends StatelessWidget {
 
 /// Un solo producto en grande.
 class _Flyer extends StatelessWidget {
-  const _Flyer({required this.producto, required this.tasa});
+  const _Flyer({
+    required this.producto,
+    required this.tasa,
+    this.precioAnterior,
+  });
 
   final Producto? producto;
   final double? tasa;
+
+  /// Precio tachado del "¡Oferta de hoy!" — `null` = no mostrar tachado.
+  final double? precioAnterior;
 
   @override
   Widget build(BuildContext context) {
@@ -510,14 +613,33 @@ class _Flyer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
-              MoneyFormatter.usd(p.precio),
-              style: const TextStyle(
-                fontSize: 46,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                height: 1,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  MoneyFormatter.usd(p.precio),
+                  style: const TextStyle(
+                    fontSize: 46,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1,
+                  ),
+                ),
+                if (precioAnterior != null && precioAnterior! > p.precio) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    MoneyFormatter.usd(precioAnterior!),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xA6FFFFFF),
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                ],
+              ],
             ),
             if (tasa != null) ...[
               const SizedBox(height: 6),

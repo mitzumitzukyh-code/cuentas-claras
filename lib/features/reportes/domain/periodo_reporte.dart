@@ -23,4 +23,35 @@ enum PeriodoReporte {
       PeriodoReporte.ano => DateTime(ahora.year),
     };
   }
+
+  /// Momento en que arranca el periodo anterior equivalente — para el
+  /// comparativo "▲ 12% vs junio" del Lote N.
+  DateTime get desdeAnterior {
+    final ahora = DateTime.now();
+    return switch (this) {
+      PeriodoReporte.hoy =>
+        DateTime(ahora.year, ahora.month, ahora.day - 1),
+      PeriodoReporte.semana => desde.subtract(const Duration(days: 7)),
+      PeriodoReporte.mes => DateTime(
+          ahora.month == 1 ? ahora.year - 1 : ahora.year,
+          ahora.month == 1 ? 12 : ahora.month - 1,
+        ),
+      PeriodoReporte.ano => DateTime(ahora.year - 1),
+    };
+  }
+
+  /// Nombre corto del periodo anterior, para el rótulo del comparativo.
+  String get etiquetaAnterior {
+    const meses = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+      'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    ];
+    final ahora = DateTime.now();
+    return switch (this) {
+      PeriodoReporte.hoy => 'ayer',
+      PeriodoReporte.semana => 'la semana pasada',
+      PeriodoReporte.mes => meses[(ahora.month == 1 ? 12 : ahora.month - 1) - 1],
+      PeriodoReporte.ano => '${ahora.year - 1}',
+    };
+  }
 }

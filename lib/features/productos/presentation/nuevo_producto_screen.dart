@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../onboarding/domain/rubro.dart';
 import '../data/producto_repository.dart';
@@ -16,8 +14,8 @@ import '../domain/producto.dart';
 import '../domain/variante.dart';
 import 'widgets/escaner_codigo_barras.dart';
 
-/// Pantalla 6 — Nuevo producto / Editar producto (bloques `isNuevoProducto` e
-/// `isEditMode` del diseño).
+/// Pantalla 6 — Nuevo producto / Editar producto (réplica visual de
+/// `P3 · NUEVO PRODUCTO`, `Lote C · Gastos y Productos`).
 ///
 /// Zona de foto punteada, atajos de cámara y escáner, chips de categoría y los
 /// campos de precio/stock lado a lado. Se adapta al rubro: foto obligatoria
@@ -98,9 +96,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     );
     if (codigo == null || !mounted) return;
 
-    // Mismo código en dos productos distintos suele ser un error de escaneo
-    // (o el dueño escaneando el producto equivocado), no algo intencional:
-    // se avisa y se deja decidir en vez de dejarlo pasar en silencio.
     final productos = ref.read(productosProvider).valueOrNull ?? const [];
     final duplicado = productos
         .where((p) =>
@@ -123,7 +118,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(d).pop(true),
-              style: TextButton.styleFrom(foregroundColor: AppColors.peligro),
+              style: TextButton.styleFrom(foregroundColor: LibretaColors.peligro),
               child: const Text('Usar igual'),
             ),
           ],
@@ -137,11 +132,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   }
 
   /// Pide a la IA que sugiera un nombre a partir de la foto ya tomada.
-  ///
-  /// Solo rellena el campo: el dueño sigue teniendo que revisarlo y tocar
-  /// "Guardar producto" como siempre. El código de barras no pasa por aquí
-  /// —lo lee `_escanear()`, con el escáner real— esto es solo para el
-  /// nombre, que es lo que una foto puede sugerir con algo de confianza.
   Future<void> _leerConIA() async {
     if (_foto == null) return;
     final config = (ref.read(negocioActivoProvider).valueOrNull?.rubro ??
@@ -149,15 +139,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         .config;
     setState(() => _leyendoIA = true);
     try {
-      // Se le mandan las categorías del rubro para que la sugerencia sea una
-      // de ellas (el Worker descarta las inventadas por el modelo).
       final sugerencia = await ref
           .read(lectorEtiquetaServiceProvider)
           .leer(_foto!, categorias: config.categoriasSugeridas);
       if (!mounted) return;
 
-      // El nombre ya suele traer la presentación ("Harina PAN 1kg"); si el
-      // modelo la devolvió aparte y no está en el nombre, se añade.
       var nombre = sugerencia.nombre;
       final presentacion = sugerencia.presentacion;
       if (presentacion != null &&
@@ -165,9 +151,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         nombre = '$nombre $presentacion';
       }
 
-      // Si el dueño ya había escrito el nombre o elegido categoría a mano,
-      // la sugerencia no lo pisa: solo rellena lo que está vacío. Si no
-      // cambió nada, se avisa en vez de fingir que sí se sugirió algo.
       final nombreVacio = _nombre.text.trim().isEmpty;
       final categoriaVacia = _categoria == null;
       setState(() {
@@ -212,7 +195,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     if (fecha != null && mounted) setState(() => _vencimiento = fecha);
   }
 
-  /// El botón principal solo se habilita con nombre, categoría y precio válido.
   bool _puedeGuardar(RubroConfig config) {
     final precio = double.tryParse(_precio.text.replaceAll(',', '.'));
     final stockOk = config.usaVariantes
@@ -226,7 +208,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   }
 
   Future<void> _guardar(RubroConfig config) async {
-    // Al editar, la foto ya subida cuenta como cumplida.
     final faltaFoto = _foto == null && widget.producto?.fotoUrl == null;
     if (config.fotoObligatoria && faltaFoto) {
       _mostrar('La foto es obligatoria para este rubro.');
@@ -246,8 +227,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         try {
           fotoUrl = await repo.subirFoto(membresia.negocioId, _foto!);
         } on CloudinaryException catch (e) {
-          // Si el rubro exige foto no podemos continuar; si no, es una pena
-          // perder el producto entero por un fallo de subida.
           if (config.fotoObligatoria) {
             setState(() => _guardando = false);
             _mostrar(e.mensaje);
@@ -255,9 +234,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
           }
           avisoFoto = 'Se guardó sin la foto: ${e.mensaje}';
         } catch (_) {
-          // Sin señal la foto no puede subirse (Cloudinary no tiene caché
-          // local como Firestore). El producto sí puede guardarse; la foto
-          // se añade después editándolo.
           if (config.fotoObligatoria) {
             setState(() => _guardando = false);
             _mostrar(
@@ -272,7 +248,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         }
       }
 
-      // Con variantes, el stock total es la suma de sus cantidades.
       final cantidadTotal = _variantes.isEmpty
           ? double.parse(_cantidad.text.replaceAll(',', '.'))
           : _variantes.fold<int>(0, (s, v) => s + v.cantidad).toDouble();
@@ -284,7 +259,6 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         precio: double.parse(_precio.text.replaceAll(',', '.')),
         costo: double.tryParse(_costo.text.replaceAll(',', '.')),
         cantidad: cantidadTotal,
-        // Sin foto nueva se conserva la que ya tenía.
         fotoUrl: fotoUrl ?? widget.producto?.fotoUrl,
         variantes: _variantes,
         alertaEn: int.tryParse(_alertaEn.text),
@@ -338,7 +312,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(d).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.peligro),
+            style: TextButton.styleFrom(foregroundColor: LibretaColors.peligro),
             child: const Text('Eliminar'),
           ),
         ],
@@ -373,290 +347,288 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final config = (negocio?.rubro ?? Rubro.otro).config;
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  _editando ? 'Editar producto' : 'Nuevo producto',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 32),
+            children: [
+              Row(
+                children: [
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            _ZonaFoto(
-              foto: _foto,
-              obligatoria: config.fotoObligatoria,
-              onTap: () => _elegirFoto(ImageSource.gallery),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: NeuSecondaryButton(
-                    label: 'Tomar foto',
-                    height: 44,
-                    radius: 16,
-                    icon: const Text('📷', style: TextStyle(fontSize: 14)),
-                    onPressed: () => _elegirFoto(ImageSource.camera),
+                  const SizedBox(width: 12),
+                  Text(
+                    _editando ? 'Editar producto' : 'Nuevo producto',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                      letterSpacing: -0.4,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: NeuSecondaryButton(
-                    label: _codigoBarras == null ? 'Escanear código' : 'Código ✓',
-                    height: 44,
-                    radius: 16,
-                    icon: const Text('📊', style: TextStyle(fontSize: 14)),
-                    onPressed: _escanear,
-                  ),
-                ),
-              ],
-            ),
-            if (_foto != null) ...[
-              const SizedBox(height: 10),
-              NeuSecondaryButton(
-                label: _leyendoIA ? 'Leyendo la foto…' : '🤖 Sugerir nombre con IA',
-                height: 44,
-                radius: 16,
-                onPressed: _leyendoIA ? null : _leerConIA,
+                ],
               ),
-            ],
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-            NeuInput(
-              controller: _nombre,
-              label: 'Nombre',
-              hint: 'Ej: Harina PAN 1kg',
-              height: 48,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 18),
-
-            Text(
-              'Categoría',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: t.textSec,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ZonaFoto(
+                    foto: _foto,
+                    obligatoria: config.fotoObligatoria,
+                    onTap: () => _elegirFoto(ImageSource.gallery),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: LibretaInput(
+                      controller: _nombre,
+                      label: 'Nombre',
+                      hint: 'Ej: Harina PAN 1kg',
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final c in config.categoriasSugeridas)
-                  NeuChip(
-                    label: c,
-                    selected: _categoria == c,
-                    onTap: () => setState(() => _categoria = c),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: NeuInput(
-                    controller: _precio,
-                    label: 'Precio (USD)',
-                    hint: '0.00',
-                    height: 48,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: NeuInput(
-                    controller: _cantidad,
-                    label: config.usaVariantes ? 'Stock (variantes)' : 'Stock inicial',
-                    hint: '0',
-                    height: 48,
-                    enabled: !config.usaVariantes,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            // El costo es opcional: sin él la app funciona igual, pero la
-            // ganancia de este producto no se puede calcular y los reportes
-            // lo dirán. Se pide aquí, al lado del precio, para que capturarlo
-            // sea natural y no un ajuste escondido.
-            NeuInput(
-              controller: _costo,
-              label: _vendidoPorPeso
-                  ? 'Costo por kg (USD) — para calcular tu ganancia'
-                  : 'Costo por unidad (USD) — para calcular tu ganancia',
-              hint: 'Opcional',
-              height: 48,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            // Ajuste rápido de stock — solo al editar (merma o reposición).
-            if (_editando) ...[
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Ajuste rápido de stock',
-                      style: TextStyle(fontSize: 12.5, color: t.textSec),
+                    child: LibretaSecondaryButton(
+                      label: 'Tomar foto',
+                      height: 44,
+                      icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                      onPressed: () => _elegirFoto(ImageSource.camera),
                     ),
                   ),
-                  _BotonAjuste(
-                    signo: '−',
-                    color: AppColors.peligro,
-                    onTap: () => _ajustarStock(-1),
-                  ),
-                  const SizedBox(width: 8),
-                  _BotonAjuste(
-                    signo: '+',
-                    color: AppColors.marca,
-                    onTap: () => _ajustarStock(1),
-                  ),
-                ],
-              ),
-            ],
-
-            const SizedBox(height: 18),
-
-            NeuInput(
-              controller: _alertaEn,
-              label: 'Avisarme cuando queden (unidades)',
-              hint: '5',
-              height: 48,
-              keyboardType: TextInputType.number,
-            ),
-
-            const SizedBox(height: 18),
-
-            // --- Vender por peso ---
-            NeuCard(
-              small: true,
-              radius: 16,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '⚖️ Vender por peso (kg)',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: t.text,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'El precio se calculará según el peso ingresado',
-                          style: TextStyle(fontSize: 11, color: t.textSec),
-                        ),
-                      ],
+                    child: LibretaSecondaryButton(
+                      label: _codigoBarras == null ? 'Escanear código' : 'Código ✓',
+                      height: 44,
+                      icon: const Icon(Icons.qr_code_scanner, size: 16),
+                      onPressed: _escanear,
                     ),
-                  ),
-                  NeuToggle(
-                    value: _vendidoPorPeso,
-                    onChanged: (v) => setState(() => _vendidoPorPeso = v),
                   ),
                 ],
               ),
-            ),
-
-            // Fecha de vencimiento — solo belleza.
-            if (config.usaFechaVencimiento) ...[
+              if (_foto != null) ...[
+                const SizedBox(height: 10),
+                LibretaSecondaryButton(
+                  label: _leyendoIA ? 'Leyendo la foto…' : 'Sugerir nombre con IA',
+                  height: 44,
+                  icon: _leyendoIA
+                      ? null
+                      : const Icon(Icons.auto_awesome, size: 16),
+                  onPressed: _leyendoIA ? null : _leerConIA,
+                ),
+              ],
               const SizedBox(height: 18),
+
               Text(
-                'Fecha de vencimiento (opcional)',
+                'Categoría',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: t.textSec,
+                  fontWeight: FontWeight.w700,
+                  color: context.libreta.textoMuted,
                 ),
               ),
-              const SizedBox(height: 6),
-              NeuSecondaryButton(
-                label: _vencimiento == null
-                    ? 'Elegir fecha'
-                    : '${_vencimiento!.day}/${_vencimiento!.month}/${_vencimiento!.year}',
-                height: 48,
-                radius: 18,
-                icon: Icon(Icons.event_outlined, size: 18, color: t.textSec),
-                onPressed: _elegirVencimiento,
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final c in config.categoriasSugeridas)
+                    LibretaChip(
+                      label: c,
+                      selected: _categoria == c,
+                      onTap: () => setState(() => _categoria = c),
+                    ),
+                ],
               ),
-            ],
+              const SizedBox(height: 18),
 
-            // Variantes — ropa y belleza.
-            if (config.usaVariantes) ...[
-              const SizedBox(height: 24),
-              _EditorVariantes(
-                etiquetas: config.etiquetasVariante,
-                variantes: _variantes,
-                onAgregar: (v) => setState(() => _variantes.add(v)),
-                onEliminar: (i) => setState(() => _variantes.removeAt(i)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: LibretaInput(
+                      controller: _precio,
+                      label: 'Precio (USD)',
+                      hint: '0.00',
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: LibretaInput(
+                      controller: _cantidad,
+                      label: config.usaVariantes ? 'Stock (variantes)' : 'Stock inicial',
+                      hint: '0',
+                      enabled: !config.usaVariantes,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ],
               ),
-            ],
+              const SizedBox(height: 14),
+              LibretaInput(
+                controller: _costo,
+                label: _vendidoPorPeso
+                    ? 'Costo por kg (USD) — para calcular tu ganancia'
+                    : 'Costo por unidad (USD) — para calcular tu ganancia',
+                hint: 'Opcional',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              if (_editando) ...[
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Ajuste rápido de stock',
+                        style: TextStyle(fontSize: 12.5, color: context.libreta.textoMuted),
+                      ),
+                    ),
+                    _BotonAjuste(
+                      signo: '−',
+                      color: LibretaColors.peligro,
+                      onTap: () => _ajustarStock(-1),
+                    ),
+                    const SizedBox(width: 8),
+                    _BotonAjuste(
+                      signo: '+',
+                      color: LibretaColors.verde,
+                      onTap: () => _ajustarStock(1),
+                    ),
+                  ],
+                ),
+              ],
 
-            // Receta (comida rápida) — requiere gestión de insumos, fuera de
-            // la Fase 1.
-            if (config.usaReceta) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
+
+              LibretaInput(
+                controller: _alertaEn,
+                label: 'Avisarme cuando queden (unidades)',
+                hint: '5',
+                keyboardType: TextInputType.number,
+              ),
+
+              const SizedBox(height: 18),
+
+              // --- Vender por peso ---
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.avisoSuave,
-                  borderRadius: BorderRadius.circular(14),
+                  color: context.libreta.superficie,
+                  border: Border.all(color: const Color(0x141E2A38)),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  'La receta por insumos se habilita junto con la gestión de '
-                  'insumos (pendiente).',
-                  style: TextStyle(color: AppColors.aviso, fontSize: 13),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Vender por peso (kg)',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: context.libreta.textoFuerte,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'El precio se calculará según el peso ingresado',
+                            style: TextStyle(fontSize: 11, color: context.libreta.textoMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    LibretaToggle(
+                      value: _vendidoPorPeso,
+                      onChanged: (v) => setState(() => _vendidoPorPeso = v),
+                    ),
+                  ],
                 ),
               ),
-            ],
 
-            const SizedBox(height: 28),
-            if (_editando) ...[
-              NeuSecondaryButton(
-                label: 'Eliminar producto',
-                color: AppColors.peligro,
-                background: AppColors.peligroSuave,
-                onPressed: _guardando ? null : _eliminar,
+              // Fecha de vencimiento — solo belleza.
+              if (config.usaFechaVencimiento) ...[
+                const SizedBox(height: 18),
+                Text(
+                  'Fecha de vencimiento (opcional)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: context.libreta.textoMuted,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                LibretaSecondaryButton(
+                  label: _vencimiento == null
+                      ? 'Elegir fecha'
+                      : '${_vencimiento!.day}/${_vencimiento!.month}/${_vencimiento!.year}',
+                  icon: const Icon(Icons.event_outlined, size: 18),
+                  onPressed: _elegirVencimiento,
+                ),
+              ],
+
+              // Variantes — ropa y belleza.
+              if (config.usaVariantes) ...[
+                const SizedBox(height: 24),
+                _EditorVariantes(
+                  etiquetas: config.etiquetasVariante,
+                  variantes: _variantes,
+                  onAgregar: (v) => setState(() => _variantes.add(v)),
+                  onEliminar: (i) => setState(() => _variantes.removeAt(i)),
+                ),
+              ],
+
+              // Receta (comida rápida) — requiere gestión de insumos, fuera de
+              // la Fase 1.
+              if (config.usaReceta) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0x21F2A93C),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text(
+                    'La receta por insumos se habilita junto con la gestión de '
+                    'insumos (pendiente).',
+                    style: TextStyle(color: LibretaColors.aviso, fontSize: 13),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 28),
+              if (_editando) ...[
+                LibretaSecondaryButton(
+                  label: 'Eliminar producto',
+                  onPressed: _guardando ? null : _eliminar,
+                ),
+                const SizedBox(height: 12),
+              ],
+              LibretaButton(
+                label: _editando ? 'Guardar cambios' : 'Guardar producto',
+                loading: _guardando,
+                onPressed:
+                    _puedeGuardar(config) ? () => _guardar(config) : null,
               ),
-              const SizedBox(height: 12),
             ],
-            NeuButton(
-              label: _editando ? 'Guardar cambios' : 'Guardar producto',
-              loading: _guardando,
-              onPressed:
-                  _puedeGuardar(config) ? () => _guardar(config) : null,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -677,13 +649,17 @@ class _BotonAjuste extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NeuCard(
+    return GestureDetector(
       onTap: onTap,
-      small: true,
-      radius: 10,
-      width: 34,
-      height: 34,
-      child: Center(
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: context.libreta.superficie,
+          border: Border.all(color: context.libreta.bordeSuave),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        alignment: Alignment.center,
         child: Text(
           signo,
           style: TextStyle(
@@ -711,18 +687,18 @@ class _ZonaFoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 120,
+        width: 84,
+        height: 84,
         decoration: BoxDecoration(
-          color: t.dashedBg,
-          borderRadius: BorderRadius.circular(14),
+          color: context.libreta.superficie,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: obligatoria && foto == null
-                ? AppColors.aviso
-                : t.dashedBorder,
+                ? const Color(0xFFF2A93C)
+                : const Color(0x381E2A38),
             width: 1.5,
           ),
           image: foto == null
@@ -734,16 +710,14 @@ class _ZonaFoto extends StatelessWidget {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('＋', style: TextStyle(fontSize: 24, color: t.muted)),
-                  const SizedBox(height: 6),
+                  Icon(Icons.add_a_photo_outlined, size: 22, color: context.libreta.textoMuted),
+                  SizedBox(height: 4),
                   Text(
-                    obligatoria
-                        ? 'Foto del producto (obligatoria)'
-                        : 'Foto del producto (opcional)',
+                    'Foto',
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: t.muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: context.libreta.textoMuted,
                     ),
                   ),
                 ],
@@ -801,7 +775,6 @@ class _EditorVariantesState extends State<_EditorVariantes> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final etiqueta1 =
         widget.etiquetas.isNotEmpty ? widget.etiquetas[0] : 'Valor';
     final etiqueta2 =
@@ -815,22 +788,25 @@ class _EditorVariantesState extends State<_EditorVariantes> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: t.text,
+            color: context.libreta.textoFuerte,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           'Agrega cada combinación con su cantidad.',
-          style: TextStyle(fontSize: 13, color: t.textSec),
+          style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
         ),
         const SizedBox(height: 12),
         for (var i = 0; i < widget.variantes.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: NeuCard(
-              small: true,
-              radius: 16,
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: context.libreta.superficie,
+                border: Border.all(color: context.libreta.bordeSuave),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -841,7 +817,7 @@ class _EditorVariantesState extends State<_EditorVariantes> {
                           widget.variantes[i].color!,
                         '×${widget.variantes[i].cantidad}',
                       ].join(' · '),
-                      style: TextStyle(fontSize: 13, color: t.text),
+                      style: TextStyle(fontSize: 13, color: context.libreta.textoFuerte),
                     ),
                   ),
                   GestureDetector(
@@ -849,7 +825,7 @@ class _EditorVariantesState extends State<_EditorVariantes> {
                     child: const Icon(
                       Icons.close,
                       size: 18,
-                      color: AppColors.peligro,
+                      color: LibretaColors.peligro,
                     ),
                   ),
                 ],
@@ -860,35 +836,24 @@ class _EditorVariantesState extends State<_EditorVariantes> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: NeuInput(
-                controller: _valor,
-                hint: etiqueta1,
-                height: 44,
-                radius: 14,
-              ),
+              child: LibretaInput(controller: _valor, hint: etiqueta1, height: 44),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: NeuInput(
-                controller: _color,
-                hint: etiqueta2,
-                height: 44,
-                radius: 14,
-              ),
+              child: LibretaInput(controller: _color, hint: etiqueta2, height: 44),
             ),
             const SizedBox(width: 8),
             SizedBox(
               width: 64,
-              child: NeuInput(
+              child: LibretaInput(
                 controller: _cantidad,
                 hint: 'Cant.',
                 height: 44,
-                radius: 14,
                 keyboardType: TextInputType.number,
               ),
             ),
             const SizedBox(width: 8),
-            NeuIconBtn(icon: Icons.add, size: 44, radius: 14, onTap: _agregar),
+            LibretaIconButton(icon: Icons.add, size: 44, onTap: _agregar),
           ],
         ),
       ],

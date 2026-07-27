@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/conectividad_provider.dart';
-import '../../core/theme/app_colors.dart';
+import 'libreta/libreta.dart';
 
 /// Franja global que aparece arriba cuando el teléfono pierde la señal.
 ///
@@ -80,7 +80,9 @@ class _AvisoConexionState extends ConsumerState<AvisoConexion> {
           child:
               _visible
                   ? Material(
-                    color: _sinConexion ? AppColors.aviso : AppColors.marca,
+                    color: _sinConexion
+                        ? LibretaColors.aviso
+                        : LibretaColors.verde,
                     child: Padding(
                       // La franja se pone ella misma debajo de la barra de
                       // estado (hora, batería…) en vez de dejárselo al

@@ -4,18 +4,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../shared/presentation/brand_logo.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/auth_repository.dart';
 import 'recuperar_screen.dart';
 import 'registro_screen.dart';
 
-/// Pantalla 1 — Login (bloque `isLogin` del diseño).
+/// Pantalla 1 — Login (réplica visual de `P1 · LOGIN`, `Lote A · Identidad`).
 ///
-/// Correo + contraseña como método principal, "Recordar usuario y contraseña",
-/// Google como alternativa, y enlaces a registro y recuperación.
+/// Correo + contraseña sigue siendo el método principal (el mockup asume
+/// código por WhatsApp, pero eso requiere infraestructura — Twilio/360dialog
+/// — que el negocio no tiene aprobada todavía; se decidió mantener el login
+/// actual y solo re-vestirlo con la estética de libreta).
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -164,165 +163,167 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 40, 28, 32),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - 72),
-                // `IntrinsicHeight` da al Column una altura determinada; sin
-                // esto el `Spacer` de abajo revienta dentro del scroll.
-                child: IntrinsicHeight(
-                  // Sin `AutofillGroup`, el gestor de contraseñas de Android
-                  // pinta los campos pero Flutter nunca recibe el texto: se
-                  // veían los puntitos y aun así salía "escribe tu contraseña".
+      backgroundColor: LibretaColors.degradadoAuth.last,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: LibretaColors.degradadoAuth,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(26, 24, 26, 20),
+                child: Column(
+                  children: [
+                    LibretaLogo(size: 52),
+                    SizedBox(height: 10),
+                    Text(
+                      'Bienvenido de vuelta',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFFAF8F3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              LibretaPaperCard(
+                child: SingleChildScrollView(
                   child: AutofillGroup(
                     child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 32),
-                    const Center(child: BrandLogo(size: 64)),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Cuenta Clara',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        color: t.text,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Tu negocio, en orden. USD y Bs a la vez.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: t.textSec),
-                    ),
-
-                    // El diseño empuja el formulario al pie de la pantalla.
-                    const SizedBox(height: 48),
-                    const Spacer(),
-
-                    NeuInput(
-                      controller: _correo,
-                      label: 'Correo o teléfono',
-                      hint: 'tu@negocio.com',
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.username],
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 14),
-                    NeuInput(
-                      controller: _contrasena,
-                      label: 'Contraseña',
-                      hint: '••••••••',
-                      obscure: !_verContrasena,
-                      autofillHints: const [AutofillHints.password],
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _iniciarSesion(),
-                      suffix: GestureDetector(
-                        onTap: () =>
-                            setState(() => _verContrasena = !_verContrasena),
-                        child: Icon(
-                          _verContrasena
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          size: 20,
-                          color: t.textSec,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 6),
+                        LibretaInput(
+                          controller: _correo,
+                          label: 'Correo',
+                          hint: 'tu@negocio.com',
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.username],
+                          textInputAction: TextInputAction.next,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _Recordarme(
-                      valor: _recordarme,
-                      onChanged: (v) => setState(() => _recordarme = v),
-                    ),
-
-                    if (_error != null) ...[
-                      const SizedBox(height: 14),
-                      _BannerError(mensaje: _error!),
-                    ],
-
-                    const SizedBox(height: 20),
-                    NeuButton(
-                      label: 'Iniciar sesión',
-                      loading: _entrando,
-                      onPressed: _google ? null : _iniciarSesion,
-                    ),
-
-                    const SizedBox(height: 16),
-                    _Separador(texto: 'O'),
-                    const SizedBox(height: 14),
-
-                    NeuSecondaryButton(
-                      label: 'Continuar con Google',
-                      onPressed: _entrando || _google ? null : _continuarConGoogle,
-                      icon: _google
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2.5),
-                            )
-                          : const _LogoGoogle(),
-                    ),
-
-                    const SizedBox(height: 18),
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '¿No tienes cuenta? ',
-                            style: TextStyle(fontSize: 14, color: t.textSec),
+                        const SizedBox(height: 16),
+                        LibretaInput(
+                          controller: _contrasena,
+                          label: 'Contraseña',
+                          hint: '••••••••',
+                          obscure: !_verContrasena,
+                          autofillHints: const [AutofillHints.password],
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _iniciarSesion(),
+                          suffix: GestureDetector(
+                            onTap: () => setState(
+                              () => _verContrasena = !_verContrasena,
+                            ),
+                            child: Icon(
+                              _verContrasena
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 20,
+                              color: LibretaColors.textoMuted,
+                            ),
                           ),
-                          GestureDetector(
+                        ),
+                        const SizedBox(height: 14),
+                        _Recordarme(
+                          valor: _recordarme,
+                          onChanged: (v) => setState(() => _recordarme = v),
+                        ),
+
+                        if (_error != null) ...[
+                          const SizedBox(height: 14),
+                          _BannerError(mensaje: _error!),
+                        ],
+
+                        const SizedBox(height: 20),
+                        LibretaButton(
+                          label: 'Iniciar sesión',
+                          loading: _entrando,
+                          onPressed: _google ? null : _iniciarSesion,
+                        ),
+
+                        const SizedBox(height: 16),
+                        const _Separador(texto: 'O'),
+                        const SizedBox(height: 14),
+
+                        LibretaSecondaryButton(
+                          label: 'Continuar con Google',
+                          onPressed:
+                              _entrando || _google ? null : _continuarConGoogle,
+                          icon: _google
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const _LogoGoogle(),
+                        ),
+
+                        const SizedBox(height: 18),
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '¿No tienes cuenta? ',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: LibretaColors.textoMuted,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const RegistroScreen(),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Regístrate',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: LibretaColors.verde,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: GestureDetector(
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => const RegistroScreen(),
+                                builder: (_) => const RecuperarScreen(),
                               ),
                             ),
                             child: const Text(
-                              'Crea una',
+                              '¿Olvidaste tu contraseña?',
                               style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.marca,
+                                fontSize: 13,
+                                color: LibretaColors.verde,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const RecuperarScreen(),
-                          ),
                         ),
-                        child: const Text(
-                          '¿Olvidaste tu contraseña?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.marca,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                        const SizedBox(height: 12),
+                      ],
                     ),
                   ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -338,7 +339,6 @@ class _Recordarme extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return GestureDetector(
       onTap: () => onChanged(!valor),
       behavior: HitTestBehavior.opaque,
@@ -349,17 +349,20 @@ class _Recordarme extends StatelessWidget {
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: valor ? AppColors.marca : t.chip,
+              color: valor ? LibretaColors.verde : LibretaColors.superficie,
               borderRadius: BorderRadius.circular(6),
+              border: valor
+                  ? null
+                  : Border.all(color: LibretaColors.bordeSuave, width: 1.5),
             ),
             child: valor
                 ? const Icon(Icons.check, size: 13, color: Colors.white)
                 : null,
           ),
           const SizedBox(width: 8),
-          Text(
+          const Text(
             'Recordar usuario y contraseña',
-            style: TextStyle(fontSize: 13, color: t.textSec),
+            style: TextStyle(fontSize: 13, color: LibretaColors.textoMuted),
           ),
         ],
       ),
@@ -378,13 +381,13 @@ class _BannerError extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.peligroSuave,
+        color: LibretaColors.peligro.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         mensaje,
-        style: const TextStyle(
-          color: AppColors.peligro,
+        style: TextStyle(
+          color: LibretaColors.peligro,
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
@@ -401,22 +404,21 @@ class _Separador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Row(
       children: [
-        Expanded(child: Container(height: 1, color: t.border2)),
+        const Expanded(child: Divider(color: LibretaColors.bordeSuave)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Text(
             texto,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: t.textSec,
+              color: LibretaColors.textoMuted,
             ),
           ),
         ),
-        Expanded(child: Container(height: 1, color: t.border2)),
+        const Expanded(child: Divider(color: LibretaColors.bordeSuave)),
       ],
     );
   }

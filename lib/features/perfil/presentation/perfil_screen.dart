@@ -4,401 +4,352 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/conectividad_provider.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
-import '../../../services/bcv/bcv_rate_service.dart';
+import '../../../services/impresora/impresora_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
-import '../../catalogo/presentation/catalogo_screen.dart';
-import '../../gastos/presentation/gastos_screen.dart';
+import '../../fiados/data/fiado_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../planes/presentation/planes_screen.dart';
-import '../../reportes/presentation/reportes_screen.dart';
-import '../../negocio/presentation/empleados_screen.dart';
-import '../../negocio/presentation/impresora_screen.dart';
-import '../../negocio/presentation/metodos_pago_screen.dart';
-import '../../ventas/presentation/historial_screen.dart';
-import 'ajustes_screen.dart';
-import 'eliminar_cuenta_screen.dart';
+import '../../negocio/domain/membresia.dart';
+import '../../proveedores/data/proveedor_repository.dart';
 
-/// Perfil (bloque `isPerfil` del diseño).
+/// "Más" (réplica visual de `P2 · MÁS`, `Lote N · Reportes y Más`).
 ///
-/// Es el centro de navegación de la app: tarjeta del negocio, tasa BCV y los
-/// accesos agrupados en Ventas / Negocio / Cuenta.
+/// Cajón de navegación: negocio activo arriba y los accesos agrupados en
+/// Dinero / Negocio / Crecer / Cuenta. Ventas, Mercancía y Reportes viven en
+/// la barra inferior (`Lote K · Navegación`) y ya no se repiten aquí.
 class PerfilScreen extends ConsumerWidget {
   const PerfilScreen({super.key});
 
+  Future<void> _cambiarNegocio(
+    BuildContext context,
+    WidgetRef ref,
+    List<Membresia> membresias,
+    String actualId,
+  ) async {
+    final elegido = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _HojaCambiarNegocio(membresias: membresias, actualId: actualId),
+    );
+    if (elegido != null) {
+      ref.read(negocioSeleccionadoProvider.notifier).state = elegido;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.tokens;
+    final t = context.libreta;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
-    final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
     final esDueno = ref.watch(esDuenoProvider);
+    final membresias = ref.watch(misMembresiasProvider).valueOrNull ?? const [];
+    final membresiaActiva = ref.watch(membresiaActivaProvider);
+
+    final fiadosPendientes = (ref.watch(clientesFiadoProvider).valueOrNull ?? const [])
+        .where((c) => c.saldoUSD > 0)
+        .fold<double>(0, (s, c) => s + c.saldoUSD);
+    final proveedoresPendientes = (ref.watch(proveedoresProvider).valueOrNull ?? const [])
+        .fold<double>(0, (s, p) => s + p.saldoUSD);
+    final impresoraLista = (ref.watch(impresoraConfigProvider).valueOrNull)?.configurada ?? false;
 
     final nombre = negocio?.nombre ?? 'Mi negocio';
     final inicial = nombre.isEmpty ? '?' : nombre[0].toUpperCase();
 
     return Scaffold(
+      backgroundColor: t.papel,
       bottomNavigationBar: const AppBottomNav(activa: NavTab.perfil),
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-          children: [
-            Text(
-              'Perfil',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: t.text,
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // --- Tarjeta del negocio ---
-            NeuCard(
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                children: [
-                  _AvatarNegocioGrande(
-                    fotoUrl: negocio?.fotoUrl,
-                    inicial: inicial,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          nombre,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: t.text,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          negocio?.rubro.etiqueta ?? '—',
-                          style: TextStyle(fontSize: 13, color: t.textSec),
-                        ),
-                      ],
-                    ),
-                  ),
-                  NeuIconBtn(
-                    emoji: '✏️',
-                    size: 34,
-                    radius: 12,
-                    onTap:
-                        () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AjustesScreen(),
-                          ),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // --- Tasa BCV ---
-            NeuCard(
-              small: true,
-              radius: 18,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: t.tint,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'Bs',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.marca,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tasa BCV',
-                          style: TextStyle(fontSize: 12.5, color: t.textSec),
-                        ),
-                        Text(
-                          'Dólares (USD)',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: t.text,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    tasa == null ? '—' : MoneyFormatter.bs(tasa),
-                    style: AppTypography.money(
-                      fontSize: 16,
-                      color: AppColors.marca,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // --- Ventas ---
-            _Grupo(
-              titulo: 'Ventas',
-              filas: [
-                _Fila(
-                  emoji: '🧾',
-                  etiqueta: 'Historial de ventas',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const HistorialScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '📊',
-                  etiqueta: 'Reportes de ventas',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ReportesScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '💸',
-                  etiqueta: 'Gastos',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const GastosScreen(),
-                        ),
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            // --- Negocio ---
-            _Grupo(
-              titulo: 'Negocio',
-              filas: [
-                _Fila(
-                  emoji: '📦',
-                  etiqueta: 'Gestionar productos',
-                  onTap: () => context.go(Routes.productos),
-                ),
-                _Fila(
-                  emoji: '👥',
-                  etiqueta: 'Empleados',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const EmpleadosScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '💬',
-                  etiqueta: 'Catálogo y WhatsApp',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const CatalogoScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '🖨️',
-                  etiqueta: 'Impresora de tickets',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ImpresoraScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '💳',
-                  etiqueta: 'Métodos de pago',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const MetodosPagoScreen(),
-                        ),
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-
-            // --- Cuenta ---
-            _Grupo(
-              titulo: 'Cuenta',
-              filas: [
-                _Fila(
-                  emoji: '✨',
-                  etiqueta: 'Planes premium',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const PlanesScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '⚙️',
-                  etiqueta: 'Ajustes de la cuenta',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AjustesScreen(),
-                        ),
-                      ),
-                ),
-                _Fila(
-                  emoji: '🗑️',
-                  etiqueta: 'Eliminar cuenta',
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const EliminarCuentaScreen(),
-                        ),
-                      ),
-                ),
-              ],
-            ),
-
-            if (!esDueno) ...[
-              const SizedBox(height: 18),
+      body: LibretaPageBackground(
+        child: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
+            children: [
               Text(
-                'Entraste como empleado: no ves reportes financieros ni puedes '
-                'anular ventas.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: t.textSec),
+                'Más',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.textoFuerte, letterSpacing: -0.4),
               ),
-            ],
+              const SizedBox(height: 14),
 
-            const SizedBox(height: 24),
-            NeuSecondaryButton(
-              label: 'Cerrar sesión',
-              color: AppColors.peligro,
-              background: AppColors.peligroSuave,
-              // Sin internet, cerrar sesión es una trampa: Firebase no puede
-              // validar credenciales offline, así que no habría forma de
-              // volver a entrar hasta que regrese la señal. Se avisa antes.
-              onPressed: () async {
-                final conectado =
-                    ref.read(hayConexionProvider).valueOrNull ?? true;
-                if (!conectado) {
-                  final seguro = await showDialog<bool>(
-                    context: context,
-                    builder:
-                        (c) => AlertDialog(
-                          title: const Text('¿Cerrar sesión sin internet?'),
-                          content: const Text(
-                            'Estás sin conexión. Si cierras sesión ahora, no '
-                            'podrás volver a entrar hasta que vuelva la señal.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(c).pop(false),
-                              child: const Text('Cancelar'),
+              // --- Negocio activo / selector ---
+              InkWell(
+                borderRadius: BorderRadius.circular(15),
+                onTap: membresias.length > 1
+                    ? () => _cambiarNegocio(context, ref, membresias, membresiaActiva?.negocioId ?? '')
+                    : () => context.push(Routes.ajustes),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.superficie,
+                    border: Border.all(color: t.bordeSuave),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Row(
+                    children: [
+                      _AvatarNegocio(fotoUrl: negocio?.fotoUrl, inicial: inicial),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nombre,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: t.textoFuerte),
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.of(c).pop(true),
-                              child: const Text(
-                                'Cerrar sesión igual',
-                                style: TextStyle(color: AppColors.peligro),
-                              ),
+                            Text(
+                              membresias.length > 1 ? 'Cambiar de negocio' : (negocio?.rubro.etiqueta ?? '—'),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.textoMuted),
                             ),
                           ],
                         ),
+                      ),
+                      Icon(
+                        membresias.length > 1 ? Icons.unfold_more : Icons.edit_outlined,
+                        size: 20,
+                        color: t.textoMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              _Grupo(
+                titulo: 'Dinero',
+                filas: [
+                  _Fila(
+                    icono: Icons.groups_outlined,
+                    etiqueta: 'Fiados',
+                    valor: fiadosPendientes > 0 ? MoneyFormatter.usd(fiadosPendientes) : null,
+                    onTap: () => context.push(Routes.fiados),
+                  ),
+                  _Fila(
+                    icono: Icons.payments_outlined,
+                    etiqueta: 'Gastos',
+                    onTap: () => context.push(Routes.gastos),
+                  ),
+                  _Fila(
+                    icono: Icons.point_of_sale_outlined,
+                    etiqueta: 'Cierre de caja',
+                    onTap: () => context.push(Routes.arqueo),
+                  ),
+                  _Fila(
+                    icono: Icons.local_shipping_outlined,
+                    etiqueta: 'Cuentas por pagar',
+                    valor: proveedoresPendientes > 0 ? MoneyFormatter.usd(proveedoresPendientes) : null,
+                    onTap: () => context.push(Routes.proveedores),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              _Grupo(
+                titulo: 'Negocio',
+                filas: [
+                  _Fila(
+                    icono: Icons.groups_2_outlined,
+                    etiqueta: 'Empleados',
+                    onTap: () => context.push(Routes.empleados),
+                  ),
+                  _Fila(
+                    icono: Icons.credit_card_outlined,
+                    etiqueta: 'Métodos de pago',
+                    onTap: () => context.push(Routes.metodosPago),
+                  ),
+                  _Fila(
+                    icono: Icons.print_outlined,
+                    etiqueta: 'Impresora',
+                    valor: impresoraLista ? 'Conectada' : null,
+                    valorColor: LibretaColors.verde,
+                    puntoVerde: impresoraLista,
+                    onTap: () => context.push(Routes.impresora),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              _Grupo(
+                titulo: 'Crecer',
+                filas: [
+                  _Fila(
+                    icono: Icons.auto_awesome_outlined,
+                    etiqueta: 'Plan Plus',
+                    badge: 'Mejora',
+                    onTap: () => context.push(Routes.planes),
+                  ),
+                  _Fila(
+                    icono: Icons.storefront_outlined,
+                    etiqueta: 'Catálogo',
+                    onTap: () => context.push(Routes.catalogo),
+                  ),
+                  _Fila(
+                    icono: Icons.schedule_outlined,
+                    etiqueta: 'Estado de WhatsApp',
+                    onTap: () => context.push(Routes.catalogo),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              _Grupo(
+                titulo: 'Cuenta',
+                filas: [
+                  _Fila(
+                    icono: Icons.settings_outlined,
+                    etiqueta: 'Ajustes',
+                    onTap: () => context.push(Routes.ajustes),
+                  ),
+                  _Fila(
+                    icono: Icons.person_outline,
+                    etiqueta: 'Perfil',
+                    onTap: () => context.push(Routes.miPerfil),
+                  ),
+                  _Fila(
+                    icono: Icons.help_outline,
+                    etiqueta: 'Centro de ayuda',
+                    onTap: () => context.push(Routes.ayuda),
+                  ),
+                ],
+              ),
+
+              if (!esDueno) ...[
+                const SizedBox(height: 18),
+                Text(
+                  'Entraste como vendedor: no ves reportes financieros ni '
+                  'puedes anular ventas.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: t.textoMuted),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+              LibretaSecondaryButton(
+                label: 'Cerrar sesión',
+                onPressed: () async {
+                  final conectado =
+                      ref.read(hayConexionProvider).valueOrNull ?? true;
+                  final seguro = await showDialog<bool>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: const Text('¿Cerrar sesión?'),
+                      content: Text(
+                        conectado
+                            ? 'Se cerrará tu sesión y volverás a la pantalla de '
+                                'inicio. Podrás entrar de nuevo cuando quieras.'
+                            : 'Estás sin conexión. Si cierras sesión ahora, no '
+                                'podrás volver a entrar hasta que vuelva la señal.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(c).pop(false),
+                          child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(c).pop(true),
+                          child: const Text('Cerrar sesión',
+                              style: TextStyle(color: LibretaColors.peligro)),
+                        ),
+                      ],
+                    ),
                   );
                   if (seguro != true) return;
-                }
-                await ref.read(authRepositoryProvider).cerrarSesion();
-              },
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Cuenta Clara v1.0.0',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: t.muted),
-            ),
-          ],
+                  await ref.read(authRepositoryProvider).cerrarSesion();
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Cuenta Clara',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: t.textoMuted),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Avatar del negocio (60×60): la foto que se puso en Ajustes, o la inicial.
-class _AvatarNegocioGrande extends StatelessWidget {
-  const _AvatarNegocioGrande({required this.fotoUrl, required this.inicial});
+/// Avatar del negocio (44×44): la foto que se puso en Ajustes, o la inicial.
+class _AvatarNegocio extends StatelessWidget {
+  const _AvatarNegocio({required this.fotoUrl, required this.inicial});
 
   final String? fotoUrl;
   final String inicial;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final tieneFoto = fotoUrl != null && fotoUrl!.isNotEmpty;
     return Container(
-      width: 60,
-      height: 60,
+      width: 44,
+      height: 44,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.marca,
-        shape: BoxShape.circle,
-        boxShadow: t.shadowBtn,
-      ),
+      decoration: const BoxDecoration(color: LibretaColors.verde, shape: BoxShape.circle),
       alignment: Alignment.center,
-      child:
-          tieneFoto
-              ? FotoRed(
-                fotoUrl!,
-                width: 60,
-                height: 60,
-                alError: Text(
-                  inicial,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              )
-              : Text(
-                inicial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
+      child: tieneFoto
+          ? FotoRed(
+              fotoUrl!,
+              width: 44,
+              height: 44,
+              alError: Text(inicial, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+            )
+          : Text(inicial, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// Hoja para elegir entre los negocios donde el usuario tiene membresía.
+class _HojaCambiarNegocio extends ConsumerWidget {
+  const _HojaCambiarNegocio({required this.membresias, required this.actualId});
+
+  final List<Membresia> membresias;
+  final String actualId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.libreta;
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(color: t.papel, borderRadius: BorderRadius.circular(20)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Cambiar de negocio',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: t.textoFuerte),
                 ),
               ),
+            ),
+            for (final m in membresias)
+              Consumer(
+                builder: (context, ref, _) {
+                  final negocio = ref.watch(negocioPorIdProvider(m.negocioId)).valueOrNull;
+                  final activo = m.negocioId == actualId;
+                  final nombre = negocio?.nombre ?? '…';
+                  return ListTile(
+                    leading: _AvatarNegocio(fotoUrl: negocio?.fotoUrl, inicial: nombre.isEmpty ? '?' : nombre[0].toUpperCase()),
+                    title: Text(nombre, style: TextStyle(fontWeight: FontWeight.w700, color: t.textoFuerte)),
+                    subtitle: Text(
+                      m.rol == RolMembresia.dueno ? 'Dueño' : 'Empleado',
+                      style: TextStyle(fontSize: 12, color: t.textoMuted),
+                    ),
+                    trailing: activo ? const Icon(Icons.check_circle, color: LibretaColors.verde) : null,
+                    onTap: () => Navigator.of(context).pop(m.negocioId),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -412,25 +363,24 @@ class _Grupo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          titulo,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: t.textSec,
-          ),
+          titulo.toUpperCase(),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted),
         ),
         const SizedBox(height: 8),
-        NeuCard(
-          clip: true,
+        Container(
+          decoration: BoxDecoration(
+            color: context.libreta.superficie,
+            border: Border.all(color: const Color(0x141E2A38)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              for (var i = 0; i < filas.length; i++)
-                filas[i].conDivisor(i != filas.length - 1),
+              for (var i = 0; i < filas.length; i++) filas[i].conDivisor(i != filas.length - 1),
             ],
           ),
         ),
@@ -441,50 +391,89 @@ class _Grupo extends StatelessWidget {
 
 class _Fila extends StatelessWidget {
   const _Fila({
-    required this.emoji,
+    required this.icono,
     required this.etiqueta,
     required this.onTap,
+    this.valor,
+    this.valorColor,
+    this.badge,
+    this.puntoVerde = false,
     this.divisor = true,
   });
 
-  final String emoji;
+  final IconData icono;
   final String etiqueta;
   final VoidCallback onTap;
+  final String? valor;
+  final Color? valorColor;
+  final String? badge;
+  final bool puntoVerde;
   final bool divisor;
 
-  _Fila conDivisor(bool v) =>
-      _Fila(emoji: emoji, etiqueta: etiqueta, onTap: onTap, divisor: v);
+  _Fila conDivisor(bool v) => _Fila(
+        icono: icono,
+        etiqueta: etiqueta,
+        onTap: onTap,
+        valor: valor,
+        valorColor: valorColor,
+        badge: badge,
+        puntoVerde: puntoVerde,
+        divisor: v,
+      );
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return NeuListTile(
-      divider: divisor,
+    final t = context.libreta;
+    return InkWell(
       onTap: onTap,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 22,
-            child: Text(
-              emoji,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 17),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: divisor ? Border(bottom: BorderSide(color: t.renglon)) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icono, size: 19, color: t.textoFuerte),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(etiqueta, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textoFuerte)),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              etiqueta,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: t.text,
+            if (badge != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(color: const Color(0x28F2A93C), borderRadius: BorderRadius.circular(100)),
+                child: Text(badge!, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: LibretaColors.aviso)),
               ),
-            ),
-          ),
-          Icon(Icons.chevron_right, size: 20, color: t.muted),
-        ],
+              const SizedBox(width: 8),
+            ],
+            if (puntoVerde) ...[
+              const _Punto(),
+              const SizedBox(width: 5),
+            ],
+            if (valor != null) ...[
+              Text(
+                valor!,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: valorColor ?? LibretaColors.aviso),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Icon(Icons.chevron_right, size: 20, color: t.textoMuted),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _Punto extends StatelessWidget {
+  const _Punto();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(color: LibretaColors.verde, shape: BoxShape.circle),
     );
   }
 }

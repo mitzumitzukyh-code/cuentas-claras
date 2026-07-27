@@ -20,17 +20,15 @@ enum RedondeoBs {
 abstract final class MoneyFormatter {
   const MoneyFormatter._();
 
-  static final NumberFormat _usd = NumberFormat.currency(
-    locale: 'en_US',
-    symbol: r'$',
-    decimalDigits: 2,
-  );
+  static final NumberFormat _usd = NumberFormat('#,##0.00', 'es');
 
   static final NumberFormat _bsConDecimales = NumberFormat('#,##0.00', 'es');
   static final NumberFormat _bsEntero = NumberFormat('#,##0', 'es');
 
-  /// Ej: `$12.50`
-  static String usd(double valor) => _usd.format(valor);
+  /// Ej: `$1.284.590,50` — formato es-VE (punto = miles, coma = decimal),
+  /// igual que [bs]. Antes usaba separadores de EE. UU.; lo expuso la
+  /// pantalla de "datos feos" del Lote L (montos grandes con formato mixto).
+  static String usd(double valor) => '\$${_usd.format(valor)}';
 
   /// Convierte USD → Bs aplicando la tasa y el redondeo indicado.
   static double convertirABs(

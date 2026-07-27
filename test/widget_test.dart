@@ -33,7 +33,8 @@ void main() {
     });
   });
 
-  test('MoneyFormatter.usd formatea en dolares', () {
-    expect(MoneyFormatter.usd(12.5), r'$12.50');
+  test('MoneyFormatter.usd formatea en dolares con formato es-VE', () {
+    expect(MoneyFormatter.usd(12.5), r'$12,50');
+    expect(MoneyFormatter.usd(1284590.50), r'$1.284.590,50');
   });
 }

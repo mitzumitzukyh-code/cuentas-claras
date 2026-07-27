@@ -35,7 +35,11 @@ class FotoRed extends StatelessWidget {
       fit: fit,
       fadeInDuration: const Duration(milliseconds: 250),
       fadeOutDuration: const Duration(milliseconds: 150),
-      placeholder: (_, __) => const SizedBox.shrink(),
+      placeholder: (_, __) => Container(
+        width: width,
+        height: height,
+        color: const Color(0x1E1E2A38),
+      ),
       errorWidget: (_, __, ___) => Center(child: alError),
     );
   }

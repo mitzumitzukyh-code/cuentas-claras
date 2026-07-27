@@ -96,7 +96,11 @@ class VentaRepository {
   /// entre todos los vendedores del negocio.
   Future<void> _registrarConTransaccion(String negocioId, Venta venta) {
     return _db.runTransaction((tx) async {
-      final grupos = _porProducto(venta.items).entries.toList();
+      // Las líneas "monto libre" (sin producto asociado, `productoId` vacío
+      // — venta rápida del teclado numérico) no tienen inventario que tocar.
+      final grupos = _porProducto(venta.items).entries
+          .where((g) => g.key.isNotEmpty)
+          .toList();
 
       // Lecturas primero (requisito de las transacciones de Firestore).
       final refs =
@@ -167,6 +171,8 @@ class VentaRepository {
   Future<void> _registrarSinConexion(String negocioId, Venta venta) async {
     final batch = _db.batch();
     for (final g in _porProducto(venta.items).entries) {
+      // Línea "monto libre": no hay producto que descontar.
+      if (g.key.isEmpty) continue;
       final ref = _productos(negocioId).doc(g.key);
       final vendido = g.value.fold<double>(0, (s, x) => s + x.cantidad);
       final cambios = <String, dynamic>{
@@ -241,10 +247,15 @@ class VentaRepository {
   /// para que "Mes" y "Año" sumen el periodo completo y no lo que quepa en
   /// una página del historial. Incluye las anuladas — el reporte las
   /// descarta, pero decidirlo es asunto de quien consume la lista.
-  Stream<List<Venta>> ventasDesde(String negocioId, DateTime desde) {
+  Stream<List<Venta>> ventasDesde(
+    String negocioId,
+    DateTime desde, {
+    int limite = 500,
+  }) {
     return _ventas(negocioId)
         .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
         .orderBy('fecha', descending: true)
+        .limit(limite)
         .snapshots()
         .map((s) => s.docs.map(Venta.fromDoc).toList());
   }
@@ -278,7 +289,9 @@ class VentaRepository {
         throw Exception('Esta venta ya estaba anulada.');
       }
 
-      final grupos = _porProducto(venta.items).entries.toList();
+      final grupos = _porProducto(venta.items).entries
+          .where((g) => g.key.isNotEmpty)
+          .toList();
       final refs =
           grupos.map((g) => _productos(negocioId).doc(g.key)).toList();
       final snaps = <DocumentSnapshot<Map<String, dynamic>>>[];

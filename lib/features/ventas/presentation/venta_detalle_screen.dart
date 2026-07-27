@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
 import '../../../shared/presentation/foto_red.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../negocio/presentation/impresora_screen.dart';
 import '../data/venta_repository.dart';
 import '../domain/venta.dart';
 
-/// Detalle de una venta (bloque `isVentaDetalle` del diseño).
+/// Detalle de una venta (réplica visual de `P2 · DETALLE`, `Lote B · Ventas`).
 ///
 /// Muestra las líneas, el total en USD/Bs y permite anular — solo al dueño
 /// (CLAUDE.md §6), con confirmación previa.
@@ -38,8 +38,6 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
     final config = await ref.read(impresoraServiceProvider).cargar();
     if (!mounted) return;
 
-    // Sin impresora configurada, mandar a configurarla es más útil que un
-    // error seco.
     if (!config.configurada) {
       final ir = await showDialog<bool>(
         context: context,
@@ -62,9 +60,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
         ),
       );
       if (ir == true && mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const ImpresoraScreen()),
-        );
+        await context.push(Routes.impresora);
       }
       return;
     }
@@ -142,14 +138,17 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
   }
 
   String _fechaHora(DateTime f) {
+    const meses = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
     final h = f.hour % 12 == 0 ? 12 : f.hour % 12;
     final m = f.minute.toString().padLeft(2, '0');
-    return '${f.day}/${f.month}/${f.year} · $h:$m ${f.hour < 12 ? "am" : "pm"}';
+    return '${f.day} ${meses[f.month - 1]} · $h:$m ${f.hour < 12 ? "am" : "pm"}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final esDueno = ref.watch(esDuenoProvider);
     final ventas = ref.watch(historialVentasProvider).valueOrNull ?? const [];
     final venta = ventas.where((v) => v.id == widget.ventaId).firstOrNull;
@@ -159,235 +158,306 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
     }
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            Row(
-              children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.of(context).pop(),
+      backgroundColor: context.libreta.papel,
+      body: LibretaPageBackground(
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 32),
+            children: [
+              Row(
+                children: [
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Venta #${venta.id.substring(0, venta.id.length.clamp(0, 6))}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: context.libreta.textoFuerte,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      Text(
+                        _fechaHora(venta.fecha),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: context.libreta.textoMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // --- Líneas de la venta ---
+              Container(
+                decoration: BoxDecoration(
+                  color: context.libreta.superficie,
+                  border: Border.all(color: const Color(0x141E2A38)),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Venta #${venta.id.substring(0, venta.id.length.clamp(0, 6))}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: t.text,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < venta.items.length; i++)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          border: i != venta.items.length - 1
+                              ? Border(
+                                  bottom: BorderSide(
+                                    color: context.libreta.renglon,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            _FotoItem(url: venta.items[i].fotoUrl),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    venta.items[i].nombreCompleto,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${venta.items[i].cantidadLabel} × '
+                                    '${MoneyFormatter.usd(venta.items[i].precioUnitario)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.libreta.textoMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              MoneyFormatter.usd(venta.items[i].subtotal),
+                              style: AppTypography.money(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: context.libreta.textoFuerte,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              if (venta.anulada) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.peligroSuave,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text(
+                    'Esta venta fue anulada',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.peligro,
+                    ),
+                  ),
+                ),
+              ] else if (venta.pendiente) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.avisoSuave,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text(
+                    'Guardada sin señal — se confirmará sola con conexión',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.aviso,
+                    ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 18),
 
-            // --- Líneas de la venta ---
-            NeuCard(
-              clip: true,
-              child: Column(
-                children: [
-                  for (var i = 0; i < venta.items.length; i++)
-                    NeuListTile(
-                      divider: i != venta.items.length - 1,
+              const SizedBox(height: 16),
+
+              // --- Productos + método + total ---
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                decoration: BoxDecoration(
+                  color: context.libreta.superficie,
+                  border: Border.all(color: const Color(0x141E2A38)),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  children: [
+                    _Dato(etiqueta: 'Subtotal', valor: MoneyFormatter.usd(venta.subtotalUSD)),
+                    _Dato(
+                      etiqueta: 'Método de pago',
+                      valor: venta.metodoPago.etiqueta,
+                    ),
+                    if (venta.descuentoPct > 0)
+                      _Dato(
+                        etiqueta: 'Descuento (${venta.descuentoPct}%)',
+                        valor: '− ${MoneyFormatter.usd(venta.descuentoUSD)}',
+                      ),
+                    if (venta.ivaUSD > 0)
+                      _Dato(
+                        etiqueta: 'IVA',
+                        valor: MoneyFormatter.usd(venta.ivaUSD),
+                      ),
+                    Container(
+                      margin: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 10),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: context.libreta.renglon),
+                        ),
+                      ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          _FotoItem(url: venta.items[i].fotoUrl),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  venta.items[i].nombreCompleto,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: t.text,
-                                  ),
-                                ),
-                                Text(
-                                  '${venta.items[i].cantidadLabel} × '
-                                  '${MoneyFormatter.usd(venta.items[i].precioUnitario)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: t.textSec,
-                                  ),
-                                ),
-                              ],
+                          Text(
+                            'Total',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: context.libreta.textoFuerte,
                             ),
                           ),
-                          Text(
-                            MoneyFormatter.usd(venta.items[i].subtotal),
-                            style: AppTypography.money(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: t.text,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                MoneyFormatter.usd(venta.totalUSD),
+                                style: AppTypography.money(
+                                  fontSize: 20,
+                                  color: LibretaColors.verde,
+                                ),
+                              ),
+                              Text(
+                                MoneyFormatter.bs(venta.totalBs),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.libreta.textoMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                ],
-              ),
-            ),
-
-            if (venta.anulada) ...[
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.peligroSuave,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Text(
-                  'Esta venta fue anulada',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.peligro,
-                  ),
-                ),
-              ),
-            ] else if (venta.pendiente) ...[
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.avisoSuave,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Text(
-                  '⏳ Guardada sin señal — se confirmará sola con conexión',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.aviso,
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 18),
-
-            // --- Total ---
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.marca,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: t.shadowBtn,
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Total cobrado',
-                    style: TextStyle(fontSize: 12, color: Color(0xD9FFFFFF)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    MoneyFormatter.usd(venta.totalUSD),
-                    style: AppTypography.money(
-                      fontSize: 30,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    MoneyFormatter.bs(venta.totalBs),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xD9FFFFFF),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // --- Datos ---
-            NeuCard(
-              clip: true,
-              child: Column(
-                children: [
-                  _Dato(etiqueta: 'Fecha', valor: _fechaHora(venta.fecha)),
-                  _Dato(
-                    etiqueta: 'Método de pago',
-                    valor: venta.metodoPago.etiqueta,
-                  ),
-                  if (venta.descuentoPct > 0) ...[
-                    _Dato(
-                      etiqueta: 'Subtotal',
-                      valor: MoneyFormatter.usd(venta.subtotalUSD),
-                    ),
-                    _Dato(
-                      etiqueta: 'Descuento (${venta.descuentoPct}%)',
-                      valor: '− ${MoneyFormatter.usd(venta.descuentoUSD)}',
-                    ),
                   ],
-                  if (venta.ivaUSD > 0)
-                    _Dato(
-                      etiqueta: 'IVA (16%)',
-                      valor: MoneyFormatter.usd(venta.ivaUSD),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              LibretaSecondaryButton(
+                label: _imprimiendo ? 'Enviando…' : 'Imprimir ticket',
+                onPressed: _imprimiendo ? null : () => _imprimir(venta),
+                icon: Icon(
+                  Icons.print_outlined,
+                  size: 18,
+                  color: context.libreta.textoFuerte,
+                ),
+              ),
+
+              if (esDueno && !venta.anulada) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0x14F2A93C),
+                    border: Border.all(
+                      color: const Color(0x80F2A93C),
+                      // Guiones (dashed) reales requieren un painter aparte;
+                      // el borde sólido más suave mantiene la idea sin más
+                      // complejidad de la que aporta valor aquí.
                     ),
-                  _Dato(
-                    etiqueta: 'Tasa BCV usada',
-                    valor: MoneyFormatter.bs(venta.tasaBcvUsada),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  _Dato(
-                    etiqueta: 'N.º de recibo',
-                    valor: venta.id.substring(0, venta.id.length.clamp(0, 6)),
-                    ultima: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.lock_outline, size: 15, color: LibretaColors.aviso),
+                          SizedBox(width: 6),
+                          Text(
+                            'SOLO DUEÑO',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.4,
+                              color: LibretaColors.aviso,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        onPressed: (_anulando || venta.pendiente)
+                            ? null
+                            : () => _anular(venta),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFF2A93C)),
+                          foregroundColor: LibretaColors.aviso,
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          venta.pendiente
+                              ? 'Espera a que se confirme para anular'
+                              : (_anulando ? 'Anulando…' : 'Anular venta'),
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            NeuSecondaryButton(
-              label: _imprimiendo ? 'Enviando…' : '🖨️ Imprimir ticket',
-              onPressed: _imprimiendo ? null : () => _imprimir(venta),
-            ),
-
-            // Anular: solo el dueño, y solo si sigue activa (CLAUDE.md §6).
-            //
-            // Mientras la venta esté pendiente de sincronizar, anular exige
-            // una transacción con el servidor igual que registrarla — sin
-            // señal se quedaría esperando para siempre. Se deshabilita en vez
-            // de dejar al dueño con un botón que gira sin fin.
-            if (esDueno && !venta.anulada) ...[
-              const SizedBox(height: 12),
-              NeuSecondaryButton(
-                label: venta.pendiente
-                    ? 'Espera a que se confirme para anular'
-                    : (_anulando ? 'Anulando…' : 'Anular venta'),
-                color: AppColors.peligro,
-                background: AppColors.peligroSuave,
-                onPressed: (_anulando || venta.pendiente)
-                    ? null
-                    : () => _anular(venta),
-              ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Miniatura de un item de venta: la foto congelada al vender, o el
-/// paquete genérico si no había foto (o falló al cargar).
 class _FotoItem extends StatelessWidget {
   const _FotoItem({required this.url});
 
@@ -395,14 +465,13 @@ class _FotoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final tieneFoto = url != null && url!.isNotEmpty;
     return Container(
       width: 42,
       height: 42,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: t.pageBg,
+        color: context.libreta.papel,
         borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
@@ -411,39 +480,44 @@ class _FotoItem extends StatelessWidget {
               url!,
               width: 42,
               height: 42,
-              alError: const Text('📦', style: TextStyle(fontSize: 18)),
+              alError: Icon(
+                Icons.inventory_2_outlined,
+                size: 18,
+                color: context.libreta.textoMuted,
+              ),
             )
-          : const Text('📦', style: TextStyle(fontSize: 18)),
+          : Icon(
+              Icons.inventory_2_outlined,
+              size: 18,
+              color: context.libreta.textoMuted,
+            ),
     );
   }
 }
 
 class _Dato extends StatelessWidget {
-  const _Dato({
-    required this.etiqueta,
-    required this.valor,
-    this.ultima = false,
-  });
+  const _Dato({required this.etiqueta, required this.valor});
 
   final String etiqueta;
   final String valor;
-  final bool ultima;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return NeuListTile(
-      divider: !ultima,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(etiqueta, style: TextStyle(fontSize: 13, color: t.textSec)),
+          Text(
+            etiqueta,
+            style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+          ),
           Text(
             valor,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: t.text,
+              color: context.libreta.textoFuerte,
             ),
           ),
         ],

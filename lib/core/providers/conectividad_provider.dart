@@ -16,3 +16,11 @@ final hayConexionProvider = StreamProvider<bool>((ref) async* {
     yield conectado(estados);
   }
 });
+
+/// Helper para repositorios: chequeo único (no reactivo) de si hay red.
+/// Evita duplicar la misma lógica en [GastoRepository], [ProductoRepository], etc.
+Future<bool> sinSenal() async {
+  final estado = await Connectivity().checkConnectivity();
+  return estado.isEmpty ||
+      estado.every((r) => r == ConnectivityResult.none);
+}

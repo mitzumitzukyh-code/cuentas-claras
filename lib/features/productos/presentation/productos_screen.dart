@@ -1,31 +1,26 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/routes.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
-import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/producto_repository.dart';
 import '../domain/producto.dart';
 import 'nuevo_producto_screen.dart';
 
-/// Pantalla 5 — Productos (bloque `isProductos` del diseño).
+/// Pantalla 5 — Productos (réplica visual de `P2 · PRODUCTOS`,
+/// `Lote C · Gastos y Productos`).
 ///
-/// Buscador hundido, chips de categoría, lista de tarjetas con miniatura y
-/// precio en USD/Bs, y el botón flotante "+" para dar de alta.
+/// Buscador, chips de categoría, lista de tarjetas con miniatura y precio en
+/// USD/Bs, y el botón "+" para dar de alta.
 class ProductosScreen extends ConsumerStatefulWidget {
   const ProductosScreen({super.key});
 
@@ -53,7 +48,6 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
     final filas = <String>[
       'Nombre,Categoria,Precio USD,Stock',
       for (final p in productos)
-        // Las comillas evitan que un nombre con coma rompa las columnas.
         '"${p.nombre}","${p.categoria}",${p.precio},${p.cantidad}',
     ];
     await Share.share(
@@ -89,63 +83,6 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
     }
   }
 
-  Future<void> _abrirImportar() async {
-    final texto = await showDialog<String>(
-      context: context,
-      builder: (_) => const _DialogoImportar(),
-    );
-    if (texto == null || texto.trim().isEmpty) return;
-
-    final membresia = ref.read(membresiaActivaProvider);
-    final negocio = ref.read(negocioActivoProvider).valueOrNull;
-    if (membresia == null || negocio == null) return;
-
-    // Formato del diseño: "nombre, precio, stock" por línea.
-    final nuevos = <Producto>[];
-    final invalidas = <int>[];
-    final lineas = texto.trim().split('\n');
-
-    for (var i = 0; i < lineas.length; i++) {
-      final partes = lineas[i].split(',');
-      if (partes.length < 3) {
-        invalidas.add(i + 1);
-        continue;
-      }
-      final nombre = partes[0].trim();
-      final precio = double.tryParse(partes[1].trim().replaceAll(',', '.'));
-      final stock = double.tryParse(partes[2].trim().replaceAll(',', '.'));
-      if (nombre.isEmpty || precio == null || stock == null) {
-        invalidas.add(i + 1);
-        continue;
-      }
-      nuevos.add(Producto(
-        id: '',
-        nombre: nombre,
-        categoria: negocio.rubro.config.categoriasSugeridas.firstOrNull ?? '',
-        precio: precio,
-        cantidad: stock,
-        alertaEn: 5,
-      ));
-    }
-
-    if (nuevos.isEmpty) {
-      _mostrar('Ninguna línea tenía el formato "nombre, precio, stock".');
-      return;
-    }
-
-    try {
-      await ref
-          .read(productoRepositoryProvider)
-          .crearVarios(membresia.negocioId, nuevos);
-      final aviso = invalidas.isEmpty
-          ? '${nuevos.length} productos importados'
-          : '${nuevos.length} importados · ${invalidas.length} líneas omitidas';
-      _mostrar(aviso);
-    } catch (e) {
-      _mostrar('No se pudo importar: $e');
-    }
-  }
-
   void _mostrar(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -154,191 +91,214 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final productosAsync = ref.watch(productosProvider);
     final esDueno = ref.watch(esDuenoProvider);
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
 
     return Scaffold(
+      backgroundColor: context.libreta.papel,
       bottomNavigationBar: const AppBottomNav(activa: NavTab.productos),
       floatingActionButton: esDueno
-          ? Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.marca,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: t.shadowBtn,
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
-                  onTap: () => context.push(Routes.nuevoProducto),
-                  child: const Icon(Icons.add, color: Colors.white, size: 26),
-                ),
-              ),
+          ? FloatingActionButton(
+              backgroundColor: LibretaColors.verde,
+              shape: const CircleBorder(),
+              onPressed: () => context.push(Routes.nuevoProducto),
+              child: const Icon(Icons.add, color: Colors.white, size: 26),
             )
           : null,
-      body: SafeArea(
-        bottom: false,
-        child: productosAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'No se pudieron cargar los productos.\n$e',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: t.textSec),
+      body: LibretaPageBackground(
+        child: SafeArea(
+          bottom: false,
+          child: productosAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'No se pudieron cargar los productos.\n$e',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.libreta.textoMuted),
+                ),
               ),
             ),
-          ),
-          data: (productos) {
-            final categorias = <String>{
-              for (final p in productos)
-                if (p.categoria.isNotEmpty) p.categoria,
-            }.toList()
-              ..sort();
+            data: (productos) {
+              final categorias = <String>{
+                for (final p in productos)
+                  if (p.categoria.isNotEmpty) p.categoria,
+              }.toList()
+                ..sort();
 
-            final texto = _busqueda.text.trim().toLowerCase();
-            final bajos = productos.where((p) => p.stockBajo).toList();
-            final visibles = productos.where((p) {
-              final porCategoria =
-                  _categoria == null || p.categoria == _categoria;
-              final porTexto =
-                  texto.isEmpty || p.nombre.toLowerCase().contains(texto);
-              final porStock = !_soloStockBajo || p.stockBajo;
-              return porCategoria && porTexto && porStock;
-            }).toList();
+              final texto = _busqueda.text.trim().toLowerCase();
+              final bajos = productos.where((p) => p.stockBajo).toList();
+              final visibles = productos.where((p) {
+                final porCategoria =
+                    _categoria == null || p.categoria == _categoria;
+                final porTexto =
+                    texto.isEmpty || p.nombre.toLowerCase().contains(texto);
+                final porStock = !_soloStockBajo || p.stockBajo;
+                return porCategoria && porTexto && porStock;
+              }).toList();
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Productos',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: t.text,
-                        ),
-                      ),
-                    ),
-                    if (esDueno) ...[
-                      NeuIconBtn(
-                        emoji: '📥',
-                        radius: 12,
-                        onTap: _abrirImportar,
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    NeuIconBtn(
-                      emoji: '📤',
-                      radius: 12,
-                      onTap: () => _exportar(productos),
-                    ),
-                  ],
-                ),
-
-                // Banner del filtro de stock bajo (el diseño lo abre desde el
-                // contador del Dashboard).
-                if (_soloStockBajo) ...[
-                  const SizedBox(height: 12),
-                  _BannerStockBajo(
-                    onPedir: () => _pedirReabastecimiento(bajos),
-                    onCerrar: () => setState(() => _soloStockBajo = false),
-                  ),
-                ],
-
-                const SizedBox(height: 16),
-                NeuInput(
-                  controller: _busqueda,
-                  hint: 'Buscar producto',
-                  height: 46,
-                  onChanged: (_) => setState(() {}),
-                ),
-                if (categorias.isNotEmpty || bajos.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 34,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        NeuChip(
-                          label: 'Todas',
-                          dense: true,
-                          selected: _categoria == null && !_soloStockBajo,
-                          onTap: () => setState(() {
-                            _categoria = null;
-                            _soloStockBajo = false;
-                          }),
-                        ),
-                        if (bajos.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: NeuChip(
-                              label: 'Stock bajo (${bajos.length})',
-                              dense: true,
-                              selected: _soloStockBajo,
-                              onTap: () => setState(
-                                () => _soloStockBajo = !_soloStockBajo,
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(22, 30, 22, 100),
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Productos',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: context.libreta.textoFuerte,
+                                letterSpacing: -0.4,
                               ),
                             ),
-                          ),
-                        for (final c in categorias)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: NeuChip(
-                              label: c,
-                              dense: true,
-                              selected: _categoria == c,
-                              onTap: () => setState(() => _categoria = c),
+                            Text(
+                              '${productos.length} en inventario',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: context.libreta.textoMuted,
+                              ),
                             ),
-                          ),
+                          ],
+                        ),
+                      ),
+                      if (esDueno) ...[
+                        LibretaIconButton(
+                          icon: Icons.file_download_outlined,
+                          onTap: () => context.push(Routes.importarInventario),
+                        ),
+                        const SizedBox(width: 8),
                       ],
-                    ),
+                      LibretaIconButton(
+                        icon: Icons.ios_share,
+                        onTap: () => _exportar(productos),
+                      ),
+                    ],
                   ),
-                ],
-                const SizedBox(height: 16),
-                if (productos.isEmpty)
-                  const _Vacio(
-                    emoji: '📦',
-                    titulo: 'Aún no tienes productos',
-                    detalle: 'Toca + para agregar el primero',
-                  )
-                else if (visibles.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Text(
-                      'No se encontraron productos.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: t.textSec),
+
+                  if (_soloStockBajo) ...[
+                    const SizedBox(height: 14),
+                    _BannerStockBajo(
+                      onPedir: () => _pedirReabastecimiento(bajos),
+                      onCerrar: () => setState(() => _soloStockBajo = false),
                     ),
-                  )
-                else
-                  for (final p in visibles)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _TarjetaProducto(
-                        producto: p,
-                        tasa: tasa,
-                        // Solo el dueño gestiona el catálogo (CLAUDE.md §6).
-                        onTap: esDueno
-                            ? () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        NuevoProductoScreen(producto: p),
-                                  ),
-                                )
-                            : null,
+                  ],
+
+                  const SizedBox(height: 16),
+                  LibretaInput(
+                    controller: _busqueda,
+                    hint: 'Buscar producto…',
+                    height: 46,
+                    bordeVerde: true,
+                    leading: const Icon(Icons.search, size: 18, color: LibretaColors.verde),
+                    suffix: _busqueda.text.isEmpty
+                        ? null
+                        : GestureDetector(
+                            onTap: () => setState(() => _busqueda.clear()),
+                            child: Icon(Icons.close, size: 17, color: context.libreta.textoMuted),
+                          ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${visibles.length} de ${productos.length} productos',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.libreta.textoMuted),
+                  ),
+                  if (categorias.isNotEmpty || bajos.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 34,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          LibretaChip(
+                            label: 'Todas',
+                            dense: true,
+                            selected: _categoria == null && !_soloStockBajo,
+                            onTap: () => setState(() {
+                              _categoria = null;
+                              _soloStockBajo = false;
+                            }),
+                          ),
+                          if (bajos.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: LibretaChip(
+                                label: 'Stock bajo (${bajos.length})',
+                                dense: true,
+                                selected: _soloStockBajo,
+                                onTap: () => setState(
+                                  () => _soloStockBajo = !_soloStockBajo,
+                                ),
+                              ),
+                            ),
+                          for (final c in categorias)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: LibretaChip(
+                                label: c,
+                                dense: true,
+                                selected: _categoria == c,
+                                onTap: () => setState(() => _categoria = c),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-              ],
-            );
-          },
+                  ],
+                  const SizedBox(height: 16),
+                  if (productos.isEmpty)
+                    LibretaEstadoVacio(
+                      titulo: 'Tu inventario está vacío',
+                      detalle: 'Agrega tus productos con foto, precio y '
+                          'stock para empezar a cobrar rápido.',
+                      tagline: 'empieza a llenar tu cuaderno',
+                      boton: esDueno
+                          ? LibretaButton(
+                              label: 'Agregar producto',
+                              icon: const Icon(Icons.add, size: 19, color: Colors.white),
+                              onPressed: () => context.push(Routes.nuevoProducto),
+                            )
+                          : null,
+                    )
+                  else if (visibles.isEmpty)
+                    LibretaEstadoVacio(
+                      busqueda: true,
+                      titulo: 'Sin resultados',
+                      detalle: 'No encontramos «${_busqueda.text.trim()}». '
+                          'Revisa la ortografía o prueba con menos palabras.',
+                      boton: LibretaSecondaryButton(
+                        label: 'Limpiar búsqueda',
+                        onPressed: () => setState(() => _busqueda.clear()),
+                      ),
+                    )
+                  else
+                    for (final p in visibles)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _TarjetaProducto(
+                          producto: p,
+                          tasa: tasa,
+                          onTap: esDueno
+                              ? () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          NuevoProductoScreen(producto: p),
+                                    ),
+                                  )
+                              : null,
+                        ),
+                      ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -357,7 +317,8 @@ class _BannerStockBajo extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.avisoSuave,
+        color: const Color(0x21F2A93C),
+        border: Border.all(color: const Color(0x59F2A93C)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -368,7 +329,7 @@ class _BannerStockBajo extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: AppColors.aviso,
+                color: LibretaColors.aviso,
               ),
             ),
           ),
@@ -377,7 +338,7 @@ class _BannerStockBajo extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.aviso,
+                color: LibretaColors.aviso,
                 borderRadius: BorderRadius.circular(100),
               ),
               child: const Text(
@@ -393,213 +354,8 @@ class _BannerStockBajo extends StatelessWidget {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onCerrar,
-            child: const Icon(Icons.close, size: 16, color: AppColors.aviso),
+            child: const Icon(Icons.close, size: 16, color: LibretaColors.aviso),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Modal de importación masiva: una línea por producto.
-///
-/// Las líneas pueden teclearse, pegarse, o leerse con IA de la foto de una
-/// libreta manuscrita. La IA solo RELLENA el cuadro de texto: el dueño ve
-/// exactamente lo que se va a importar, lo corrige, y nada entra al
-/// inventario hasta que toca "Importar" — la misma vista previa de siempre.
-class _DialogoImportar extends ConsumerStatefulWidget {
-  const _DialogoImportar();
-
-  @override
-  ConsumerState<_DialogoImportar> createState() => _DialogoImportarState();
-}
-
-class _DialogoImportarState extends ConsumerState<_DialogoImportar> {
-  final _texto = TextEditingController();
-  bool _leyendo = false;
-
-  @override
-  void dispose() {
-    _texto.dispose();
-    super.dispose();
-  }
-
-  Future<void> _leerLibreta(ImageSource fuente) async {
-    final x = await ImagePicker().pickImage(
-      source: fuente,
-      imageQuality: 80,
-      maxWidth: 1600,
-    );
-    if (x == null || !mounted) return;
-
-    setState(() => _leyendo = true);
-    try {
-      final filas = await ref
-          .read(lectorEtiquetaServiceProvider)
-          .leerLibreta(File(x.path));
-      if (!mounted) return;
-
-      // Lo que falte en la libreta queda como "?" para que la línea no pase
-      // desapercibida: el importador la omite hasta que el dueño la complete.
-      // Los números van con punto decimal: la coma es el separador de la
-      // línea y una cantidad "23,5" partiría el renglón en cuatro.
-      final lineas = filas.map((f) {
-        final precio = f.precio?.toStringAsFixed(2) ?? '?';
-        final c = f.cantidad;
-        final cantidad = c == null
-            ? '?'
-            : (c == c.roundToDouble()
-                ? c.toStringAsFixed(0)
-                : c.toStringAsFixed(2));
-        return '${f.nombre}, $precio, $cantidad';
-      }).join('\n');
-
-      setState(() {
-        _texto.text = _texto.text.trim().isEmpty
-            ? lineas
-            : '${_texto.text.trim()}\n$lineas';
-        _leyendo = false;
-      });
-      _avisar(
-        '${filas.length} renglones leídos. Revisa precios y cantidades — '
-        'los "?" hay que completarlos.',
-      );
-    } on SinReconocer {
-      if (!mounted) return;
-      setState(() => _leyendo = false);
-      _avisar('No reconocimos una lista de productos en la foto.');
-    } on LimiteDiarioIA {
-      if (!mounted) return;
-      setState(() => _leyendo = false);
-      _avisar('Se agotaron las lecturas con IA por hoy. Vuelve mañana.');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _leyendo = false);
-      _avisar('No se pudo leer la libreta: $e');
-    }
-  }
-
-  void _avisar(String mensaje) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(mensaje)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    return AlertDialog(
-      title: const Text('Importar productos'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Un producto por línea: nombre, precio, stock',
-            style: TextStyle(fontSize: 12.5, color: t.textSec),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 140,
-            child: NeuInset(
-              radius: 14,
-              color: t.pageBg,
-              child: TextField(
-                controller: _texto,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: TextStyle(fontSize: 13, color: t.text),
-                decoration: InputDecoration(
-                  filled: false,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(12),
-                  hintText: 'Harina PAN 1kg, 1.20, 45\nArroz Diana 1kg, 0.95, 30',
-                  hintStyle: TextStyle(fontSize: 13, color: t.muted),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '📓 ¿Llevas el inventario en una libreta? Fotografíala y la IA '
-            'transcribe los renglones aquí para que los revises.',
-            style: TextStyle(fontSize: 12, color: t.textSec),
-          ),
-          const SizedBox(height: 6),
-          if (_leyendo)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                ),
-              ),
-            )
-          else
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => _leerLibreta(ImageSource.camera),
-                  icon: const Text('📷'),
-                  label: const Text('Cámara'),
-                ),
-                TextButton.icon(
-                  onPressed: () => _leerLibreta(ImageSource.gallery),
-                  icon: const Text('🖼️'),
-                  label: const Text('Galería'),
-                ),
-              ],
-            ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        TextButton(
-          onPressed:
-              _leyendo ? null : () => Navigator.of(context).pop(_texto.text),
-          child: const Text('Importar'),
-        ),
-      ],
-    );
-  }
-}
-
-/// Estado vacío con emoji, título y pista.
-class _Vacio extends StatelessWidget {
-  const _Vacio({
-    required this.emoji,
-    required this.titulo,
-    required this.detalle,
-  });
-
-  final String emoji;
-  final String titulo;
-  final String detalle;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-      child: Column(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 32)),
-          const SizedBox(height: 10),
-          Text(
-            titulo,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: t.textSec,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(detalle, style: TextStyle(fontSize: 13, color: t.textSec)),
         ],
       ),
     );
@@ -618,7 +374,6 @@ class _TarjetaProducto extends StatelessWidget {
   final double? tasa;
   final VoidCallback? onTap;
 
-  /// El prototipo asigna un color estable por nombre cuando no hay foto.
   static const _colores = [
     Color(0xFF0F6B5C),
     Color(0xFF3D6CA8),
@@ -632,94 +387,105 @@ class _TarjetaProducto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     final tieneFoto = producto.fotoUrl != null && producto.fotoUrl!.isNotEmpty;
 
-    return NeuCard(
-      small: true,
-      radius: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    return GestureDetector(
       onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: tieneFoto ? t.pageBg : _color,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: t.shadowRaisedSm,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: context.libreta.superficie,
+          border: Border.all(color: const Color(0x141E2A38)),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: tieneFoto ? context.libreta.papel : _color,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              clipBehavior: Clip.antiAlias,
+              alignment: Alignment.center,
+              child: tieneFoto
+                  ? FotoRed(
+                      producto.fotoUrl!,
+                      width: 42,
+                      height: 42,
+                      alError: Icon(
+                        Icons.image_outlined,
+                        color: context.libreta.textoMuted,
+                        size: 18,
+                      ),
+                    )
+                  : Text(
+                      producto.nombre.isEmpty
+                          ? '?'
+                          : producto.nombre[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
             ),
-            clipBehavior: Clip.antiAlias,
-            alignment: Alignment.center,
-            child: tieneFoto
-                ? FotoRed(
-                    producto.fotoUrl!,
-                    width: 42,
-                    height: 42,
-                    alError:
-                        Icon(Icons.image_outlined, color: t.muted, size: 18),
-                  )
-                : Text(
-                    producto.nombre.isEmpty
-                        ? '?'
-                        : producto.nombre[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    producto.nombre,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: context.libreta.textoFuerte,
                     ),
                   ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (producto.categoria.isNotEmpty) producto.categoria,
+                      'quedan ${producto.cantidadLabel}',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: producto.stockBajo
+                          ? LibretaColors.aviso
+                          : context.libreta.textoMuted,
+                      fontWeight:
+                          producto.stockBajo ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  producto.nombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  MoneyFormatter.usd(producto.precio),
+                  style: AppTypography.money(
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: t.text,
+                    color: context.libreta.textoFuerte,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    if (producto.categoria.isNotEmpty) producto.categoria,
-                    'quedan ${producto.cantidadLabel}',
-                  ].join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: producto.stockBajo ? AppColors.aviso : t.textSec,
-                    fontWeight:
-                        producto.stockBajo ? FontWeight.w700 : FontWeight.w400,
+                if (tasa != null)
+                  Text(
+                    MoneyFormatter.usdComoBs(producto.precio, tasa!),
+                    style: TextStyle(fontSize: 11, color: context.libreta.textoMuted),
                   ),
-                ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                MoneyFormatter.usd(producto.precio),
-                style: AppTypography.money(fontSize: 14, color: t.text),
-              ),
-              if (tasa != null)
-                Text(
-                  MoneyFormatter.usdComoBs(producto.precio, tasa!),
-                  style: TextStyle(fontSize: 11, color: t.textSec),
-                ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

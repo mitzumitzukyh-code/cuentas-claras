@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/presentation/libreta/libreta_tokens.dart';
 import 'app_colors.dart';
 import 'app_tokens.dart';
 import 'app_typography.dart';
@@ -12,11 +13,17 @@ import 'app_typography.dart';
 abstract final class AppTheme {
   const AppTheme._();
 
-  static ThemeData get light => _construir(Brightness.light, AppTokens.claro);
+  static ThemeData get light =>
+      _construir(Brightness.light, AppTokens.claro, LibretaTokens.claro);
 
-  static ThemeData get dark => _construir(Brightness.dark, AppTokens.oscuro);
+  static ThemeData get dark =>
+      _construir(Brightness.dark, AppTokens.oscuro, LibretaTokens.oscuro);
 
-  static ThemeData _construir(Brightness brillo, AppTokens t) {
+  static ThemeData _construir(
+    Brightness brillo,
+    AppTokens t,
+    LibretaTokens tl,
+  ) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.marca,
       brightness: brillo,
@@ -30,12 +37,16 @@ abstract final class AppTheme {
       outline: t.border,
     );
 
-    final base = ThemeData(useMaterial3: true, colorScheme: colorScheme);
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      fontFamily: AppTypography.familia,
+    );
 
     return base.copyWith(
       scaffoldBackgroundColor: t.pageBg,
       canvasColor: t.pageBg,
-      extensions: [t],
+      extensions: [t, tl],
       textTheme: AppTypography.textTheme(base.textTheme, t.text),
       appBarTheme: AppBarTheme(
         backgroundColor: t.pageBg,

@@ -3,17 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/money_formatter.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
+import 'aviso_notificaciones.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../reportes/data/reportes_providers.dart';
 import '../../reportes/domain/periodo_reporte.dart';
-import '../../reportes/presentation/reportes_screen.dart';
 import '../../ventas/data/venta_repository.dart';
-import '../../ventas/presentation/historial_screen.dart';
 
 /// Notificaciones (bloque `isNotificaciones` del diseño).
 ///
@@ -26,24 +23,26 @@ class NotificacionesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.tokens;
+    final t = context.libreta;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final productos = ref.watch(productosProvider).valueOrNull ?? const [];
     final ventasHoy = ref.watch(ventasDelDiaProvider).valueOrNull ?? const [];
 
     final avisos = <_Aviso>[];
 
-    // Cerrar esta pantalla antes de navegar evita apilar Notificaciones debajo
-    // de la pantalla destino.
-    void irA(Widget destino) {
-      Navigator.of(context)
-        ..pop()
-        ..push(MaterialPageRoute<void>(builder: (_) => destino));
+    void irA(String ruta) {
+      Navigator.of(context).pop();
+      context.push(ruta);
     }
 
     void irAProductos() {
       Navigator.of(context).pop();
       context.go(Routes.productos);
+    }
+
+    void irAReportes() {
+      Navigator.of(context).pop();
+      context.go(Routes.reportes);
     }
 
     // --- Stock bajo ---
@@ -103,17 +102,13 @@ class NotificacionesScreen extends ConsumerWidget {
         titulo: 'Llevas ${MoneyFormatter.usd(total)} hoy',
         detalle: '${ventasHoy.length} '
             '${ventasHoy.length == 1 ? "cobro registrado" : "cobros registrados"}',
-        onTap: () => irA(const HistorialScreen()),
+        onTap: () => irA(Routes.historialVentas),
       ));
     }
 
     // --- Meta mensual ---
     final meta = negocio?.metaMensualUsd ?? 0;
     if (meta > 0) {
-      // La meta es del MES: se suma todo lo vendido en el mes (misma consulta
-      // por rango que el Dashboard), no solo lo de hoy — antes el % salía muy
-      // por debajo de lo real. Mientras la consulta del mes carga, se usa lo de
-      // hoy como piso conocido.
       final inicioMes = DateTime(DateTime.now().year, DateTime.now().month);
       final ventasMes = ref.watch(ventasReporteProvider(PeriodoReporte.mes));
       final total =
@@ -126,19 +121,19 @@ class NotificacionesScreen extends ConsumerWidget {
         icono: '🎯',
         titulo: 'Vas al $pct % de tu meta',
         detalle: 'Meta mensual: ${MoneyFormatter.usd(meta)}',
-        onTap: () => irA(const ReportesScreen()),
+        onTap: irAReportes,
       ));
     }
 
     return Scaffold(
+      backgroundColor: t.papel,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           children: [
             Row(
               children: [
-                NeuIconBtn(
-                  icon: Icons.arrow_back,
+                LibretaBackButton(
                   onTap: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: 12),
@@ -147,32 +142,34 @@ class NotificacionesScreen extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: t.text,
+                    color: t.textoFuerte,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 18),
 
+            const AvisoNotificaciones(permitirDescartar: false),
+
             if (avisos.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 60),
                 child: Column(
                   children: [
-                    const Text('🔔', style: TextStyle(fontSize: 32)),
+                    _CampanaAnimada(),
                     const SizedBox(height: 10),
                     Text(
                       'Todo en orden',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: t.text,
+                        color: t.textoFuerte,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'No hay nada que requiera tu atención.',
-                      style: TextStyle(fontSize: 13, color: t.textSec),
+                      style: TextStyle(fontSize: 13, color: t.textoMuted),
                     ),
                   ],
                 ),
@@ -204,8 +201,6 @@ class _Aviso {
   final String titulo;
   final String detalle;
 
-  /// A dónde lleva el aviso. Un aviso que no hace nada al tocarlo frustra más
-  /// que informar, así que todos llevan a la pantalla donde se resuelve.
   final VoidCallback onTap;
 
   /// Los urgentes (algo agotado) se pintan en rojo suave.
@@ -219,49 +214,97 @@ class _TarjetaAviso extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return NeuCard(
-      small: true,
-      radius: 20,
+    final t = context.libreta;
+    return GestureDetector(
       onTap: aviso.onTap,
-      padding: const EdgeInsets.all(14),
-      color: aviso.urgente ? AppColors.peligroSuave : null,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: aviso.urgente ? Colors.white : t.tint,
-              shape: BoxShape.circle,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: aviso.urgente
+              ? LibretaColors.peligro.withValues(alpha: 0.1)
+              : t.superficie,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: t.bordeSuave),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: aviso.urgente ? Colors.white : t.bordeSuave,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(aviso.icono, style: const TextStyle(fontSize: 16)),
             ),
-            alignment: Alignment.center,
-            child: Text(aviso.icono, style: const TextStyle(fontSize: 16)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  aviso.titulo,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: aviso.urgente ? AppColors.peligro : t.text,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    aviso.titulo,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: aviso.urgente ? LibretaColors.peligro : t.textoFuerte,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  aviso.detalle,
-                  style: TextStyle(fontSize: 13, color: t.textSec),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    aviso.detalle,
+                    style: TextStyle(fontSize: 13, color: t.textoMuted),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Campana que entra con rebote y se mece suavemente.
+class _CampanaAnimada extends StatefulWidget {
+  @override
+  State<_CampanaAnimada> createState() => _CampanaAnimadaState();
+}
+
+class _CampanaAnimadaState extends State<_CampanaAnimada>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final rotacion = Curves.elasticOut.transform(_ctrl.value);
+        return Transform.rotate(
+          angle: (-0.15 + 0.3 * rotacion).clamp(-0.15, 0.15),
+          child: Opacity(opacity: _ctrl.value, child: child),
+        );
+      },
+      child: const Text('🔔', style: TextStyle(fontSize: 32)),
     );
   }
 }

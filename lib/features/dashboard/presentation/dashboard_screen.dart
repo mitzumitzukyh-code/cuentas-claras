@@ -3,122 +3,68 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_tokens.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
-import '../../../services/notificaciones/push_service.dart';
+import '../../../services/binance/binance_p2p_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
+import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/foto_red.dart';
-import '../../../shared/presentation/neu.dart';
+import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../services/notificaciones/push_service.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../notificaciones/presentation/notificaciones_screen.dart';
+import '../../notificaciones/presentation/aviso_notificaciones.dart';
 import '../../onboarding/presentation/tutorial_screen.dart';
 import '../../productos/data/producto_repository.dart';
-import '../../reportes/data/reportes_providers.dart';
-import '../../reportes/domain/periodo_reporte.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
-import '../../ventas/presentation/historial_screen.dart';
-import '../../ventas/presentation/venta_detalle_screen.dart';
-import '../../ventas/presentation/ventas_pendientes_screen.dart';
 
-/// Pantalla 4 — Inicio/Dashboard (bloque `isDashboard` del diseño).
-///
-/// Saludo + avatar, tarjeta verde de ventas del día, tasa BCV, contadores de
-/// productos y stock bajo, y la actividad reciente.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  /// El diseño cambia el saludo según la hora.
-  String _saludo() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Buenos días';
-    if (h < 19) return 'Buenas tardes';
-    return 'Buenas noches';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.tokens;
-    // Antes las notificaciones de tasa solo se activaban si el dueño
-    // encontraba el botón "Permitir avisos" en Ajustes — muchos nunca
-    // llegaban a verlo y se quedaban sin ninguna, sin saber por qué. Esto lo
-    // pide solo, una vez en la vida de la instalación (ver push_service.dart).
     ref.watch(autoPedirPermisoTasaProvider);
-    // Deja el token de este dispositivo listo en la membresía del dueño para
-    // el resumen de ventas del día (ver push_service.dart).
     ref.watch(registrarTokenVentasProvider);
-    // Tutorial de bienvenida: se abre una sola vez, la primera vez que se entra
-    // al Dashboard tras crear el negocio. El `FutureProvider` se resuelve una
-    // vez por arranque, así que este `listen` dispara como mucho una apertura;
-    // `_salir` del tutorial marca "visto" para que no vuelva a salir. Se navega
-    // en el post-frame porque hacerlo durante el build lanzaría.
     ref.listen(tutorialPendienteProvider, (_, estado) {
       if (estado.valueOrNull != true) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const TutorialScreen()),
-        );
+        context.push(Routes.tutorial);
       });
     });
+
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
-    final ventas =
-        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
-    final productos = ref.watch(productosProvider).valueOrNull ?? const [];
-    final tasa = ref.watch(bcvRateProvider).valueOrNull;
-    final pendientes = ref.watch(ventasPendientesProvider);
+    final t = context.libreta;
 
-    final totalUsdHoy = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
-    final gananciaHoy = ventas.fold<double>(0, (s, v) => s + v.gananciaUSD);
-    final itemsHoy = ventas.fold<int>(0, (s, v) => s + v.items.length);
-    final itemsSinCosto = ventas.fold<int>(0, (s, v) => s + v.itemsSinCosto);
-    final stockBajo = productos.where((p) => p.stockBajo).length;
-    final nombre = negocio?.nombre ?? 'Mi negocio';
-
-    // Si Firestore rechaza las consultas (reglas no desplegadas, sin permiso),
-    // el dashboard se vería vacío y sin explicación. Mejor decirlo.
     final falloDatos =
         ref.watch(negocioActivoProvider).hasError ||
         ref.watch(ventasDelDiaProvider).hasError ||
         ref.watch(productosProvider).hasError;
 
-    // Foto de fondo opcional (Ajustes de la cuenta). Se muestra sin ningún
-    // velo encima — hasta un blanco al 35 % se veía como neblina sobre una
-    // foto con mucho color. Las tarjetas ya son opacas y no necesitan nada
-    // más; los textos que quedan directo sobre la foto (fuera de cualquier
-    // tarjeta) llevan su propio fondito opaco (`_ChipLegible`) en vez de
-    // sombra — con texto oscuro, una sombra oscura no da suficiente
-    // contraste contra una foto clara.
     final tieneFondo =
         (negocio?.fotoComoFondo ?? false) &&
         (negocio?.fotoUrl?.isNotEmpty ?? false);
 
     return Scaffold(
-      backgroundColor: tieneFondo ? Colors.transparent : null,
+      backgroundColor: tieneFondo ? Colors.transparent : t.papel,
       bottomNavigationBar: const AppBottomNav(activa: NavTab.inicio),
       body: Stack(
         children: [
-          if (tieneFondo) ...[
-            // Sin velo encima: cualquier color plano de por medio (hasta
-            // blanco al 35 %) se veía como neblina sobre una foto con tanto
-            // color. La foto se ve tal cual — los textos que quedan directo
-            // sobre ella llevan su propio fondito opaco (`_ChipLegible`) en
-            // vez de tapar la foto entera.
+          if (tieneFondo)
             Positioned.fill(
               child: FotoRed(
                 negocio!.fotoUrl!,
-                alError: Container(color: t.pageBg),
+                alError: Container(color: t.papel),
               ),
             ),
-          ],
           SafeArea(
             bottom: false,
             child: RefreshIndicator(
-              color: AppColors.marca,
-              onRefresh: () async => ref.invalidate(bcvRateProvider),
+              color: LibretaColors.verde,
+              onRefresh: () async {
+                ref.invalidate(bcvRateProvider);
+                ref.invalidate(binanceP2PRateProvider);
+              },
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 children: [
@@ -127,195 +73,31 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                   ],
 
-                  if (pendientes.isNotEmpty) ...[
-                    _BannerVentasPendientes(cantidad: pendientes.length),
-                    const SizedBox(height: 16),
-                  ],
+                  const _BannerVentasPendientesWidget(),
 
-                  // --- Saludo + acciones ---
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ChipLegible(
-                          activo: tieneFondo,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _saludo(),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: t.textSec,
-                                ),
-                              ),
-                              Text(
-                                nombre,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: t.text,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      _Campana(
-                        // Punto de aviso solo si hay algo que atender.
-                        conAviso: stockBajo > 0,
-                        onTap:
-                            () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const NotificacionesScreen(),
-                              ),
-                            ),
-                      ),
-                      const SizedBox(width: 10),
-                      _AvatarNegocio(
-                        fotoUrl: negocio?.fotoUrl,
-                        inicial: nombre.isEmpty ? '?' : nombre[0].toUpperCase(),
-                        onTap: () => context.go(Routes.perfil),
-                      ),
-                    ],
+                  const _SeccionSaludo(),
+                  const SizedBox(height: 16),
+
+                  const AvisoNotificaciones(),
+
+                  const _NotaTasaWidget(),
+                  const SizedBox(height: 16),
+
+                  const _TarjetaVentasWidget(),
+                  const SizedBox(height: 12),
+
+                  const _FilaGananciaTicket(),
+                  const SizedBox(height: 12),
+
+                  const _BannerStockBajoWidget(),
+
+                  const SizedBox(height: 16),
+                  EntradaAnimada(
+                    retardo: const Duration(milliseconds: 270),
+                    child: _TituloAccesos(),
                   ),
-                  const SizedBox(height: 18),
-
-                  // --- Ventas de hoy ---
-                  _TarjetaVentas(
-                    totalUsd: totalUsdHoy,
-                    tasa: tasa?.tasa,
-                    cobros: ventas.length,
-                    // Sin ningún costo registrado la ganancia no existe: la
-                    // tarjeta invita a registrarlos en vez de mostrar un cero
-                    // falso o repetir el total como si todo fuera ganancia.
-                    ganancia:
-                        itemsHoy > 0 && itemsSinCosto < itemsHoy
-                            ? gananciaHoy
-                            : null,
-                    gananciaParcial: itemsSinCosto > 0,
-                    invitarACostos: itemsHoy > 0 && itemsSinCosto == itemsHoy,
-                  ),
-                  const SizedBox(height: 18),
-
-                  // --- Tasa BCV ---
-                  _FilaTasaBcv(
-                    tasa: tasa?.tasa,
-                    tasaAnterior: ref.watch(bcvRateAnteriorProvider)?.tasa,
-                  ),
-                  const SizedBox(height: 18),
-
-                  // --- Contadores ---
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _Contador(
-                          etiqueta: 'Productos',
-                          valor: '${productos.length}',
-                          onTap: () => context.go(Routes.productos),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _Contador(
-                          etiqueta: 'Stock bajo',
-                          valor: '$stockBajo',
-                          alerta: stockBajo > 0,
-                          onTap: () => context.go(Routes.productos),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // --- Meta mensual (solo si el dueño la configuró) ---
-                  if ((negocio?.metaMensualUsd ?? 0) > 0) ...[
-                    const SizedBox(height: 18),
-                    _MetaMensual(
-                      // La meta es del MES: suma todas sus ventas con la consulta
-                      // por rango, no solo las de hoy. Mientras carga se muestra
-                      // lo de hoy, que es el piso conocido.
-                      logrado:
-                          ref
-                              .watch(ventasReporteProvider(PeriodoReporte.mes))
-                              .valueOrNull
-                              ?.where((v) => !v.anulada)
-                              .fold<double>(0, (s, v) => s + v.totalUSD) ??
-                          totalUsdHoy,
-                      meta: negocio!.metaMensualUsd,
-                    ),
-                  ],
-
-                  const SizedBox(height: 18),
-
-                  // --- Actividad reciente ---
-                  _ChipLegible(
-                    activo: tieneFondo,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Actividad reciente',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: t.text,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap:
-                              () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const HistorialScreen(),
-                                ),
-                              ),
-                          child: const Text(
-                            'Ver todo',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.marca,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if (ventas.isEmpty)
-                    NeuCard(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 32,
-                      ),
-                      child: Column(
-                        children: [
-                          const Text('🧾', style: TextStyle(fontSize: 28)),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Aún no registras ventas',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: t.textSec,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    NeuCard(
-                      clip: true,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < ventas.length && i < 5; i++)
-                            _FilaVenta(
-                              venta: ventas[i],
-                              ultima: i == ventas.length - 1 || i == 4,
-                            ),
-                        ],
-                      ),
-                    ),
+                  const SizedBox(height: 12),
+                  const _GridAccesosRapidos(),
                 ],
               ),
             ),
@@ -326,7 +108,320 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-/// Aviso cuando Firestore rechaza las lecturas del negocio.
+// ---------------------------------------------------------------------------
+// Saludo + nombre + avatar
+// ---------------------------------------------------------------------------
+class _SeccionSaludo extends ConsumerWidget {
+  const _SeccionSaludo();
+
+  String _saludo() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
+  IconData _iconoSaludo() {
+    final h = DateTime.now().hour;
+    if (h < 12) return Icons.wb_sunny_outlined;
+    if (h < 19) return Icons.wb_twilight;
+    return Icons.nightlight_outlined;
+  }
+
+  String _iniciales(String nombre) {
+    final partes = nombre
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return '?';
+    if (partes.length == 1) return partes.first.substring(0, 1).toUpperCase();
+    return (partes[0].substring(0, 1) + partes[1].substring(0, 1))
+        .toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.libreta;
+    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+    final nombre = negocio?.nombre ?? 'Mi negocio';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _saludo(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: t.textoMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(_iconoSaludo(), size: 16, color: t.textoMuted),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: t.textoFuerte,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down,
+                      size: 20, color: t.textoMuted),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        _AvatarNegocio(
+          fotoUrl: negocio?.fotoUrl,
+          iniciales: _iniciales(nombre),
+          onTap: () => context.go(Routes.perfil),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Banner de ventas pendientes
+// ---------------------------------------------------------------------------
+class _BannerVentasPendientesWidget extends ConsumerWidget {
+  const _BannerVentasPendientesWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendientes = ref.watch(ventasPendientesProvider);
+    if (pendientes.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _BannerVentasPendientes(cantidad: pendientes.length),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tasa del día (BCV + Binance)
+// ---------------------------------------------------------------------------
+class _NotaTasaWidget extends ConsumerWidget {
+  const _NotaTasaWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasa = ref.watch(bcvRateProvider).valueOrNull;
+    final binance = ref.watch(binanceP2PRateProvider).valueOrNull;
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 60),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 208),
+          child: _NotaTasa(bcv: tasa?.tasa, binance: binance?.precio),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tarjeta de ventas del día
+// ---------------------------------------------------------------------------
+class _TarjetaVentasWidget extends ConsumerWidget {
+  const _TarjetaVentasWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ventas =
+        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final tasa = ref.watch(bcvRateProvider).valueOrNull;
+    final totalUsd = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 130),
+      child: _TarjetaVentas(
+        totalUsd: totalUsd,
+        tasa: tasa?.tasa,
+        ventas: ventas.length,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ganancia / Ticket promedio
+// ---------------------------------------------------------------------------
+class _FilaGananciaTicket extends ConsumerWidget {
+  const _FilaGananciaTicket();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ventas =
+        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final itemsHoy = ventas.fold<int>(0, (s, v) => s + v.items.length);
+    final itemsSinCosto = ventas.fold<int>(0, (s, v) => s + v.itemsSinCosto);
+    final totalUsdHoy = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
+    final gananciaHoy = ventas.fold<double>(0, (s, v) => s + v.gananciaUSD);
+
+    final hayGanancia = itemsHoy > 0 && itemsSinCosto < itemsHoy;
+    final gananciaParcial = itemsSinCosto > 0;
+    final ticketProm = ventas.isEmpty ? null : totalUsdHoy / ventas.length;
+
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 200),
+      child: Row(
+        children: [
+          Expanded(
+            child: _TarjetaMini(
+              etiqueta: 'Ganancia',
+              valor: hayGanancia
+                  ? '${gananciaParcial ? "≈" : ""}'
+                      '${MoneyFormatter.usd(gananciaHoy)}'
+                  : '—',
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _TarjetaMini(
+              etiqueta: 'Ticket prom.',
+              valor: ticketProm == null ? '—' : MoneyFormatter.usd(ticketProm),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Banner de stock bajo
+// ---------------------------------------------------------------------------
+class _BannerStockBajoWidget extends ConsumerWidget {
+  const _BannerStockBajoWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productos =
+        ref.watch(productosConAlertaProvider).valueOrNull ?? const [];
+    final stockBajo = productos.where((p) => p.stockBajo).length;
+    if (stockBajo == 0) return const SizedBox.shrink();
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        _BannerStockBajo(
+          cantidad: stockBajo,
+          onTap: () => context.go(Routes.productos),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Accesos rápidos
+// ---------------------------------------------------------------------------
+class _TituloAccesos extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Text(
+      'ACCESOS RÁPIDOS',
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
+        color: context.libreta.textoMuted,
+      ),
+    );
+  }
+}
+
+class _GridAccesosRapidos extends StatelessWidget {
+  const _GridAccesosRapidos();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Column(
+      children: [
+        EntradaAnimada(
+          retardo: const Duration(milliseconds: 330),
+          child: Row(
+            children: [
+              Expanded(
+                child: _AccesoRapido(
+                  etiqueta: 'Cobrar',
+                  icono: Icons.shopping_cart_outlined,
+                  color: LibretaColors.verde,
+                  onTap: () => context.go(Routes.cobrar),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AccesoRapido(
+                  etiqueta: 'Productos',
+                  icono: Icons.inventory_2_outlined,
+                  color: t.textoFuerte,
+                  onTap: () => context.go(Routes.productos),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        EntradaAnimada(
+          retardo: const Duration(milliseconds: 390),
+          child: Row(
+            children: [
+              Expanded(
+                child: _AccesoRapido(
+                  etiqueta: 'Gastos',
+                  icono: Icons.payments_outlined,
+                  color: t.textoFuerte,
+                  onTap: () => context.push(Routes.gastos),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AccesoRapido(
+                  etiqueta: 'Reportes',
+                  icono: Icons.show_chart,
+                  color: const Color(0xFFF2A93B),
+                  onTap: () => context.go(Routes.reportes),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Widgets auxiliares (sin providers)
+// ---------------------------------------------------------------------------
+
 class _BannerSinPermiso extends StatelessWidget {
   const _BannerSinPermiso();
 
@@ -335,7 +430,7 @@ class _BannerSinPermiso extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.avisoSuave,
+        color: const Color(0x21F2A93C),
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Row(
@@ -349,7 +444,7 @@ class _BannerSinPermiso extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: AppColors.aviso,
+                color: LibretaColors.aviso,
               ),
             ),
           ),
@@ -359,10 +454,6 @@ class _BannerSinPermiso extends StatelessWidget {
   }
 }
 
-/// Avisa de ventas hechas sin señal que todavía no confirma el servidor.
-///
-/// Se sincronizan solas; esto es solo visibilidad para que el dueño no tenga
-/// que confiar a ciegas, sobre todo con varios vendedores cobrando a la vez.
 class _BannerVentasPendientes extends StatelessWidget {
   const _BannerVentasPendientes({required this.cantidad});
 
@@ -372,16 +463,11 @@ class _BannerVentasPendientes extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap:
-          () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const VentasPendientesScreen(),
-            ),
-          ),
+      onTap: () => context.push(Routes.ventasPendientes),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.avisoSuave,
+          color: const Color(0x21F2A93C),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -396,11 +482,11 @@ class _BannerVentasPendientes extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.aviso,
+                  color: LibretaColors.aviso,
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.aviso, size: 18),
+            const Icon(Icons.chevron_right, color: LibretaColors.aviso, size: 18),
           ],
         ),
       ),
@@ -408,528 +494,360 @@ class _BannerVentasPendientes extends StatelessWidget {
   }
 }
 
-/// Barra de progreso de la meta mensual de ventas.
-class _MetaMensual extends StatelessWidget {
-  const _MetaMensual({required this.logrado, required this.meta});
+class _NotaTasa extends StatelessWidget {
+  const _NotaTasa({required this.bcv, required this.binance});
 
-  final double logrado;
-  final double meta;
+  final double? bcv;
+  final double? binance;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    final fraccion = (logrado / meta).clamp(0.0, 1.0);
-    final pct = (fraccion * 100).round();
-
-    return NeuCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Meta mensual',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: t.textSec,
-                ),
+    return Transform.rotate(
+      angle: -0.026,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFCEFB4),
+          borderRadius: BorderRadius.circular(3),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x2A1E2A38),
+              offset: Offset(2, 5),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'TASA DEL DÍA · POR \$',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: Color(0xFF9A7B1A),
               ),
-              Text(
-                '$pct%',
+            ),
+            const SizedBox(height: 4),
+            _LineaTasa(etiqueta: 'BCV', valor: bcv),
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(vertical: 5),
+              color: const Color(0x4D9A7B1A),
+            ),
+            _LineaTasa(etiqueta: 'Binance', valor: binance, estrella: true),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LineaTasa extends StatelessWidget {
+  const _LineaTasa({
+    required this.etiqueta,
+    required this.valor,
+    this.estrella = false,
+  });
+
+  final String etiqueta;
+  final double? valor;
+  final bool estrella;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Text(
+              etiqueta,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF9A7B1A),
+              ),
+            ),
+            if (estrella) ...[
+              const SizedBox(width: 3),
+              const Text(
+                '*',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: t.textSec,
+                  color: Color(0xFF9A7B1A),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(100),
-            child: LinearProgressIndicator(
-              value: fraccion,
-              minHeight: 8,
-              backgroundColor: t.pageBg,
-              valueColor: const AlwaysStoppedAnimation(AppColors.marca),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${MoneyFormatter.usd(logrado)} de ${MoneyFormatter.usd(meta)}',
-            style: TextStyle(fontSize: 11.5, color: t.textSec),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Fondito opaco para el texto que, con la foto de fondo activada, quedaría
-/// flotando directo sobre ella. Sin [activo] es un passthrough — no cambia
-/// nada del layout normal (sin foto de fondo).
-class _ChipLegible extends StatelessWidget {
-  const _ChipLegible({required this.activo, required this.child});
-
-  final bool activo;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!activo) return child;
-    final t = context.tokens;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: t.shadowRaisedSm,
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Campana de notificaciones con el punto ámbar de "sin leer".
-class _Campana extends StatelessWidget {
-  const _Campana({required this.conAviso, required this.onTap});
-
-  final bool conAviso;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        NeuIconBtn(
-          icon: Icons.notifications_none,
-          size: 42,
-          radius: 100,
-          onTap: onTap,
+          ],
         ),
-        if (conAviso)
-          Positioned(
-            top: 8,
-            right: 9,
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.aviso,
-                shape: BoxShape.circle,
-              ),
-            ),
+        Text(
+          valor == null ? '—' : MoneyFormatter.bs(valor!),
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF9A7B1A),
           ),
+        ),
       ],
     );
   }
 }
 
-/// Avatar circular con la foto del negocio (Ajustes), o su inicial si no hay.
-class _AvatarNegocio extends StatelessWidget {
-  const _AvatarNegocio({
-    required this.fotoUrl,
-    required this.inicial,
-    required this.onTap,
-  });
-
-  final String? fotoUrl;
-  final String inicial;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    final tieneFoto = fotoUrl != null && fotoUrl!.isNotEmpty;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppColors.marca,
-          shape: BoxShape.circle,
-          boxShadow: t.shadowBtn,
-        ),
-        alignment: Alignment.center,
-        child:
-            tieneFoto
-                ? FotoRed(
-                  fotoUrl!,
-                  width: 42,
-                  height: 42,
-                  alError: Text(
-                    inicial,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                )
-                : Text(
-                  inicial,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-      ),
-    );
-  }
-}
-
-/// Tarjeta verde grande con el total del día.
 class _TarjetaVentas extends StatelessWidget {
   const _TarjetaVentas({
     required this.totalUsd,
     required this.tasa,
-    required this.cobros,
-    this.ganancia,
-    this.gananciaParcial = false,
-    this.invitarACostos = false,
+    required this.ventas,
   });
 
   final double totalUsd;
   final double? tasa;
-  final int cobros;
-
-  /// Ganancia del día, o `null` si no hay forma de calcularla.
-  final double? ganancia;
-
-  /// `true` si alguna línea vendida no tenía costo y quedó fuera del cálculo.
-  final bool gananciaParcial;
-
-  /// `true` si hubo ventas pero ningún producto tiene costo registrado.
-  final bool invitarACostos;
+  final int ventas;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.marca,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: t.shadowBtn,
+        color: LibretaColors.verde,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Ventas de hoy',
-            style: TextStyle(fontSize: 13, color: Color(0xD9FFFFFF)),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            MoneyFormatter.usd(totalUsd),
-            style: AppTypography.money(fontSize: 34, color: Colors.white),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            tasa == null
-                ? 'Tasa BCV no disponible'
-                : MoneyFormatter.usdComoBs(totalUsd, tasa!),
-            style: const TextStyle(fontSize: 14, color: Color(0xD9FFFFFF)),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0x26FFFFFF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$cobros ${cobros == 1 ? "cobro" : "cobros"} hoy',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              if (ganancia != null) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0x26FFFFFF),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      // "≈" cuando alguna línea no tenía costo: la cifra es
-                      // parcial y se nota, no se disimula.
-                      'Ganancia: ${gananciaParcial ? "≈" : ""}'
-                      '${MoneyFormatter.usd(ganancia!)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          if (invitarACostos) ...[
-            const SizedBox(height: 10),
-            const Text(
-              'Registra el costo de tus productos para ver tu ganancia real.',
-              style: TextStyle(fontSize: 11.5, color: Color(0xD9FFFFFF)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Fila con la tasa del dólar BCV.
-///
-/// Es solo informativa: sin `onTap` ni flecha, para que no invite a pulsarla y
-/// luego no pase nada.
-class _FilaTasaBcv extends StatelessWidget {
-  const _FilaTasaBcv({required this.tasa, this.tasaAnterior});
-
-  final double? tasa;
-
-  /// Tasa del día anterior, para mostrar cuánto se movió hoy aunque el
-  /// cambio sea demasiado chico para disparar una notificación (esas solo
-  /// avisan a partir de 0,1 %; aquí se ve el movimiento exacto, sea el que
-  /// sea).
-  final double? tasaAnterior;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    final variacion =
-        (tasa != null && tasaAnterior != null && tasaAnterior! > 0)
-            ? (tasa! - tasaAnterior!) / tasaAnterior! * 100
-            : null;
-
-    return NeuCard(
-      small: true,
-      radius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: t.tint,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'Bs',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppColors.marca,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Dólar BCV',
-                  style: TextStyle(fontSize: 11.5, color: t.textSec),
+                  MoneyFormatter.usd(totalUsd),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  tasa == null ? 'Cargando…' : MoneyFormatter.bs(tasa!),
-                  style: AppTypography.money(fontSize: 15, color: t.text),
+                  tasa == null
+                      ? 'calculando…'
+                      : MoneyFormatter.usdComoBs(totalUsd, tasa!),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xB3FFFFFF),
+                  ),
                 ),
               ],
             ),
           ),
-          if (variacion == null)
-            Text(
-              'Referencia de hoy',
-              style: TextStyle(fontSize: 11, color: t.muted),
-            )
-          else
-            _ChipVariacion(variacion: variacion),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0x21FFFFFF),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Text(
+              '$ventas ${ventas == 1 ? 'venta' : 'ventas'}',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// "▲ +0,04%" en verde, "▼ −0,04%" en rojo, o "Sin cambios" si es cero —
-/// el movimiento exacto del día, por chico que sea.
-class _ChipVariacion extends StatelessWidget {
-  const _ChipVariacion({required this.variacion});
-
-  final double variacion;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    if (variacion.abs() < 0.005) {
-      return Text(
-        'Sin cambios hoy',
-        style: TextStyle(fontSize: 11, color: t.muted),
-      );
-    }
-    final subio = variacion > 0;
-    final color = subio ? AppColors.marca : AppColors.peligro;
-    final flecha = subio ? '▲' : '▼';
-    final texto =
-        '$flecha ${subio ? '+' : '−'}${variacion.abs().toStringAsFixed(2).replaceAll('.', ',')}%';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        texto,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-/// Tarjeta de contador (Productos / Stock bajo).
-class _Contador extends StatelessWidget {
-  const _Contador({
-    required this.etiqueta,
-    required this.valor,
-    required this.onTap,
-    this.alerta = false,
-  });
+class _TarjetaMini extends StatelessWidget {
+  const _TarjetaMini({required this.etiqueta, required this.valor});
 
   final String etiqueta;
   final String valor;
-  final VoidCallback onTap;
-
-  /// Stock bajo con existencias pendientes se pinta en ámbar.
-  final bool alerta;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    final color = alerta ? AppColors.aviso : t.text;
-
-    return NeuCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      color: alerta ? AppColors.avisoSuave : null,
+    final t = context.libreta;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: t.superficie,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.bordeSuave),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             etiqueta,
             style: TextStyle(
-              fontSize: 12,
-              color: alerta ? AppColors.aviso : t.textSec,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: t.textoMuted,
             ),
           ),
           const SizedBox(height: 4),
-          Text(valor, style: AppTypography.money(fontSize: 22, color: color)),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: t.textoFuerte,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Fila de la lista de actividad reciente.
-class _FilaVenta extends StatelessWidget {
-  const _FilaVenta({required this.venta, required this.ultima});
+class _BannerStockBajo extends StatelessWidget {
+  const _BannerStockBajo({required this.cantidad, required this.onTap});
 
-  final Venta venta;
-  final bool ultima;
-
-  String _hora(DateTime f) {
-    final h = f.hour % 12 == 0 ? 12 : f.hour % 12;
-    final m = f.minute.toString().padLeft(2, '0');
-    return '$h:$m ${f.hour < 12 ? "am" : "pm"}';
-  }
+  final int cantidad;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    // Las líneas por peso no son "unidades", así que se cuentan como productos.
-    final lineas = venta.items.length;
-
-    return NeuListTile(
-      divider: !ultima,
-      onTap:
-          () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => VentaDetalleScreen(ventaId: venta.id),
-            ),
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 260),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0x21F2A93C),
+            borderRadius: BorderRadius.circular(16),
           ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: t.tint, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: const Text(
-              '\$',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.marca,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Venta · $lineas ${lineas == 1 ? "producto" : "productos"}',
-                  style: TextStyle(
-                    fontSize: 14,
+          child: Row(
+            children: [
+              const Text('📦', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  cantidad == 1
+                      ? '1 producto con stock bajo'
+                      : '$cantidad productos con stock bajo',
+                  style: const TextStyle(
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: t.text,
+                    color: LibretaColors.aviso,
                   ),
                 ),
-                Text(
-                  _hora(venta.fecha),
-                  style: TextStyle(fontSize: 12, color: t.textSec),
+              ),
+              const Icon(Icons.chevron_right, color: LibretaColors.aviso, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccesoRapido extends StatelessWidget {
+  const _AccesoRapido({
+    required this.etiqueta,
+    required this.icono,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String etiqueta;
+  final IconData icono;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: t.superficie,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: t.bordeSuave),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icono, size: 28, color: color),
+            const SizedBox(height: 8),
+            Text(
+              etiqueta,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: t.textoFuerte,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarNegocio extends StatelessWidget {
+  const _AvatarNegocio({
+    required this.fotoUrl,
+    required this.iniciales,
+    required this.onTap,
+  });
+
+  final String? fotoUrl;
+  final String iniciales;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tieneFoto = fotoUrl != null && fotoUrl!.isNotEmpty;
+    return InkWell(
+      borderRadius: BorderRadius.circular(30),
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: LibretaColors.verde,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        alignment: Alignment.center,
+        child: tieneFoto
+            ? FotoRed(
+                fotoUrl!,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                alError: Text(
+                  iniciales,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ],
-            ),
-          ),
-          Text(
-            MoneyFormatter.usd(venta.totalUSD),
-            style: AppTypography.money(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: t.text,
-            ),
-          ),
-        ],
+              )
+            : Text(
+                iniciales,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
       ),
     );
   }
