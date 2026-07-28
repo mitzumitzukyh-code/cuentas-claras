@@ -7,6 +7,7 @@ enum Rubro {
   belleza,
   quincalleria,
   comidaRapida,
+  electronica,
   otro;
 
   /// ID persistido en Firestore (coincide con el enum del brief).
@@ -16,6 +17,7 @@ enum Rubro {
         Rubro.belleza => 'belleza',
         Rubro.quincalleria => 'quincalleria',
         Rubro.comidaRapida => 'comida_rapida',
+        Rubro.electronica => 'electronica',
         Rubro.otro => 'otro',
       };
 
@@ -30,6 +32,7 @@ enum Rubro {
         Rubro.belleza => 'Belleza',
         Rubro.quincalleria => 'Quincallería',
         Rubro.comidaRapida => 'Comida rápida',
+        Rubro.electronica => 'Electrónica',
         Rubro.otro => 'Otro',
       };
 
@@ -39,6 +42,7 @@ enum Rubro {
         Rubro.belleza => Icons.brush_outlined,
         Rubro.quincalleria => Icons.handyman_outlined,
         Rubro.comidaRapida => Icons.lunch_dining_outlined,
+        Rubro.electronica => Icons.phone_android_outlined,
         Rubro.otro => Icons.category_outlined,
       };
 
@@ -87,6 +91,16 @@ enum Rubro {
               'Perros',
               'Bebidas',
               'Adicionales',
+            ],
+          ),
+        Rubro.electronica => const RubroConfig(
+            usaVariantes: true,
+            categoriasSugeridas: [
+              'Teléfonos',
+              'Tablets',
+              'Audífonos',
+              'Cargadores',
+              'Accesorios',
             ],
           ),
         Rubro.otro => const RubroConfig(

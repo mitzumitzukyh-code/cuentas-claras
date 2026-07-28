@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/utils/money_formatter.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -49,6 +50,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   bool _vendidoPorPeso = false;
   bool _guardando = false;
   bool _leyendoIA = false;
+  TipoProducto _tipo = TipoProducto.simple;
+  bool _bloquearAlAgotarse = false;
+  bool _enOferta = false;
+  final _precioAnterior = TextEditingController();
+  int? _garantiaMeses;
 
   bool get _editando => widget.producto != null;
 
@@ -67,11 +73,17 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     _vencimiento = p.fechaVencimiento;
     _vendidoPorPeso = p.vendidoPorPeso;
     _variantes.addAll(p.variantes);
+    _tipo = p.tipo;
+    _bloquearAlAgotarse = p.bloquearAlAgotarse;
+    _enOferta = p.enOferta;
+    _precioAnterior.text = p.precioAnterior?.toString() ?? '';
+    _garantiaMeses = p.garantiaMeses;
   }
 
   @override
   void dispose() {
     _nombre.dispose();
+    _precioAnterior.dispose();
     _precio.dispose();
     _costo.dispose();
     _cantidad.dispose();
@@ -252,6 +264,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
           ? double.parse(_cantidad.text.replaceAll(',', '.'))
           : _variantes.fold<int>(0, (s, v) => s + v.cantidad).toDouble();
 
+      final precioAnteriorValor = double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
       final producto = Producto(
         id: widget.producto?.id ?? '',
         nombre: _nombre.text.trim(),
@@ -265,6 +278,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         fechaVencimiento: _vencimiento,
         codigoBarras: _codigoBarras,
         vendidoPorPeso: _vendidoPorPeso,
+        tipo: _tipo,
+        bloquearAlAgotarse: _bloquearAlAgotarse,
+        precioAnterior: _enOferta ? precioAnteriorValor : null,
+        enOferta: _enOferta,
+        garantiaMeses: _garantiaMeses,
       );
 
       final confirmado = _editando
@@ -514,6 +532,39 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 ),
               ],
 
+              // Ganancia en vivo
+              if (_costo.text.isNotEmpty && double.tryParse(_costo.text.replaceAll(',', '.')) != null && double.tryParse(_precio.text.replaceAll(',', '.')) != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0x1A0E9F6E),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.trending_up, size: 16, color: LibretaColors.verde),
+                      const SizedBox(width: 6),
+                      Text(
+                        () {
+                          final precio = double.tryParse(_precio.text.replaceAll(',', '.'))!;
+                          final costo = double.tryParse(_costo.text.replaceAll(',', '.'))!;
+                          final ganancia = precio - costo;
+                          final pct = costo > 0 ? ((ganancia / costo) * 100).round() : 0;
+                          return '${MoneyFormatter.usd(ganancia)} · $pct %';
+                        }(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: LibretaColors.verde,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 18),
 
               LibretaInput(
@@ -524,6 +575,127 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
               ),
 
               const SizedBox(height: 18),
+
+              // Tipo de producto
+              Text(
+                'Tipo de producto',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.libreta.textoMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _TipoPill(label: 'Simple', selected: _tipo == TipoProducto.simple, onTap: () => setState(() => _tipo = TipoProducto.simple)),
+                  if (config.usaVariantes)
+                    _TipoPill(label: 'Con talla-color', selected: _tipo == TipoProducto.variantes, onTap: () => setState(() => _tipo = TipoProducto.variantes)),
+                  _TipoPill(label: 'Con serial-garantía', selected: _tipo == TipoProducto.serial, onTap: () => setState(() => _tipo = TipoProducto.serial)),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              // Cuando el stock llegue a 0
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: context.libreta.superficie,
+                  border: Border.all(color: const Color(0x141E2A38)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Cuando el stock llegue a 0',
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.libreta.textoFuerte)),
+                          SizedBox(height: 2),
+                          Text(_bloquearAlAgotarse ? 'No permitir más ventas' : 'Seguir vendiendo en negativo',
+                            style: TextStyle(fontSize: 11, color: context.libreta.textoMuted)),
+                        ],
+                      ),
+                    ),
+                    LibretaToggle(
+                      value: _bloquearAlAgotarse,
+                      onChanged: (v) => setState(() => _bloquearAlAgotarse = v),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Ponerlo en oferta
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: context.libreta.superficie,
+                  border: Border.all(color: const Color(0x141E2A38)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Ponerlo en oferta',
+                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.libreta.textoFuerte)),
+                              SizedBox(height: 2),
+                              Text('Mostrar precio anterior tachado',
+                                style: TextStyle(fontSize: 11, color: context.libreta.textoMuted)),
+                            ],
+                          ),
+                        ),
+                        LibretaToggle(
+                          value: _enOferta,
+                          onChanged: (v) => setState(() => _enOferta = v),
+                        ),
+                      ],
+                    ),
+                    if (_enOferta) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LibretaInput(
+                              controller: _precioAnterior,
+                              label: 'Precio anterior (USD)',
+                              hint: '0.00',
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          if (_precioAnterior.text.isNotEmpty && double.tryParse(_precioAnterior.text.replaceAll(',', '.')) != null && double.tryParse(_precio.text.replaceAll(',', '.')) != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0x24F2A93C),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '−${() {
+                                  final ant = double.tryParse(_precioAnterior.text.replaceAll(',', '.'))!;
+                                  final actual = double.tryParse(_precio.text.replaceAll(',', '.'))!;
+                                  return ((ant - actual) / ant * 100).round().toString();
+                                }()} %',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB07D1E)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
 
               // --- Vender por peso ---
               Container(
@@ -610,6 +782,29 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                     'insumos (pendiente).',
                     style: TextStyle(color: LibretaColors.aviso, fontSize: 13),
                   ),
+                ),
+              ],
+
+              // Garantía — solo Electrónica.
+              if ((negocio?.rubro ?? Rubro.otro) == Rubro.electronica) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Garantía',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: context.libreta.textoMuted,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _TipoPill(label: 'Sin garantía', selected: _garantiaMeses == null, onTap: () => setState(() => _garantiaMeses = null)),
+                    _TipoPill(label: '30 días', selected: _garantiaMeses == 1, onTap: () => setState(() => _garantiaMeses = 1)),
+                    _TipoPill(label: '90 días', selected: _garantiaMeses == 3, onTap: () => setState(() => _garantiaMeses = 3)),
+                  ],
                 ),
               ],
 
@@ -857,6 +1052,40 @@ class _EditorVariantesState extends State<_EditorVariantes> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _TipoPill extends StatelessWidget {
+  const _TipoPill({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? LibretaColors.verde : Colors.transparent,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: selected ? LibretaColors.verde : const Color(0x261E2A38),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: selected ? Colors.white : context.libreta.textoMuted,
+          ),
+        ),
+      ),
     );
   }
 }
