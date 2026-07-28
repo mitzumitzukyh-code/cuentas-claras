@@ -350,6 +350,41 @@ class VentaRepository {
             .where((v) => !v.anulada)
             .toList());
   }
+
+  /// Ventas del día anterior (para el comparativo del Dashboard).
+  Future<List<Venta>> ventasDeAyer(String negocioId) async {
+    final hoy = DateTime.now();
+    final ayer = DateTime(hoy.year, hoy.month, hoy.day - 1);
+    final fin = DateTime(hoy.year, hoy.month, hoy.day);
+    final snap = await _ventas(negocioId)
+        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(ayer))
+        .where('fecha', isLessThan: Timestamp.fromDate(fin))
+        .orderBy('fecha', descending: true)
+        .get();
+    return snap.docs
+        .map(Venta.fromDoc)
+        .where((v) => !v.anulada)
+        .toList();
+  }
+
+  /// Cuenta los días consecutivos (hacia atrás) en que hubo al menos una
+  /// venta no anulada. Empieza desde ayer (hoy cuenta aparte).
+  Future<int> contarRacha(String negocioId) async {
+    final hoy = DateTime.now();
+    int racha = 0;
+    for (var i = 1;; i++) {
+      final dia = DateTime(hoy.year, hoy.month, hoy.day - i);
+      final fin = DateTime(hoy.year, hoy.month, hoy.day - i + 1);
+      final snap = await _ventas(negocioId)
+          .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(dia))
+          .where('fecha', isLessThan: Timestamp.fromDate(fin))
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) break;
+      racha++;
+    }
+    return racha;
+  }
 }
 
 // --- Providers ---
@@ -382,4 +417,19 @@ final historialVentasProvider = StreamProvider<List<Venta>>((ref) {
 final ventasPendientesProvider = Provider<List<Venta>>((ref) {
   final historial = ref.watch(historialVentasProvider).valueOrNull ?? const [];
   return historial.where((v) => v.pendiente).toList();
+});
+
+/// Ventas de ayer del negocio activo (para comparativo en Dashboard).
+final ventasDeAyerProvider = FutureProvider<List<Venta>>((ref) {
+  final membresia = ref.watch(membresiaActivaProvider);
+  if (membresia == null) return const [];
+  return ref.watch(ventaRepositoryProvider).ventasDeAyer(membresia.negocioId);
+});
+
+/// Cuenta los días consecutivos con ventas (incluyendo hoy).
+/// Se usa para la racha del Dashboard.
+final rachaDiasProvider = FutureProvider<int>((ref) {
+  final membresia = ref.watch(membresiaActivaProvider);
+  if (membresia == null) return Future.value(0);
+  return ref.read(ventaRepositoryProvider).contarRacha(membresia.negocioId);
 });

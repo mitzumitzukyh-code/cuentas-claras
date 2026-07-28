@@ -41,6 +41,9 @@ class DashboardScreen extends ConsumerWidget {
         ref.watch(ventasDelDiaProvider).hasError ||
         ref.watch(productosProvider).hasError;
 
+    final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const [];
+    final tieneVentasHoy = ventas.isNotEmpty;
+
     final tieneFondo =
         (negocio?.fotoComoFondo ?? false) &&
         (negocio?.fotoUrl?.isNotEmpty ?? false);
@@ -73,23 +76,30 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                   ],
 
-                  const _BannerVentasPendientesWidget(),
-
                   const _SeccionSaludo(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   const AvisoNotificaciones(),
 
                   const _NotaTasaWidget(),
                   const SizedBox(height: 16),
 
-                  const _TarjetaVentasWidget(),
-                  const SizedBox(height: 12),
+                  if (tieneVentasHoy) ...[
+                    const _TarjetaVentasWidget(),
+                    const SizedBox(height: 12),
 
-                  const _FilaGananciaTicket(),
-                  const SizedBox(height: 12),
+                    const _FilaGananciaTicket(),
+                    const SizedBox(height: 12),
 
-                  const _BannerStockBajoWidget(),
+                    const _ComparativoWidget(),
+                    const SizedBox(height: 12),
+
+                    const _RachaWidget(),
+                  ] else ...[
+                    const _DiaSinVentasWidget(),
+                  ],
+
+                  const _BloqueUrgencias(),
 
                   const SizedBox(height: 16),
                   EntradaAnimada(
@@ -207,23 +217,6 @@ class _SeccionSaludo extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Banner de ventas pendientes
-// ---------------------------------------------------------------------------
-class _BannerVentasPendientesWidget extends ConsumerWidget {
-  const _BannerVentasPendientesWidget();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pendientes = ref.watch(ventasPendientesProvider);
-    if (pendientes.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: _BannerVentasPendientes(cantidad: pendientes.length),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Tasa del día (BCV + Binance)
 // ---------------------------------------------------------------------------
 class _NotaTasaWidget extends ConsumerWidget {
@@ -315,25 +308,296 @@ class _FilaGananciaTicket extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Banner de stock bajo
+// Día sin ventas — "hoja en blanco" + sugerencias (Lote P · P2)
 // ---------------------------------------------------------------------------
-class _BannerStockBajoWidget extends ConsumerWidget {
-  const _BannerStockBajoWidget();
+class _DiaSinVentasWidget extends StatelessWidget {
+  const _DiaSinVentasWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 130),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        decoration: BoxDecoration(
+          color: t.superficie,
+          border: Border.all(color: t.bordeSuave),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.auto_stories_outlined, size: 40, color: t.textoMuted),
+            const SizedBox(height: 12),
+            Text(
+              'Hoja en blanco',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: t.textoFuerte,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Todavía no registras ventas hoy',
+              style: TextStyle(fontSize: 13.5, color: t.textoMuted),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _AccesoRapido(
+                    etiqueta: 'Cobrar',
+                    icono: Icons.shopping_cart_outlined,
+                    color: LibretaColors.verde,
+                    onTap: () => context.go(Routes.cobrar),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _AccesoRapido(
+                    etiqueta: 'Productos',
+                    icono: Icons.inventory_2_outlined,
+                    color: t.textoFuerte,
+                    onTap: () => context.go(Routes.productos),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Comparativo vs ayer (Lote P · P1)
+// ---------------------------------------------------------------------------
+class _ComparativoWidget extends ConsumerWidget {
+  const _ComparativoWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ventasHoy =
+        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final ayerAsync = ref.watch(ventasDeAyerProvider);
+
+    final totalHoy = ventasHoy.fold<double>(0, (s, v) => s + v.totalUSD);
+    final totalAyer =
+        ayerAsync.valueOrNull?.fold<double>(0, (s, v) => s + v.totalUSD) ?? 0;
+
+    if (totalAyer == 0) return const SizedBox.shrink();
+
+    final diff = totalHoy - totalAyer;
+    final pct = (diff / totalAyer) * 100;
+    final esMejor = diff >= 0;
+    final t = context.libreta;
+
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 200),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: t.superficie,
+          border: Border.all(color: t.bordeSuave),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              esMejor ? Icons.trending_up : Icons.trending_down,
+              size: 20,
+              color: esMejor ? LibretaColors.verde : LibretaColors.peligro,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  text: esMejor ? 'Superaste ayer por ' : 'Debajo de ayer por ',
+                  style: TextStyle(fontSize: 13, color: t.textoFuerte),
+                  children: [
+                    TextSpan(
+                      text: MoneyFormatter.usd(diff.abs()),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: esMejor ? LibretaColors.verde : LibretaColors.peligro,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' (${pct.toStringAsFixed(0)}%)',
+                      style: TextStyle(fontSize: 12, color: t.textoMuted),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Racha de días consecutivos con ventas (Lote P · P1)
+// ---------------------------------------------------------------------------
+class _RachaWidget extends ConsumerWidget {
+  const _RachaWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rachaAsync = ref.watch(rachaDiasProvider);
+    final racha = rachaAsync.valueOrNull ?? 0;
+    if (racha < 2) return const SizedBox.shrink();
+
+    final t = context.libreta;
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 200),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0x1F0E9F6E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  text: '$racha día${racha == 1 ? '' : 's'} ',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: LibretaColors.verde,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: 'consecutivos con ventas',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: t.textoFuerte,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bloque de urgencias (Lote P · P3)
+// ---------------------------------------------------------------------------
+class _BloqueUrgencias extends ConsumerWidget {
+  const _BloqueUrgencias();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productos =
         ref.watch(productosConAlertaProvider).valueOrNull ?? const [];
     final stockBajo = productos.where((p) => p.stockBajo).length;
-    if (stockBajo == 0) return const SizedBox.shrink();
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        _BannerStockBajo(
-          cantidad: stockBajo,
-          onTap: () => context.go(Routes.productos),
+    final pendientes = ref.watch(ventasPendientesProvider);
+
+    final items = <Widget>[];
+    if (stockBajo > 0) {
+      items.add(__UrgenciaItem(
+        icono: Icons.inventory_2_outlined,
+        texto: stockBajo == 1
+            ? '1 producto con stock bajo'
+            : '$stockBajo productos con stock bajo',
+        onTap: () => context.go(Routes.productos),
+      ));
+    }
+    if (pendientes.isNotEmpty) {
+      items.add(__UrgenciaItem(
+        icono: Icons.cloud_upload_outlined,
+        texto: pendientes.length == 1
+            ? '1 venta sin subir'
+            : '${pendientes.length} ventas sin subir',
+        onTap: () => context.push(Routes.ventasPendientes),
+      ));
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: EntradaAnimada(
+        retardo: const Duration(milliseconds: 260),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ANTES DE CERRAR',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: context.libreta.textoMuted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...items,
+          ],
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class __UrgenciaItem extends StatelessWidget {
+  const __UrgenciaItem({
+    required this.icono,
+    required this.texto,
+    required this.onTap,
+  });
+
+  final IconData icono;
+  final String texto;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: t.superficie,
+            border: Border.all(color: t.bordeSuave),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Icon(icono, size: 18, color: LibretaColors.aviso),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  texto,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: t.textoFuerte,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 18, color: t.textoMuted),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -449,46 +713,6 @@ class _BannerSinPermiso extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BannerVentasPendientes extends StatelessWidget {
-  const _BannerVentasPendientes({required this.cantidad});
-
-  final int cantidad;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => context.push(Routes.ventasPendientes),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0x21F2A93C),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            const Text('⏳', style: TextStyle(fontSize: 16)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                cantidad == 1
-                    ? '1 venta esperando señal para subirse'
-                    : '$cantidad ventas esperando señal para subirse',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: LibretaColors.aviso,
-                ),
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: LibretaColors.aviso, size: 18),
-          ],
-        ),
       ),
     );
   }
@@ -704,50 +928,6 @@ class _TarjetaMini extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BannerStockBajo extends StatelessWidget {
-  const _BannerStockBajo({required this.cantidad, required this.onTap});
-
-  final int cantidad;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 260),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0x21F2A93C),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              const Text('📦', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  cantidad == 1
-                      ? '1 producto con stock bajo'
-                      : '$cantidad productos con stock bajo',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: LibretaColors.aviso,
-                  ),
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: LibretaColors.aviso, size: 18),
-            ],
-          ),
-        ),
       ),
     );
   }
