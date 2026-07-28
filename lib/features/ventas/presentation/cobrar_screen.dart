@@ -10,17 +10,25 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
+import '../../productos/data/producto_repository.dart';
+import '../../productos/domain/producto.dart';
+import '../data/carrito_provider.dart';
 import '../data/venta_repository.dart';
+import '../domain/item_carrito.dart';
 import '../domain/venta.dart';
 import 'widgets/overlay_cobrado.dart';
 
-/// Pantalla 7 — Cobrar (réplica visual de `P0 · COBRAR`, `Lote B · Ventas`).
+enum _ModoCobro { productos, montoLibre }
+
+/// Pantalla 7 — Cobrar híbrido (Lote B · P0).
 ///
-/// Calculadora de monto libre: el dueño teclea el total a cobrar en vez de
-/// elegir productos uno por uno. Por diseño explícito, estas ventas **no
-/// descuentan inventario ni se atribuyen a un producto** en Reportes — quedan
-/// registradas como `productoId` vacío (ver `VentaRepository`). El método de
-/// pago sí se conserva porque lo necesita el cierre de caja (Lote H).
+/// Dos modos en la misma pantalla:
+/// - **Productos** (carrito): grid del catálogo + items agregados, descuenta
+///   inventario al cobrar.
+/// - **Monto libre** (calculadora): teclea el total, sin tocar inventario.
+///
+/// Compatible con el modo anterior: si el negocio no tiene productos cargados,
+/// abre en "Monto libre" por defecto.
 class CobrarScreen extends ConsumerStatefulWidget {
   const CobrarScreen({super.key});
 
@@ -36,6 +44,10 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   bool _cobrando = false;
   bool _mostrarCheck = false;
   double _montoCobrado = 0;
+  _ModoCobro _modo = _ModoCobro.montoLibre;
+  bool _fiadoSeleccionado = false;
+  String? _clienteFiadoId;
+  String? _clienteFiadoNombre;
 
   double get _monto => double.tryParse(_entrada.replaceAll(',', '.')) ?? 0;
 
@@ -207,50 +219,154 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                           ),
                           const SizedBox(height: 14),
 
+                          _SelectorModo(
+                            valor: _modo,
+                            onChanged: (m) =>
+                                setState(() => _modo = m),
+                          ),
+                          const SizedBox(height: 14),
+
+                          if (_modo == _ModoCobro.productos)
+                            _PanelProductos(
+                              ref: ref,
+                              carrito: ref.watch(carritoProvider),
+                              onAgregar: (p) {
+                                ref.read(carritoProvider.notifier).agregar(
+                                  ItemCarrito(
+                                    productoId: p.id,
+                                    nombre: p.nombre,
+                                    precioUnitario: p.precio,
+                                    fotoUrl: p.fotoUrl,
+                                    precioAnterior: p.tieneOferta
+                                        ? p.precioAnterior
+                                        : null,
+                                  ),
+                                );
+                              },
+                              onQuitar: (idx) {
+                                ref
+                                    .read(carritoProvider.notifier)
+                                    .quitar(idx);
+                              },
+                            )
+                          else
+                            _TecladoNumerico(
+                              entrada: _entrada,
+                              onTecla: _tecla,
+                            ),
+
+                          const SizedBox(height: 14),
                           _EtiquetaSeccion(texto: 'Método de pago'),
                           const SizedBox(height: 8),
                           SizedBox(
                             height: 32,
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
-                              itemCount: MetodoPago.values.length,
+                              itemCount: MetodoPago.values.length + 1,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(width: 6),
-                              itemBuilder: (_, i) => _ChipMetodo(
-                                label: MetodoPago.values[i].etiquetaCorta,
-                                selected: _metodo == MetodoPago.values[i],
-                                onTap: () => setState(
-                                  () => _metodo = MetodoPago.values[i],
+                              itemBuilder: (_, i) {
+                                if (i < MetodoPago.values.length) {
+                                  final m = MetodoPago.values[i];
+                                  return _ChipMetodo(
+                                    label: m.etiquetaCorta,
+                                    selected: _metodo == m,
+                                    onTap: () => setState(() {
+                                      _metodo = m;
+                                      _fiadoSeleccionado = false;
+                                    }),
+                                  );
+                                }
+                                return _ChipMetodo(
+                                  label: 'Fiado',
+                                  selected: _fiadoSeleccionado,
+                                  colorAmbar: true,
+                                  onTap: () => setState(() {
+                                    _fiadoSeleccionado = !_fiadoSeleccionado;
+                                    if (_fiadoSeleccionado) {
+                                      _metodo = MetodoPago.efectivo;
+                                    }
+                                  }),
+                                );
+                              },
+                            ),
+                          ),
+
+                          if (_fiadoSeleccionado)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: const Color(0x4DF2A93C)),
+                                  borderRadius: BorderRadius.circular(13),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32, height: 32,
+                                      decoration: const BoxDecoration(
+                                        color: LibretaColors.tarjetaOscura,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        _clienteFiadoNombre != null
+                                            ? _clienteFiadoNombre![0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _clienteFiadoNombre ?? 'Seleccionar cliente',
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: context.libreta.textoFuerte,
+                                        ),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        // TODO: abrir selector de clientes
+                                      },
+                                      child: const Text('Cambiar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 14),
 
-                          GridView.count(
-                            crossAxisCount: 3,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 1.5,
-                            children: [
-                              for (final d in [
-                                '1', '2', '3',
-                                '4', '5', '6',
-                                '7', '8', '9',
-                                ',', '0', '⌫',
-                              ])
-                                _TeclaNumerica(
-                                  texto: d,
-                                  onTap: () => _tecla(d),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
+                          if (_modo == _ModoCobro.montoLibre) ...[
+                            GridView.count(
+                              crossAxisCount: 3,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.5,
+                              children: [
+                                for (final d in [
+                                  '1', '2', '3',
+                                  '4', '5', '6',
+                                  '7', '8', '9',
+                                  ',', '0', '⌫',
+                                ])
+                                  _TeclaNumerica(
+                                    texto: d,
+                                    onTap: () => _tecla(d),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                          ],
 
                           LibretaButton(
-                            label: 'Cobrar ${MoneyFormatter.usd(total)}',
+                            label: _fiadoSeleccionado
+                                ? 'Anotar fiado ${MoneyFormatter.usd(total)}'
+                                : 'Cobrar ${MoneyFormatter.usd(total)}',
                             loading: _cobrando,
                             onPressed: (total <= 0 || tasa == null || negocio == null)
                                 ? null
@@ -271,6 +387,248 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _SelectorModo extends StatelessWidget {
+  const _SelectorModo({required this.valor, required this.onChanged});
+
+  final _ModoCobro valor;
+  final ValueChanged<_ModoCobro> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: t.bordeSuave,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(_ModoCobro.productos),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: valor == _ModoCobro.productos
+                      ? LibretaColors.verde
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Productos',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: valor == _ModoCobro.productos
+                        ? Colors.white
+                        : t.textoMuted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(_ModoCobro.montoLibre),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: valor == _ModoCobro.montoLibre
+                      ? LibretaColors.verde
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Monto libre',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: valor == _ModoCobro.montoLibre
+                        ? Colors.white
+                        : t.textoMuted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PanelProductos extends ConsumerWidget {
+  const _PanelProductos({
+    required this.ref,
+    required this.carrito,
+    required this.onAgregar,
+    required this.onQuitar,
+  });
+
+  final WidgetRef ref;
+  final List<ItemCarrito> carrito;
+  final ValueChanged<Producto> onAgregar;
+  final ValueChanged<int> onQuitar;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productos = ref.watch(productosProvider).valueOrNull ?? [];
+    final t = context.libreta;
+    final busqueda = ValueNotifier('');
+
+    return Column(
+      children: [
+        if (carrito.isNotEmpty)
+          Container(
+            constraints: const BoxConstraints(maxHeight: 68),
+            decoration: BoxDecoration(
+              color: t.superficie,
+              border: Border.all(color: t.bordeSuave),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              itemCount: carrito.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 0),
+              itemBuilder: (_, i) {
+                final item = carrito[i];
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${item.cantidad}x ${item.nombre}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      MoneyFormatter.usd(item.subtotal),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0E9F6E)),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => onQuitar(i),
+                      child: const Icon(Icons.remove_circle_outline, size: 18, color: Color(0xFFC74A3A)),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: 10),
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Buscar producto…',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: t.bordeSuave)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: t.bordeSuave)),
+          ),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => busqueda.value = v,
+        ),
+        const SizedBox(height: 10),
+        if (productos.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              'No hay productos cargados',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: t.textoMuted),
+            ),
+          )
+        else
+          ...productos.take(6).map((p) => _TarjetaProducto(
+                producto: p,
+                onTap: () => onAgregar(p),
+              )),
+      ],
+    );
+  }
+}
+
+class _TarjetaProducto extends StatelessWidget {
+  const _TarjetaProducto({required this.producto, required this.onTap});
+
+  final Producto producto;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: t.superficie,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: t.bordeSuave),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      producto.nombre,
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      MoneyFormatter.usd(producto.precio),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: LibretaColors.verde),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.add_circle_outline, size: 22, color: LibretaColors.verde),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TecladoNumerico extends StatelessWidget {
+  const _TecladoNumerico({required this.entrada, required this.onTecla});
+
+  final String entrada;
+  final ValueChanged<String> onTecla;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 1.5,
+      children: [
+        for (final d in [
+          '1', '2', '3',
+          '4', '5', '6',
+          '7', '8', '9',
+          ',', '0', '⌫',
+        ])
+          _TeclaNumerica(texto: d, onTap: () => onTecla(d)),
+      ],
     );
   }
 }
@@ -373,25 +731,28 @@ class _ChipMetodo extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.colorAmbar = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool colorAmbar;
 
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
+    final bg = colorAmbar ? const Color(0xFFF2A93C) : LibretaColors.verde;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? LibretaColors.verde : t.superficie,
+          color: selected ? bg : t.superficie,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: selected ? LibretaColors.verde : t.bordeSuave,
+            color: selected ? bg : t.bordeSuave,
           ),
         ),
         alignment: Alignment.center,
