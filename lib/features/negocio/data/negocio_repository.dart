@@ -51,6 +51,11 @@ class NegocioRepository {
     return _membresias.doc(membresiaId).update({'rol': rol.id});
   }
 
+  /// Guarda el mapa de permisos granular de un miembro.
+  Future<void> guardarPermisos(String membresiaId, Map<String, bool> permisos) {
+    return _membresias.doc(membresiaId).update({'permisos': permisos});
+  }
+
   Future<void> quitarMiembro(String membresiaId) {
     return _membresias.doc(membresiaId).delete();
   }
@@ -189,6 +194,8 @@ class NegocioRepository {
     bool? alertaStockActiva,
     double? metaMensualUsd,
     String? proveedorWhatsapp,
+    String? bancoCodigo,
+    String? bancoNombre,
     String? fotoUrl,
     bool? fotoComoFondo,
   }) {
@@ -199,6 +206,8 @@ class NegocioRepository {
       if (alertaStockActiva != null) 'alertaStockActiva': alertaStockActiva,
       if (metaMensualUsd != null) 'metaMensualUsd': metaMensualUsd,
       if (proveedorWhatsapp != null) 'proveedorWhatsapp': proveedorWhatsapp,
+      if (bancoCodigo != null) 'bancoCodigo': bancoCodigo,
+      if (bancoNombre != null) 'bancoNombre': bancoNombre,
       if (fotoUrl != null) 'fotoUrl': fotoUrl,
       if (fotoComoFondo != null) 'fotoComoFondo': fotoComoFondo,
     };

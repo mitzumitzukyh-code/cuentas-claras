@@ -568,9 +568,116 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                     ),
                     const SizedBox(height: 18),
 
-                    // --- 6. Ayuda ---
+                    // --- 6. Banco principal (solo dueño) ---
+                    if (esDueno) ...[
+                      _EntradaSuave(
+                        orden: 8,
+                        child: _Seccion(
+                          titulo: 'Banco principal',
+                          child: _Fila(
+                            ultima: true,
+                            onTap: () => context.push(Routes.selectorBanco),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        negocio.bancoNombre ??
+                                            'Seleccionar banco',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: context.libreta.textoFuerte,
+                                        ),
+                                      ),
+                                      if (negocio.bancoNombre != null)
+                                        Text(
+                                          'Código ${negocio.bancoCodigo}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: context.libreta.textoMuted,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 19,
+                                  color: context.libreta.textoMuted,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
+
+                    // --- 7. Legal ---
                     _EntradaSuave(
-                      orden: 8,
+                      orden: 9,
+                      child: _Seccion(
+                        titulo: 'Legal',
+                        child: Column(
+                          children: [
+                            _Fila(
+                              onTap: () => context.push(Routes.legal),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Privacidad y términos',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: context.libreta.textoFuerte,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 19,
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _Fila(
+                              ultima: true,
+                              onTap: () => context.push(Routes.eliminarCuenta),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Eliminar cuenta',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: LibretaColors.peligro,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 19,
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // --- 8. Ayuda ---
+                    _EntradaSuave(
+                      orden: 10,
                       child: _Seccion(
                         titulo: 'Ayuda',
                         child: _Fila(

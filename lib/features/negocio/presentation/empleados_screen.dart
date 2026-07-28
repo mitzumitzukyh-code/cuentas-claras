@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../app/router/routes.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/negocio_repository.dart';
@@ -126,6 +128,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
   Widget build(BuildContext context) {
     final miembros = ref.watch(miembrosNegocioProvider);
     final yo = ref.watch(authStateProvider).valueOrNull?.uid;
+    final esDueno = ref.watch(esDuenoProvider);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -227,13 +230,19 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
                               child: Column(
                                 children: [
                                   for (var i = 0; i < lista.length; i++)
-                                    _FilaMiembro(
-                                      miembro: lista[i],
-                                      esYo: lista[i].usuarioId == yo,
-                                      ultima: i == lista.length - 1,
-                                      onRol: () => _cambiarRol(lista[i]),
-                                      onQuitar: () => _quitar(lista[i]),
-                                    ),
+                                      _FilaMiembro(
+                                        miembro: lista[i],
+                                        esYo: lista[i].usuarioId == yo,
+                                        ultima: i == lista.length - 1,
+                                        onTap: esDueno
+                                            ? () => context.push(
+                                                  Routes.detalleEmpleado,
+                                                  extra: lista[i],
+                                                )
+                                            : null,
+                                        onRol: () => _cambiarRol(lista[i]),
+                                        onQuitar: () => _quitar(lista[i]),
+                                      ),
                                 ],
                               ),
                             ),
@@ -283,6 +292,7 @@ class _FilaMiembro extends StatelessWidget {
     required this.miembro,
     required this.esYo,
     required this.ultima,
+    this.onTap,
     required this.onRol,
     required this.onQuitar,
   });
@@ -294,6 +304,7 @@ class _FilaMiembro extends StatelessWidget {
   final bool esYo;
   final bool ultima;
 
+  final VoidCallback? onTap;
   final VoidCallback onRol;
   final VoidCallback onQuitar;
 
@@ -309,88 +320,91 @@ class _FilaMiembro extends StatelessWidget {
     final color =
         _colores[miembro.usuarioId.hashCode.abs() % _colores.length];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        border: ultima
-            ? null
-            : Border(bottom: BorderSide(color: context.libreta.renglon)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: Text(
-              miembro.iniciales,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          border: ultima
+              ? null
+              : Border(bottom: BorderSide(color: context.libreta.renglon)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: Text(
+                miembro.iniciales,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  esYo ? '${miembro.nombreVisible} (tú)' : miembro.nombreVisible,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    esYo ? '${miembro.nombreVisible} (tú)' : miembro.nombreVisible,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: context.libreta.textoFuerte,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    miembro.correo ?? miembro.rol.etiqueta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: esYo ? null : onRol,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: miembro.rol.esDueno
+                      ? const Color(0x1F0E9F6E)
+                      : const Color(0x0F1E2A38),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  miembro.rol.etiqueta,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: context.libreta.textoFuerte,
+                    color: miembro.rol.esDueno
+                        ? LibretaColors.verde
+                        : context.libreta.textoMuted,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  miembro.correo ?? miembro.rol.etiqueta,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: esYo ? null : onRol,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: miembro.rol.esDueno
-                    ? const Color(0x1F0E9F6E)
-                    : const Color(0x0F1E2A38),
-                borderRadius: BorderRadius.circular(100),
               ),
-              child: Text(
-                miembro.rol.etiqueta,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: miembro.rol.esDueno
-                      ? LibretaColors.verde
-                      : context.libreta.textoMuted,
+            ),
+            if (!esYo) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onQuitar,
+                child: Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 18, color: context.libreta.textoMuted),
                 ),
               ),
-            ),
-          ),
-          if (!esYo) ...[
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: onQuitar,
-              child: Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(Icons.close, size: 18, color: context.libreta.textoMuted),
-              ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

@@ -10,9 +10,13 @@ import '../../features/cierre/presentation/arqueo_caja_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/fiados/presentation/fiados_screen.dart';
 import '../../features/gastos/presentation/gastos_screen.dart';
+import '../../features/negocio/domain/membresia.dart';
+import '../../features/negocio/presentation/detalle_empleado_screen.dart';
 import '../../features/negocio/presentation/empleados_screen.dart';
 import '../../features/negocio/presentation/impresora_screen.dart';
 import '../../features/negocio/presentation/metodos_pago_screen.dart';
+import '../../features/negocio/presentation/selector_banco_screen.dart';
+import '../../features/perfil/presentation/legal_screen.dart';
 import '../../features/onboarding/presentation/rubro_selection_screen.dart';
 import '../../features/perfil/presentation/ajustes_screen.dart';
 import '../../features/perfil/presentation/centro_ayuda_screen.dart';
@@ -252,6 +256,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.estadoWhatsApp,
         pageBuilder: (_, s) => _pagina(s, EstadoScreen(productos: (s.extra as List<dynamic>).cast<Producto>())),
+      ),
+      GoRoute(
+        path: Routes.legal,
+        pageBuilder: (_, s) => _pagina(s, const LegalScreen()),
+      ),
+      GoRoute(
+        path: Routes.selectorBanco,
+        pageBuilder: (_, s) => _pagina(s, const SelectorBancoScreen()),
+      ),
+      GoRoute(
+        path: Routes.detalleEmpleado,
+        pageBuilder: (_, s) => _pagina(
+          s,
+          DetalleEmpleadoScreen(membresia: s.extra as Membresia),
+        ),
       ),
       GoRoute(
         path: Routes.sesionError,

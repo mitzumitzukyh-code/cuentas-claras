@@ -19,6 +19,8 @@ class Negocio {
     this.proveedorWhatsapp,
     this.fotoUrl,
     this.fotoComoFondo = false,
+    this.bancoCodigo,
+    this.bancoNombre,
     this.metodosPago = const [],
     this.creadoPor,
   });
@@ -46,6 +48,12 @@ class Negocio {
 
   /// Teléfono del proveedor para pedir reabastecimiento por WhatsApp.
   final String? proveedorWhatsapp;
+
+  /// Código SUDEBAN del banco principal (para pago móvil).
+  final String? bancoCodigo;
+
+  /// Nombre del banco principal (denormalizado para mostrar sin lookup).
+  final String? bancoNombre;
 
   /// Logo/foto del negocio. Se muestra como avatar en Perfil y en el
   /// Dashboard.
@@ -88,6 +96,8 @@ class Negocio {
       alertaStockActiva: (data['alertaStockActiva'] as bool?) ?? true,
       metaMensualUsd: (data['metaMensualUsd'] as num?)?.toDouble() ?? 0,
       proveedorWhatsapp: data['proveedorWhatsapp'] as String?,
+      bancoCodigo: data['bancoCodigo'] as String?,
+      bancoNombre: data['bancoNombre'] as String?,
       fotoUrl: data['fotoUrl'] as String?,
       fotoComoFondo: (data['fotoComoFondo'] as bool?) ?? false,
       creadoPor: data['creadoPor'] as String?,
@@ -119,6 +129,8 @@ class Negocio {
     'alertaStockActiva': alertaStockActiva,
     'metaMensualUsd': metaMensualUsd,
     'proveedorWhatsapp': proveedorWhatsapp,
+    'bancoCodigo': bancoCodigo,
+    'bancoNombre': bancoNombre,
     'fotoUrl': fotoUrl,
     'fotoComoFondo': fotoComoFondo,
     'creadoPor': creadoPor,
