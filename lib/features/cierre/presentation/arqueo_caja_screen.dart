@@ -144,7 +144,7 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
               return Stack(
                 children: [
                   ListView(
-                    padding: const EdgeInsets.fromLTRB(54, 30, 22, 100),
+                    padding: const EdgeInsets.fromLTRB(24, 30, 22, 100),
                     children: [
                       Text(
                         'Cierre de caja',

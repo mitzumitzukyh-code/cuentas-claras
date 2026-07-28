@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/conectividad_provider.dart';
 import 'libreta_colors.dart';
 import 'libreta_tokens.dart';
 
@@ -103,9 +105,12 @@ class LibretaCoralMargin extends StatelessWidget {
 
 /// Fondo estándar de una pantalla interna del sistema "libreta": papel,
 /// espiral asomando arriba y margen coral a la izquierda. El contenido
-/// propio de cada pantalla debe dejar ~54px de margen izquierdo para no
-/// pisar la línea.
+/// propio de cada pantalla debe dejar [padIzquierdo]px de margen izquierdo
+/// para no pisar la línea.
 class LibretaPageBackground extends StatelessWidget {
+  /// Sangrado lateral estándar del sistema "libreta": 24px (decisión D1).
+  /// Ver `Comparación sangrado.dc.html` col. B.
+  static const double padIzquierdo = 24;
   const LibretaPageBackground({
     super.key,
     required this.child,
@@ -136,6 +141,46 @@ class LibretaPageBackground extends StatelessWidget {
             ),
           if (coralMargin) const LibretaCoralMargin(),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Pastilla ámbar compacta "Sin conexión" que va bajo el título de las
+/// pantallas internas. Solo visible cuando el teléfono pierde la red.
+/// Alimentada por [hayConexionProvider].
+class LibretaAvisoOfflineCompacto extends ConsumerWidget {
+  const LibretaAvisoOfflineCompacto({super.key, this.copy});
+
+  /// Texto alternativo para pantallas como Estado que necesitan copy distinto.
+  final String? copy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final conectado = ref.watch(hayConexionProvider).valueOrNull ?? true;
+    if (conectado) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0x24F2A93C),
+        border: Border.all(color: const Color(0x59F2A93C)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 13, color: Color(0xFFB07D1E)),
+          const SizedBox(width: 7),
+          Text(
+            copy ?? 'Sin conexión — se guarda y sube solo',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFB07D1E),
+            ),
+          ),
         ],
       ),
     );

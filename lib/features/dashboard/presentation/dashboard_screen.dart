@@ -66,7 +66,7 @@ class DashboardScreen extends ConsumerWidget {
                 ref.invalidate(binanceP2PRateProvider);
               },
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                 children: [
                   if (falloDatos) ...[
                     const _BannerSinPermiso(),
@@ -537,7 +537,7 @@ class _NotaTasa extends StatelessWidget {
               margin: const EdgeInsets.symmetric(vertical: 5),
               color: const Color(0x4D9A7B1A),
             ),
-            _LineaTasa(etiqueta: 'Binance', valor: binance, estrella: true),
+            _LineaTasa(etiqueta: 'Paralelo', valor: binance, estrella: true),
           ],
         ),
       ),

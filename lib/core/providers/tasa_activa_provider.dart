@@ -20,7 +20,7 @@ enum TipoTasa {
 
   String get etiqueta => switch (this) {
         TipoTasa.bcv => 'tasa BCV',
-        TipoTasa.binance => 'tasa Binance USDT',
+        TipoTasa.binance => 'tasa paralela',
       };
 }
 

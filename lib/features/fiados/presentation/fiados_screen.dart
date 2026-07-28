@@ -51,7 +51,7 @@ class FiadosScreen extends ConsumerWidget {
               return Stack(
                 children: [
                   ListView(
-                    padding: const EdgeInsets.fromLTRB(54, 30, 22, 100),
+                    padding: const EdgeInsets.fromLTRB(24, 30, 22, 100),
                     children: [
                       Text(
                         'Fiados',
@@ -68,6 +68,7 @@ class FiadosScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: LibretaColors.tarjetaOscura,
                           borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: context.libreta.bordeHero, width: 1.5),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

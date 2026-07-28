@@ -51,4 +51,8 @@ abstract final class LibretaColors {
   /// debe invertirse a crema en modo oscuro, porque ahí dejaría de leerse
   /// como una tarjeta "destacada" oscura.
   static const Color tarjetaOscura = Color(0xFF1E2A38);
+
+  /// Borde de tarjeta hero en modo oscuro — cream tagline al 32% (#F7E7C6).
+  /// Contraste de área ≥3:1 sobre `#1C1B18` (mide 3.26:1 según el diseño).
+  static const Color bordeHeroOscuro = Color(0x52F7E7C6);
 }

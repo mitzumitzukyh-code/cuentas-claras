@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #2A2926; }
+    * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+    a, a:hover { color: #0E9F6E; }
+  </style>
+</helmet>
+
+<section style="min-height:100vh;padding:40px 24px 70px;background:#2A2926">
+  <div style="max-width:1160px;margin:0 auto 30px;text-align:center">
+    <div style="font-size:12px;font-weight:800;letter-spacing:2px;color:#0E9F6E;text-transform:uppercase">Cuenta Clara · Modo oscuro</div>
+    <h1 style="font-size:26px;font-weight:800;color:#F2ECE0;letter-spacing:-.4px;margin:7px 0 6px">Tarjeta hero vs papel oscuro — separarla sin invertirla</h1>
+    <p style="font-size:14.5px;color:#A79E90;margin:0;line-height:1.55">#1E2A38 sobre #1C1B18 da un contraste de área de ~1,19:1 — casi invisible. Tres soluciones, sin negro puro.</p>
+  </div>
+
+  <div style="display:flex;gap:26px;justify-content:center;flex-wrap:wrap;max-width:1200px;margin:0 auto">
+
+    <!-- ══ A · BORDE SUTIL ══ -->
+    <div style="width:340px">
+      <div style="text-align:center;margin-bottom:12px"><span style="font-size:13px;font-weight:800;color:#fff;background:#0E9F6E;padding:6px 14px;border-radius:100px">A · Borde sutil — recomendado</span></div>
+      <div style="background:#1C1B18;border-radius:24px;overflow:hidden;box-shadow:0 20px 44px rgba(0,0,0,.4);padding:22px 22px 24px">
+        <div style="font-size:12px;font-weight:600;color:#A79E90">Buenas noches</div>
+        <div style="font-size:19px;font-weight:800;color:#F2ECE0;letter-spacing:-.4px;margin-top:2px;margin-bottom:16px">Abasto La Esquina</div>
+        <div style="background:#1E2A38;border:1.5px solid rgba(247,231,198,.32);border-radius:16px;padding:16px 18px;color:#F2ECE0">
+          <div style="font-size:12px;font-weight:600;color:#A79E90">Ventas de hoy</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;flex-wrap:wrap">
+            <span style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums">$47.20</span>
+            <span style="font-size:15px;font-weight:700;color:rgba(242,236,224,.8);font-variant-numeric:tabular-nums">Bs 1.847.500</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;background:#262420;border:1px solid rgba(242,236,224,.08);border-radius:14px;padding:12px 14px;font-size:13px;font-weight:600;color:#A79E90">Tasa de hoy · Bs 39.140 <span style="color:#F2ECE0;font-weight:700">BCV</span></div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:#0E9F6E;font-weight:700;margin-top:10px">Borde 1.5px, cream #F7E7C6 al 32% · ≈3,26:1 contra el fondo</div>
+    </div>
+
+    <!-- ══ B · ELEVACIÓN CÁLIDA ══ -->
+    <div style="width:340px">
+      <div style="text-align:center;margin-bottom:12px"><span style="font-size:13px;font-weight:800;color:#1E2A38;background:#fff;border:1.5px solid rgba(30,42,56,.15);padding:6px 14px;border-radius:100px">B · Elevación con sombra cálida</span></div>
+      <div style="background:#1C1B18;border-radius:24px;overflow:hidden;box-shadow:0 20px 44px rgba(0,0,0,.4);padding:22px 22px 24px">
+        <div style="font-size:12px;font-weight:600;color:#A79E90">Buenas noches</div>
+        <div style="font-size:19px;font-weight:800;color:#F2ECE0;letter-spacing:-.4px;margin-top:2px;margin-bottom:16px">Abasto La Esquina</div>
+        <div style="background:#1E2A38;border-radius:16px;padding:16px 18px;color:#F2ECE0;box-shadow:0 18px 36px rgba(0,0,0,.55),0 0 0 1px rgba(247,231,198,.05) inset">
+          <div style="font-size:12px;font-weight:600;color:#A79E90">Ventas de hoy</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;flex-wrap:wrap">
+            <span style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums">$47.20</span>
+            <span style="font-size:15px;font-weight:700;color:rgba(242,236,224,.8);font-variant-numeric:tabular-nums">Bs 1.847.500</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;background:#262420;border:1px solid rgba(242,236,224,.08);border-radius:14px;padding:12px 14px;font-size:13px;font-weight:600;color:#A79E90">Tasa de hoy · Bs 39.140 <span style="color:#F2ECE0;font-weight:700">BCV</span></div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:#8A9A96;font-weight:600;margin-top:10px">Solo profundidad perceptual — sin ratio medible, no basta sola</div>
+    </div>
+
+    <!-- ══ C · TONO DISTINTO EN OSCURO ══ -->
+    <div style="width:340px">
+      <div style="text-align:center;margin-bottom:12px"><span style="font-size:13px;font-weight:800;color:#1E2A38;background:#fff;border:1.5px solid rgba(30,42,56,.15);padding:6px 14px;border-radius:100px">C · Tono distinto solo en oscuro</span></div>
+      <div style="background:#1C1B18;border-radius:24px;overflow:hidden;box-shadow:0 20px 44px rgba(0,0,0,.4);padding:22px 22px 24px">
+        <div style="font-size:12px;font-weight:600;color:#A79E90">Buenas noches</div>
+        <div style="font-size:19px;font-weight:800;color:#F2ECE0;letter-spacing:-.4px;margin-top:2px;margin-bottom:16px">Abasto La Esquina</div>
+        <div style="background:#35455E;border-radius:16px;padding:16px 18px;color:#F2ECE0">
+          <div style="font-size:12px;font-weight:600;color:#A79E90">Ventas de hoy</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;flex-wrap:wrap">
+            <span style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums">$47.20</span>
+            <span style="font-size:15px;font-weight:700;color:rgba(242,236,224,.8);font-variant-numeric:tabular-nums">Bs 1.847.500</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;background:#262420;border:1px solid rgba(242,236,224,.08);border-radius:14px;padding:12px 14px;font-size:13px;font-weight:600;color:#A79E90">Tasa de hoy · Bs 39.140 <span style="color:#F2ECE0;font-weight:700">BCV</span></div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:#B07D1E;font-weight:700;margin-top:10px">#35455E · ≈1,78:1 — mejora pero no llega a 3:1 sola</div>
+    </div>
+
+  </div>
+
+  <div style="max-width:760px;margin:34px auto 0;background:#1C1B18;border:1px solid rgba(242,236,224,.1);border-radius:18px;padding:24px 26px">
+    <div style="font-size:16px;font-weight:800;color:#F2ECE0;margin-bottom:10px">Recomiendo A · Borde sutil</div>
+    <div style="font-size:14px;color:#C9D0CB;font-weight:500;line-height:1.65">
+      Calculé contraste de área con luminancia relativa (WCAG). #1E2A38 sobre #1C1B18 da ≈1,19:1 — el problema es real, casi no hay separación.<br><br>
+      <b style="color:#F2ECE0">A · Borde</b> con el cream de tagline #F7E7C6 al 32% de opacidad da ≈3,26:1 contra el fondo — cruza el umbral de 3:1 que pide WCAG para límites de componentes gráficos, y usa un color que ya vive en el sistema (el mismo del tagline manuscrito), así que no se siente ajeno ni frío.<br><br>
+      <b style="color:#F2ECE0">B · Sombra</b> no tiene un ratio medible — es densidad perceptual, no contraste de color, y sola no resuelve el problema de accesibilidad; es un complemento, no una solución.<br><br>
+      <b style="color:#F2ECE0">C · Tono distinto</b> mejora a ≈1,78:1, pero para llegar a 3:1 solo con color tendría que aclararse tanto que deja de sentirse como una tarjeta "oscura que no se invierte" — traiciona la regla del handoff.<br><br>
+      Por eso la solución ganadora es A, y si quieres un extra de calidez sin tocar el contraste, súmale la sombra de B — nunca C solo.
+    </div>
+  </div>
+</section>
+
+</x-dc>
+</body>
+</html>

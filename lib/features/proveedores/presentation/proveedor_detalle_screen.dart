@@ -39,7 +39,7 @@ class ProveedorDetalleScreen extends ConsumerWidget {
       body: LibretaPageBackground(
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(54, 26, 22, 32),
+            padding: const EdgeInsets.fromLTRB(24, 26, 22, 32),
             children: [
               Row(
                 children: [

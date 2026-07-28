@@ -42,8 +42,8 @@ class _CentroAyudaScreenState extends State<CentroAyudaScreen> {
     ),
     _Pregunta(
       'Cobros y tasa',
-      '¿De dónde sale la tasa BCV y Binance?',
-      'Puedes usar la tasa del BCV (oficial) o la de Binance USDT (paralelo). '
+      '¿De dónde sale la tasa BCV y Paralelo?',
+      'Puedes usar la tasa del BCV (oficial) o la del Paralelo (P2P). '
           'Eliges cuál se aplica al cobrar en Ajustes › Tasa de cambio.',
     ),
     _Pregunta(

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #E4E0D8; }
+    * { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+    a, a:hover { color: #0E9F6E; }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; } }
+  </style>
+</helmet>
+
+<section style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:22px;padding:44px 20px 72px;background:#E4E0D8">
+  <div style="text-align:center;max-width:560px">
+    <div style="font-size:12px;font-weight:800;letter-spacing:2px;color:#0E9F6E;text-transform:uppercase">Cuenta Clara · Lote D</div>
+    <h1 style="font-size:27px;font-weight:800;color:#1E2A38;letter-spacing:-.5px;margin:7px 0 6px">Planes y Catálogo</h1>
+    <p style="font-size:15px;color:#6f6f6f;margin:0;line-height:1.55;text-wrap:pretty">Planes · Catálogo · Estado. Usa las flechas o los puntos: las pantallas <b style="color:#1E2A38">se hojean sobre el espiral</b>.</p>
+  </div>
+
+  <div ref="{{ navRef }}" style="display:flex;flex-direction:column;align-items:center;gap:18px">
+    <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" width="{{ 400 }}" height="{{ 850 }}" hint-size="400px,850px">
+      <div ref="{{ stageRef }}" style="height:100%;position:relative;perspective:1600px;overflow:hidden;background:#FAF8F3">
+
+        <!-- ══ P0 · PLANES ══ -->
+        <div data-page="0" style="position:absolute;inset:0;z-index:3;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#FAF8F3">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="position:absolute;top:6px;left:0;right:0;height:18px;z-index:3;background-image:radial-gradient(circle at center, transparent 3px, rgba(30,42,56,.30) 3px, rgba(30,42,56,.30) 5.5px, transparent 6px);background-size:26px 18px;background-repeat:repeat-x;background-position:center"></div>
+            <div style="position:absolute;top:0;bottom:0;left:38px;width:2px;background:rgba(193,80,58,.4);z-index:1"></div>
+            <div style="flex:1;overflow:auto;padding:34px 22px 24px 54px;position:relative;z-index:2">
+              <div style="font-size:24px;font-weight:800;color:#1E2A38;letter-spacing:-.5px">Tu plan</div>
+              <div style="font-family:'Caveat',cursive;font-weight:700;font-size:21px;color:#0E9F6E;margin-top:2px">desbloquea más páginas de tu cuaderno</div>
+              <div style="margin-top:18px;border-radius:20px;padding:22px 20px;background:linear-gradient(150deg,#8C2F22 0%,#5A3A28 52%,#0E9F6E 128%);color:#fff;box-shadow:0 16px 32px rgba(140,47,34,.28);position:relative;overflow:hidden">
+                <div style="position:absolute;top:12px;left:0;right:0;height:14px;opacity:.5;background-image:radial-gradient(circle at center, transparent 2.5px, rgba(255,255,255,.6) 2.5px, rgba(255,255,255,.6) 4.5px, transparent 5px);background-size:24px 14px;background-repeat:repeat-x;background-position:center"></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                  <span style="font-size:13px;font-weight:800;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:100px;letter-spacing:.4px">CUENTA CLARA PLUS</span>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:6px;margin-top:14px"><span style="font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px">$5</span><span style="font-size:15px;font-weight:600;opacity:.85">/mes</span></div>
+                <div style="display:flex;flex-direction:column;gap:11px;margin-top:16px">
+                  <div style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>Pedidos por WhatsApp automáticos</div>
+                  <div style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>Catálogo y estados sin marca de agua</div>
+                  <div style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>Reportes avanzados y respaldo en la nube</div>
+                  <div style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>Empleados ilimitados</div>
+                </div>
+                <button style="width:100%;height:52px;border:none;border-radius:13px;background:#FAF8F3;color:#8C2F22;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;margin-top:20px">Hazte Plus</button>
+              </div>
+              <div style="margin-top:14px;background:#fff;border:1px solid rgba(30,42,56,.1);border-radius:18px;padding:18px 20px">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div><div style="font-size:16px;font-weight:800;color:#1E2A38">Plan gratis</div><div style="font-size:13px;color:#8A9A96;font-weight:600">Tu plan actual</div></div>
+                  <span style="font-size:12px;font-weight:800;color:#0E9F6E;background:rgba(14,159,110,.12);padding:5px 11px;border-radius:100px">ACTIVO</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+                  <div style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#1E2A38"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A9A96" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>Ventas, gastos e inventario</div>
+                  <div style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:#8A9A96"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A9A96" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>Catálogo con marca de agua</div>
+                </div>
+              </div>
+              <div style="text-align:center;font-size:12px;color:#8A9A96;font-weight:500;margin-top:14px;line-height:1.5">Cancela cuando quieras. Precio en dólares, pagas en Bs a la tasa del día.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ P1 · CATÁLOGO ══ -->
+        <div data-page="1" style="position:absolute;inset:0;z-index:2;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#fff">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="padding:26px 22px 16px;flex:none;border-bottom:1px solid rgba(30,42,56,.07)">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#8C2F22,#0E9F6E);display:flex;align-items:center;justify-content:center;flex:none;color:#fff;font-weight:800;font-size:16px">AE</div>
+                <div style="flex:1"><div style="font-size:18px;font-weight:800;color:#1E2A38;letter-spacing:-.3px">Abasto La Esquina</div><div style="font-size:12px;font-weight:600;color:#8A9A96">Catálogo · 128 productos</div></div>
+                <button style="width:42px;height:42px;border-radius:12px;background:#0E9F6E;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"></path></svg></button>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:14px;overflow:hidden">
+                <span style="font-size:13px;font-weight:700;color:#fff;background:#1E2A38;padding:7px 14px;border-radius:100px;white-space:nowrap">Todos</span>
+                <span style="font-size:13px;font-weight:700;color:#1E2A38;background:rgba(30,42,56,.06);padding:7px 14px;border-radius:100px;white-space:nowrap">Víveres</span>
+                <span style="font-size:13px;font-weight:700;color:#1E2A38;background:rgba(30,42,56,.06);padding:7px 14px;border-radius:100px;white-space:nowrap">Bebidas</span>
+                <span style="font-size:13px;font-weight:700;color:#1E2A38;background:rgba(30,42,56,.06);padding:7px 14px;border-radius:100px;white-space:nowrap">Limpieza</span>
+              </div>
+            </div>
+            <div style="flex:1;overflow:auto;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-content:start">
+              <div style="border:1px solid rgba(30,42,56,.08);border-radius:16px;overflow:hidden;background:#fff"><div style="height:110px;background:linear-gradient(135deg,#f4efe4,#e7dcc6);display:flex;align-items:center;justify-content:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#c3b28c" stroke-width="1.6"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5"></path></svg></div><div style="padding:11px 12px"><div style="font-size:14px;font-weight:700;color:#1E2A38">Harina PAN 1kg</div><div style="font-size:15px;font-weight:800;color:#0E9F6E;font-variant-numeric:tabular-nums;margin-top:2px">$1,50</div></div></div>
+              <div style="border:1px solid rgba(30,42,56,.08);border-radius:16px;overflow:hidden;background:#fff"><div style="height:110px;background:linear-gradient(135deg,#e6f0ec,#cfe3da);display:flex;align-items:center;justify-content:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#8fbfae" stroke-width="1.6"><path d="M8 2h8M9 2v3a5 5 0 0 0 1 3l1 1v11a2 2 0 0 1-2 2M15 2v3a5 5 0 0 1-1 3l-1 1"></path></svg></div><div style="padding:11px 12px"><div style="font-size:14px;font-weight:700;color:#1E2A38">Refresco 2L</div><div style="font-size:15px;font-weight:800;color:#0E9F6E;font-variant-numeric:tabular-nums;margin-top:2px">$1,60</div></div></div>
+              <div style="border:1px solid rgba(30,42,56,.08);border-radius:16px;overflow:hidden;background:#fff"><div style="height:110px;background:linear-gradient(135deg,#f4ecdc,#ecd9b3);display:flex;align-items:center;justify-content:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#cdae72" stroke-width="1.6"><path d="M6 2h12l-1 7a5 5 0 0 1-10 0z"></path><path d="M8 22h8M12 16v6"></path></svg></div><div style="padding:11px 12px"><div style="font-size:14px;font-weight:700;color:#1E2A38">Aceite 1L</div><div style="font-size:15px;font-weight:800;color:#0E9F6E;font-variant-numeric:tabular-nums;margin-top:2px">$4,10</div></div></div>
+              <div style="border:1px solid rgba(30,42,56,.08);border-radius:16px;overflow:hidden;background:#fff"><div style="height:110px;background:linear-gradient(135deg,#efeaf2,#ddd0e6);display:flex;align-items:center;justify-content:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ab93bd" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 7h6M9 11h6"></path></svg></div><div style="padding:11px 12px"><div style="font-size:14px;font-weight:700;color:#1E2A38">Detergente 1kg</div><div style="font-size:15px;font-weight:800;color:#0E9F6E;font-variant-numeric:tabular-nums;margin-top:2px">$6,80</div></div></div>
+              <div style="border:1px solid rgba(30,42,56,.08);border-radius:16px;overflow:hidden;background:#fff"><div style="height:110px;background:linear-gradient(135deg,#f3ece6,#e3d0c2);display:flex;align-items:center;justify-content:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#c09b81" stroke-width="1.6"><path d="M18 8h1a3 3 0 0 1 0 6h-1M4 8h14v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"></path><path d="M6 2v2M10 2v2M14 2v2"></path></svg></div><div style="padding:11px 12px"><div style="font-size:14px;font-weight:700;color:#1E2A38">Café Fama 250g</div><div style="font-size:15px;font-weight:800;color:#0E9F6E;font-variant-numeric:tabular-nums;margin-top:2px">$3,40</div></div></div>
+              <div style="border:1px solid rgba(30,42,56,.08);border-radius:16px;overflow:hidden;background:#fff"><div style="height:110px;background:linear-gradient(135deg,#f4efe4,#e7dcc6);display:flex;align-items:center;justify-content:center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#c3b28c" stroke-width="1.6"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"></path><path d="M3 8l9 5 9-5"></path></svg></div><div style="padding:11px 12px"><div style="font-size:14px;font-weight:700;color:#1E2A38">Arroz 1kg</div><div style="font-size:15px;font-weight:800;color:#0E9F6E;font-variant-numeric:tabular-nums;margin-top:2px">$1,80</div></div></div>
+            </div>
+            <div style="padding:14px 16px 18px;flex:none;border-top:1px solid rgba(30,42,56,.07)">
+              <button style="width:100%;height:52px;border:none;border-radius:14px;background:#0E9F6E;color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.18-3 .78.8-2.9-.2-.31A8.2 8.2 0 1 1 12 20.2z"></path></svg>Compartir por WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ P2 · ESTADO ══ -->
+        <div data-page="2" style="position:absolute;inset:0;z-index:1;transform-origin:top center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;transition:transform .62s cubic-bezier(.2,.72,.24,1),box-shadow .62s ease;overflow:hidden;background:#1E2A38">
+          <div style="height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden">
+            <div style="flex:1;position:relative;overflow:hidden;background:linear-gradient(160deg,#f4efe4,#e3d0c2)">
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="rgba(140,47,34,.35)" stroke-width="1.2"><path d="M6 2h12l-1 7a5 5 0 0 1-10 0z"></path><path d="M8 22h8M12 16v6"></path></svg></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,42,56,.45) 0%,transparent 26%,transparent 52%,rgba(30,42,56,.86) 100%)"></div>
+              <div style="position:absolute;top:22px;left:22px;right:22px;display:flex;align-items:center;gap:10px">
+                <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;color:#8C2F22;font-weight:800;font-size:14px">AE</div>
+                <div style="font-size:15px;font-weight:800;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.3)">Abasto La Esquina</div>
+              </div>
+              <div style="position:absolute;left:24px;right:24px;bottom:74px;color:#fff">
+                <div style="display:inline-block;font-size:13px;font-weight:800;background:#F2A93C;color:#1E2A38;padding:6px 13px;border-radius:100px;margin-bottom:12px">¡OFERTA DE HOY!</div>
+                <div style="font-size:32px;font-weight:800;letter-spacing:-.6px;line-height:1.05;text-shadow:0 2px 10px rgba(0,0,0,.35)">Café Fama 250g</div>
+                <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px">
+                  <span style="font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.35)">$3,40</span>
+                  <span style="font-size:18px;font-weight:700;color:rgba(255,255,255,.65);text-decoration:line-through;font-variant-numeric:tabular-nums">$4,00</span>
+                </div>
+                <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,.85);font-variant-numeric:tabular-nums;margin-top:4px">Bs 125,26 · a la tasa de hoy</div>
+              </div>
+              <div style="position:absolute;left:0;right:0;bottom:24px;display:flex;align-items:center;justify-content:center;gap:7px;opacity:.85">
+                <svg width="16" height="16" viewBox="0 0 64 64" fill="none"><rect x="12" y="8" width="42" height="48" rx="6" fill="rgba(255,255,255,.9)" stroke="#1E2A38" stroke-width="3"></rect><path d="M23 35 L31 43 L47 23" fill="none" stroke="#0E9F6E" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                <span style="font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)">hecho con Cuenta Clara</span>
+              </div>
+            </div>
+            <div style="flex:none;background:#1E2A38;padding:16px 18px;display:flex;align-items:center;gap:12px">
+              <button style="flex:1;height:48px;border:none;border-radius:13px;background:#0E9F6E;color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"></path></svg>Estado</button>
+              <button style="width:48px;height:48px;border:1.5px solid rgba(255,255,255,.2);border-radius:13px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r="1"></circle></svg></button>
+              <button style="width:48px;height:48px;border:1.5px solid rgba(255,255,255,.2);border-radius:13px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path><path d="M16 6l-4-4-4 4M12 2v13"></path></svg></button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </x-import>
+
+    <div style="display:flex;align-items:center;gap:18px">
+      <button onClick="{{ prev }}" style="width:46px;height:46px;border-radius:100px;border:1.5px solid rgba(30,42,56,.16);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E2A38" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+      <div style="display:flex;align-items:center;gap:9px">
+        <span data-dot onClick="{{ go0 }}" style="width:26px;height:9px;border-radius:100px;background:#0E9F6E;cursor:pointer;transition:all .3s"></span>
+        <span data-dot onClick="{{ go1 }}" style="width:9px;height:9px;border-radius:100px;background:rgba(30,42,56,.2);cursor:pointer;transition:all .3s"></span>
+        <span data-dot onClick="{{ go2 }}" style="width:9px;height:9px;border-radius:100px;background:rgba(30,42,56,.2);cursor:pointer;transition:all .3s"></span>
+      </div>
+      <button onClick="{{ next }}" style="width:46px;height:46px;border-radius:100px;border:none;background:#0E9F6E;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 18px rgba(14,159,110,.32)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg></button>
+    </div>
+    <div data-label style="font-size:13px;color:#8A9A96;font-weight:600">Planes · 1 de 3</div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TR = 'transform .62s cubic-bezier(.2,.72,.24,1), box-shadow .62s ease';
+const LIFT = '0 26px 44px rgba(30,42,56,.3)';
+const GREEN = '#0E9F6E';
+const NAMES = ['Planes', 'Catálogo', 'Estado'];
+
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.stageRef = React.createRef();
+    this.navRef = React.createRef();
+    this.cur = 0; this.busy = false; this.reduce = false;
+  }
+  componentDidMount() {
+    this.reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this._raf = requestAnimationFrame(() => this.tryInit());
+  }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); }
+  tryInit() {
+    const s = this.stageRef.current;
+    if (!s) { this._raf = requestAnimationFrame(() => this.tryInit()); return; }
+    this.pages = Array.from(s.querySelectorAll('[data-page]'));
+    if (this.pages.length < 3) { this._raf = requestAnimationFrame(() => this.tryInit()); return; }
+    this.dots = this.navRef.current ? Array.from(this.navRef.current.querySelectorAll('[data-dot]')) : [];
+    this.label = this.navRef.current ? this.navRef.current.querySelector('[data-label]') : null;
+    this.layout(0, false);
+  }
+  setNav(cur) {
+    if (this.dots) this.dots.forEach((d, i) => { d.style.width = i === cur ? '26px' : '9px'; d.style.background = i === cur ? GREEN : 'rgba(30,42,56,.2)'; });
+    if (this.label) this.label.textContent = NAMES[cur] + ' · ' + (cur + 1) + ' de 3';
+  }
+  layout(cur, animate) {
+    this.cur = cur;
+    this.pages.forEach((p, i) => {
+      p.style.transition = animate ? TR : 'none';
+      p.style.boxShadow = 'none';
+      if (i < cur) { p.style.transform = 'rotateX(-181deg)'; p.style.zIndex = '1'; }
+      else if (i === cur) { p.style.transform = 'rotateX(0deg)'; p.style.zIndex = '3'; }
+      else { p.style.transform = 'rotateX(0deg)'; p.style.zIndex = '2'; }
+    });
+    if (!animate) { void this.pages[0].offsetHeight; this.pages.forEach(p => { p.style.transition = TR; }); }
+    this.setNav(cur);
+  }
+  go(target) {
+    if (this.busy || !this.pages || target === this.cur || target < 0 || target > 2) return;
+    if (this.reduce) { this.layout(target, false); return; }
+    this.busy = true;
+    const cur = this.cur;
+    this.setNav(target);
+    let mover;
+    const onEnd = () => { mover.removeEventListener('transitionend', onEnd); this.busy = false; this.layout(target, false); };
+    if (target > cur) {
+      const beneath = this.pages[target];
+      this.pages.forEach((p, i) => { if (i !== cur && i !== target) p.style.zIndex = '1'; });
+      beneath.style.transition = 'none'; beneath.style.transform = 'rotateX(0deg)'; beneath.style.zIndex = '2';
+      void beneath.offsetHeight; beneath.style.transition = TR;
+      mover = this.pages[cur];
+      mover.style.transition = TR; mover.style.zIndex = '10'; mover.style.boxShadow = LIFT;
+      void mover.offsetHeight; mover.style.transform = 'rotateX(-181deg)';
+    } else {
+      mover = this.pages[target];
+      mover.style.transition = 'none'; mover.style.transform = 'rotateX(-181deg)'; mover.style.zIndex = '10'; mover.style.boxShadow = LIFT;
+      void mover.offsetHeight; mover.style.transition = TR; mover.style.transform = 'rotateX(0deg)';
+    }
+    mover.addEventListener('transitionend', onEnd);
+  }
+  renderVals() {
+    return {
+      stageRef: this.stageRef,
+      navRef: this.navRef,
+      next: () => this.go(this.cur + 1),
+      prev: () => this.go(this.cur - 1),
+      go0: () => this.go(0), go1: () => this.go(1), go2: () => this.go(2),
+    };
+  }
+}
+</script>
+</body>
+</html>

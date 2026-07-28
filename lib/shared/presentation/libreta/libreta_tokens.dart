@@ -20,6 +20,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
     required this.bordeSuave,
     required this.renglon,
     required this.margenCoral,
+    required this.bordeHero,
   });
 
   final Color textoFuerte;
@@ -29,6 +30,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
   final Color bordeSuave;
   final Color renglon;
   final Color margenCoral;
+  final Color bordeHero;
 
   static const LibretaTokens claro = LibretaTokens(
     textoFuerte: LibretaColors.textoFuerte,
@@ -38,6 +40,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
     bordeSuave: LibretaColors.bordeSuave,
     renglon: LibretaColors.renglon,
     margenCoral: LibretaColors.margenCoral,
+    bordeHero: Colors.transparent,
   );
 
   /// Fondo "papel" cálido oscuro (`#1C1B18`, nunca negro puro — Lote J), con
@@ -50,6 +53,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
     bordeSuave: Color(0x1FF2ECE0), // rgba(242,236,224,.12)
     renglon: Color(0x17F2ECE0), // rgba(242,236,224,.09)
     margenCoral: Color(0x8CC1503A), // rgba(193,80,58,.55)
+    bordeHero: LibretaColors.bordeHeroOscuro,
   );
 
   @override
@@ -61,6 +65,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
     Color? bordeSuave,
     Color? renglon,
     Color? margenCoral,
+    Color? bordeHero,
   }) {
     return LibretaTokens(
       textoFuerte: textoFuerte ?? this.textoFuerte,
@@ -70,6 +75,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
       bordeSuave: bordeSuave ?? this.bordeSuave,
       renglon: renglon ?? this.renglon,
       margenCoral: margenCoral ?? this.margenCoral,
+      bordeHero: bordeHero ?? this.bordeHero,
     );
   }
 
@@ -84,6 +90,7 @@ class LibretaTokens extends ThemeExtension<LibretaTokens> {
       bordeSuave: Color.lerp(bordeSuave, other.bordeSuave, t)!,
       renglon: Color.lerp(renglon, other.renglon, t)!,
       margenCoral: Color.lerp(margenCoral, other.margenCoral, t)!,
+      bordeHero: Color.lerp(bordeHero, other.bordeHero, t) ?? Colors.transparent,
     );
   }
 }

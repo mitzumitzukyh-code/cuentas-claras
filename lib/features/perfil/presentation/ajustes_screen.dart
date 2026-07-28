@@ -644,8 +644,8 @@ class _SelectorTasaAjustes extends ConsumerWidget {
         ),
         _FilaTasa(
           seleccionada: tipo == TipoTasa.binance,
-          titulo: 'Binance USDT',
-          subtitulo: 'Promedio del mercado P2P',
+          titulo: 'Paralelo',
+          subtitulo: 'mercado P2P',
           calificador: 'paralelo',
           valor: binance,
           ultima: true,

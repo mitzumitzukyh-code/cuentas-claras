@@ -47,7 +47,7 @@ class ProveedoresScreen extends ConsumerWidget {
               return Stack(
                 children: [
                   ListView(
-                    padding: const EdgeInsets.fromLTRB(54, 30, 22, 100),
+                    padding: const EdgeInsets.fromLTRB(24, 30, 22, 100),
                     children: [
                       Text(
                         'Por pagar',
@@ -56,7 +56,7 @@ class ProveedoresScreen extends ConsumerWidget {
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-                        decoration: BoxDecoration(color: LibretaColors.tarjetaOscura, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(color: LibretaColors.tarjetaOscura, borderRadius: BorderRadius.circular(16), border: Border.all(color: context.libreta.bordeHero, width: 1.5)),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

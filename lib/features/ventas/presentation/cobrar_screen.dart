@@ -135,7 +135,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(54, 30, 22, 12),
+                    padding: const EdgeInsets.fromLTRB(24, 30, 22, 12),
                     child: Row(
                       children: [
                         Expanded(
@@ -168,6 +168,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                             decoration: BoxDecoration(
                               color: LibretaColors.tarjetaOscura,
                               borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: t.bordeHero, width: 1.5),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,7 +317,7 @@ class _SelectorTasa extends StatelessWidget {
             onTap: () => onChanged(TipoTasa.bcv),
           ),
           _Pill(
-            texto: 'Binance',
+            texto: 'Paralelo',
             activa: valor == TipoTasa.binance,
             onTap: () => onChanged(TipoTasa.binance),
           ),
