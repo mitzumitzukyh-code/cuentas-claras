@@ -80,6 +80,15 @@ class MetodoPagoConfig {
         MetodoPago.puntoDeVenta => const [],
       };
 
+  /// Código del banco (0102, 0134…) para pago móvil.
+  String? get codigoBanco => datos['codigoBanco'];
+
+  /// Teléfono asociado al banco.
+  String? get telefonoAsociado => datos['telefono'];
+
+  /// Cédula o RIF registrado.
+  String? get cedulaRif => datos['cedula'];
+
   /// Texto listo para pegar en un recibo o mensaje de WhatsApp.
   String get resumen {
     if (datos.isEmpty) return metodo.etiqueta;

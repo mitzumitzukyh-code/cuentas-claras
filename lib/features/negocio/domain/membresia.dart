@@ -15,10 +15,30 @@ enum RolMembresia {
   bool get esDueno => this == RolMembresia.dueno;
 
   String get etiqueta => switch (this) {
-    RolMembresia.dueno => 'Dueño',
+    RolMembresia.dueno => 'Administrador',
     RolMembresia.empleado => 'Vendedor',
   };
 }
+
+/// Permisos granularizados para un miembro del negocio.
+/// Dueño tiene todos `true` y no editables.
+const permisosDueno = {
+  'cobrar': true,
+  'verReportes': true,
+  'editarInventario': true,
+  'registrarGastos': true,
+  'cerrarCaja': true,
+  'gestionarEmpleados': true,
+};
+
+const permisosEmpleadoBase = {
+  'cobrar': true,
+  'verReportes': false,
+  'editarInventario': false,
+  'registrarGastos': false,
+  'cerrarCaja': false,
+  'gestionarEmpleados': false,
+};
 
 /// Relación usuario ↔ negocio (CLAUDE.md §4: `membresias/{usuarioId}_{negocioId}`).
 class Membresia {
@@ -31,12 +51,30 @@ class Membresia {
     this.correo,
     this.codigoInvitacion,
     this.pushToken,
+    this.permisos,
   });
 
   final String id;
   final String usuarioId;
   final String negocioId;
   final RolMembresia rol;
+
+  /// Mapa granular de permisos. Si es `null`, se deriva del [rol].
+  /// Claves: cobrar, verReportes, editarInventario, registrarGastos,
+  /// cerrarCaja, gestionarEmpleados.
+  final Map<String, bool>? permisos;
+
+  /// Permisos efectivos: si el dueño tiene todos `true`; si es empleado
+  /// sin permisos definidos, usa la base.
+  Map<String, bool> get permisosEfectivos => permisos ?? _permisosPorRol;
+
+  Map<String, bool> get _permisosPorRol => switch (rol) {
+    RolMembresia.dueno => Map.from(permisosDueno),
+    RolMembresia.empleado => Map.from(permisosEmpleadoBase),
+  };
+
+  /// Helper: `puede('cobrar') → true/false`.
+  bool puede(String permiso) => permisosEfectivos[permiso] ?? false;
 
   /// Token FCM del dispositivo de este miembro. Solo se usa si es dueño: el
   /// Worker lo lee para mandarle el resumen de ventas del día directo a su
@@ -86,6 +124,8 @@ class Membresia {
       correo: data['correo'] as String?,
       codigoInvitacion: data['codigoInvitacion'] as String?,
       pushToken: data['pushToken'] as String?,
+      permisos: (data['permisos'] as Map<String, dynamic>?)
+          ?.map((k, v) => MapEntry(k, v as bool)),
     );
   }
 
@@ -95,6 +135,7 @@ class Membresia {
     'rol': rol.id,
     'nombre': nombre,
     'correo': correo,
+    if (permisos != null) 'permisos': permisos,
     // Se omite si no hay código: las reglas distinguen "sin código" (=
     // fundador) de "código presente", y un null explícito no es ninguno
     // de los dos.

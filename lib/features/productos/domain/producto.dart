@@ -2,6 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'variante.dart';
 
+/// Cómo se gestiona el inventario de este producto.
+enum TipoProducto {
+  simple,
+  variantes,
+  serial;
+
+  String get id => name;
+
+  static TipoProducto fromId(String? id) => switch (id) {
+        'variantes' => TipoProducto.variantes,
+        'serial' => TipoProducto.serial,
+        _ => TipoProducto.simple,
+      };
+}
+
 /// Producto del inventario (CLAUDE.md §4: `negocios/{id}/productos/{id}`).
 class Producto {
   const Producto({
@@ -17,6 +32,11 @@ class Producto {
     this.fechaVencimiento,
     this.codigoBarras,
     this.vendidoPorPeso = false,
+    this.tipo = TipoProducto.simple,
+    this.bloquearAlAgotarse = false,
+    this.precioAnterior,
+    this.enOferta = false,
+    this.garantiaMeses,
   });
 
   final String id;
@@ -52,6 +72,31 @@ class Producto {
   /// como `precio × kg` en vez de por unidad.
   final bool vendidoPorPeso;
 
+  /// Cómo se gestiona el inventario: simple, con variantes, o con serial.
+  final TipoProducto tipo;
+
+  /// Si `true`, no permite vender este producto cuando el stock llegue a 0.
+  final bool bloquearAlAgotarse;
+
+  /// Precio anterior (tachado) cuando está en oferta. `null` si no aplica.
+  final double? precioAnterior;
+
+  /// `true` cuando el producto tiene un precio promocional vigente.
+  final bool enOferta;
+
+  /// Meses de garantía (solo Electrónica). `null` = sin garantía.
+  final int? garantiaMeses;
+
+  /// Porcentaje de descuento derivado, para pintar "−16 %".
+  int? get descuentoPct {
+    if (!enOferta || precioAnterior == null || precioAnterior == 0) return null;
+    return ((precioAnterior! - precio) / precioAnterior! * 100).round();
+  }
+
+  /// `true` si el precio de oferta es el vigente (el getter `precio` siempre
+  /// es el vigente; `precioAnterior` es el tachado).
+  bool get tieneOferta => enOferta && precioAnterior != null;
+
   bool get tieneVariantes => variantes.isNotEmpty;
 
   /// `true` si el stock está en o por debajo del umbral configurado.
@@ -86,6 +131,11 @@ class Producto {
       fechaVencimiento: (data['fechaVencimiento'] as Timestamp?)?.toDate(),
       codigoBarras: data['codigoBarras'] as String?,
       vendidoPorPeso: (data['vendidoPorPeso'] as bool?) ?? false,
+      tipo: TipoProducto.fromId(data['tipo'] as String?),
+      bloquearAlAgotarse: (data['bloquearAlAgotarse'] as bool?) ?? false,
+      precioAnterior: (data['precioAnterior'] as num?)?.toDouble(),
+      enOferta: (data['enOferta'] as bool?) ?? false,
+      garantiaMeses: (data['garantiaMeses'] as num?)?.toInt(),
     );
   }
 
@@ -103,5 +153,10 @@ class Producto {
             : Timestamp.fromDate(fechaVencimiento!),
         'codigoBarras': codigoBarras,
         'vendidoPorPeso': vendidoPorPeso,
+        'tipo': tipo.id,
+        'bloquearAlAgotarse': bloquearAlAgotarse,
+        'precioAnterior': precioAnterior,
+        'enOferta': enOferta,
+        'garantiaMeses': garantiaMeses,
       };
 }

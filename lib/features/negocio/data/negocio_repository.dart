@@ -308,3 +308,13 @@ final miembrosNegocioProvider = StreamProvider<List<Membresia>>((ref) {
 final esDuenoProvider = Provider<bool>((ref) {
   return ref.watch(membresiaActivaProvider)?.rol.esDueno ?? false;
 });
+
+/// Verifica si el usuario activo tiene un permiso específico.
+/// Retorna `true` si es dueño (tiene todos los permisos) o si el permiso
+/// está habilitado en su membresía.
+final puedeProvider = Provider.family<bool, String>((ref, permiso) {
+  final membresia = ref.watch(membresiaActivaProvider);
+  if (membresia == null) return false;
+  if (membresia.rol.esDueno) return true;
+  return membresia.puede(permiso);
+});
