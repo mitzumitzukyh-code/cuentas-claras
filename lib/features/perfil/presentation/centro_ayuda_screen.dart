@@ -7,12 +7,11 @@ import '../../../core/constants/app_links.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 
 class _Pregunta {
-  const _Pregunta(this.categoria, this.pregunta, this.respuesta, {this.plus = false});
+  const _Pregunta(this.categoria, this.pregunta, this.respuesta);
 
   final String categoria;
   final String pregunta;
   final String respuesta;
-  final bool plus;
 }
 
 /// Centro de ayuda (réplica visual de `P6 · CENTRO DE AYUDA`, `Lote E ·
@@ -304,24 +303,6 @@ class _FilaPregunta extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (pregunta.plus) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0x1F0E9F6E),
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: const Text(
-                              'PLUS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: LibretaColors.verde,
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
