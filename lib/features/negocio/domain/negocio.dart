@@ -17,6 +17,8 @@ class Negocio {
     this.alertaStockActiva = true,
     this.metaMensualUsd = 0,
     this.proveedorWhatsapp,
+    this.telefonoContacto,
+    this.haceDelivery = false,
     this.fotoUrl,
     this.fotoComoFondo = false,
     this.bancoCodigo,
@@ -48,6 +50,14 @@ class Negocio {
 
   /// Teléfono del proveedor para pedir reabastecimiento por WhatsApp.
   final String? proveedorWhatsapp;
+
+  /// Teléfono de contacto del propio negocio — el que se muestra al cliente
+  /// en el catálogo y en la imagen del Estado. No confundir con
+  /// [proveedorWhatsapp], que es hacia el otro lado de la cadena.
+  final String? telefonoContacto;
+
+  /// `true` si el negocio hace delivery. Se anuncia en el Estado.
+  final bool haceDelivery;
 
   /// Código SUDEBAN del banco principal (para pago móvil).
   final String? bancoCodigo;
@@ -96,6 +106,8 @@ class Negocio {
       alertaStockActiva: (data['alertaStockActiva'] as bool?) ?? true,
       metaMensualUsd: (data['metaMensualUsd'] as num?)?.toDouble() ?? 0,
       proveedorWhatsapp: data['proveedorWhatsapp'] as String?,
+      telefonoContacto: data['telefonoContacto'] as String?,
+      haceDelivery: (data['haceDelivery'] as bool?) ?? false,
       bancoCodigo: data['bancoCodigo'] as String?,
       bancoNombre: data['bancoNombre'] as String?,
       fotoUrl: data['fotoUrl'] as String?,
@@ -129,6 +141,8 @@ class Negocio {
     'alertaStockActiva': alertaStockActiva,
     'metaMensualUsd': metaMensualUsd,
     'proveedorWhatsapp': proveedorWhatsapp,
+    'telefonoContacto': telefonoContacto,
+    'haceDelivery': haceDelivery,
     'bancoCodigo': bancoCodigo,
     'bancoNombre': bancoNombre,
     'fotoUrl': fotoUrl,

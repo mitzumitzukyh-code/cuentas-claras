@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_mode_provider.dart';
+import '../features/auth/presentation/bloqueo_biometrico.dart';
 import '../shared/presentation/aviso_conexion.dart';
 import '../shared/presentation/firebase_config_error_screen.dart';
 import 'router/app_router.dart';
@@ -62,7 +63,9 @@ class CuentaClaraApp extends ConsumerWidget {
         maxScaleFactor: 1.15,
         child: AnnotatedRegion<SystemUiOverlayStyle>(
           value: _overlay(themeMode),
-          child: AvisoConexion(child: child ?? const SizedBox.shrink()),
+          child: BloqueoBiometrico(
+            child: AvisoConexion(child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
     );

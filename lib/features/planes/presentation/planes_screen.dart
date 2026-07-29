@@ -41,11 +41,16 @@ class PlanesScreen extends ConsumerWidget {
       precio: '\$5',
       periodo: '/mes',
       destacado: true,
+      // Cada beneficio de esta lista tiene que existir en la app: es lo que
+      // el usuario cree estar comprando. "Pedidos por WhatsApp automáticos"
+      // estuvo aquí y describía un bot con webhook que nunca se construyó —
+      // se cambió por lo que la app sí hace hoy.
       beneficios: [
-        'Pedidos por WhatsApp automáticos',
+        'Recordatorios de fiado automáticos',
+        'Pedido a proveedor con 1 toque',
         'Catálogo y estados sin marca de agua',
-        'Reportes avanzados y respaldo en la nube',
-        'Empleados ilimitados',
+        'Reportes avanzados y balance histórico',
+        'Empleados ilimitados con permisos',
       ],
     ),
     _Plan(
@@ -56,6 +61,8 @@ class PlanesScreen extends ConsumerWidget {
       beneficios: [
         'Ventas, gastos e inventario',
         'Catálogo con marca de agua',
+        '1 negocio · 1 empleado',
+        'Sin respaldo en la nube',
       ],
     ),
   ];

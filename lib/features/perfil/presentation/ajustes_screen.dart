@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/historial_tasa_provider.dart';
+import '../../auth/data/biometria_service.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -39,6 +40,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
   final _reciboMensaje = TextEditingController();
   final _meta = TextEditingController();
   final _proveedor = TextEditingController();
+  final _telefonoContacto = TextEditingController();
 
   bool _inicializado = false;
   bool _sucio = false;
@@ -51,6 +53,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     _reciboMensaje.dispose();
     _meta.dispose();
     _proveedor.dispose();
+    _telefonoContacto.dispose();
     super.dispose();
   }
 
@@ -62,6 +65,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     _meta.text =
         n.metaMensualUsd == 0 ? '' : n.metaMensualUsd.toStringAsFixed(0);
     _proveedor.text = n.proveedorWhatsapp ?? '';
+    _telefonoContacto.text = n.telefonoContacto ?? '';
   }
 
   void _marcarSucio() {
@@ -80,6 +84,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
             metaMensualUsd:
                 double.tryParse(_meta.text.replaceAll(',', '.')) ?? 0,
             proveedorWhatsapp: _proveedor.text.trim(),
+            telefonoContacto: _telefonoContacto.text.trim(),
           );
       if (!mounted) return;
       setState(() {
@@ -106,6 +111,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     bool? incluirIva,
     bool? alertaStock,
     bool? fotoComoFondo,
+    bool? haceDelivery,
   }) async {
     try {
       await ref
@@ -114,6 +120,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
             negocioId,
             incluirIva: incluirIva,
             alertaStockActiva: alertaStock,
+            haceDelivery: haceDelivery,
             fotoComoFondo: fotoComoFondo,
           );
     } catch (e) {
@@ -388,6 +395,39 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                     keyboardType: TextInputType.phone,
                                     onChanged: (_) => _marcarSucio(),
                                   ),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    'Mi teléfono de contacto',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: context.libreta.textoFuerte,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'El que ven tus clientes en el catálogo y '
+                                    'en el Estado',
+                                    style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  LibretaInput(
+                                    controller: _telefonoContacto,
+                                    hint: 'Ej: 0414 123 4567',
+                                    height: 42,
+                                    enabled: esDueno,
+                                    keyboardType: TextInputType.phone,
+                                    onChanged: (_) => _marcarSucio(),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _FilaInterruptor(
+                                    titulo: 'Hago delivery',
+                                    detalle: 'Se anuncia en el Estado y el catálogo',
+                                    value: negocio.haceDelivery,
+                                    onChanged: esDueno
+                                        ? (v) => _guardarInterruptor(negocio.id, haceDelivery: v)
+                                        : null,
+                                  ),
                                 ],
                               ),
                             ),
@@ -416,6 +456,18 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                     ),
                     const SizedBox(height: 10),
                     const _HistorialTasa(),
+                    const SizedBox(height: 18),
+
+                    _EntradaSuave(
+                      orden: 4,
+                      child: _Seccion(
+                        titulo: 'Seguridad',
+                        child: _Fila(
+                          ultima: true,
+                          child: const _InterruptorBiometria(),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 18),
 
                     // --- 3. Recibos e impuestos ---
@@ -770,6 +822,44 @@ class _SelectorTasaAjustes extends ConsumerWidget {
 ///
 /// Solo aparece si hay al menos dos días guardados: un solo renglón repitiendo
 /// lo que ya dice el selector de arriba no informa nada.
+/// Activar el candado de huella/rostro (Lote A · F7).
+///
+/// Solo se ofrece si el teléfono tiene biometría configurada: un interruptor
+/// que no puede hacer nada es peor que no tenerlo.
+class _InterruptorBiometria extends ConsumerStatefulWidget {
+  const _InterruptorBiometria();
+
+  @override
+  ConsumerState<_InterruptorBiometria> createState() =>
+      _InterruptorBiometriaState();
+}
+
+class _InterruptorBiometriaState extends ConsumerState<_InterruptorBiometria> {
+  @override
+  Widget build(BuildContext context) {
+    final disponible =
+        ref.watch(biometriaDisponibleProvider).valueOrNull ?? false;
+    final servicio = ref.watch(biometriaServiceProvider);
+
+    return _FilaInterruptor(
+      titulo: 'Pedir huella al abrir',
+      detalle: disponible
+          ? 'Protege tus ventas si alguien agarra tu teléfono'
+          : 'Tu teléfono no tiene huella ni rostro configurados',
+      value: servicio.activa,
+      onChanged: !disponible
+          ? null
+          : (v) async {
+              // Al activarlo se pide una vez: si la huella no funciona, mejor
+              // enterarse ahora que la próxima vez que abra la app.
+              if (v && !await servicio.pedir()) return;
+              await servicio.activar(v);
+              if (mounted) setState(() {});
+            },
+    );
+  }
+}
+
 class _HistorialTasa extends ConsumerWidget {
   const _HistorialTasa();
 

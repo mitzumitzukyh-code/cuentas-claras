@@ -9,6 +9,7 @@ import '../../../shared/presentation/captura_widget.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../productos/domain/producto.dart';
+import '../../ventas/data/venta_repository.dart';
 
 /// Formato de la imagen para el Estado de WhatsApp.
 enum FormatoEstado { grilla, flyer }
@@ -41,6 +42,18 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   /// que sigue viviendo en `Producto.precio`.
   bool _esOferta = false;
 
+  /// Filtros de la mercancía que entra en la imagen (Lote O · F7).
+  String _busqueda = '';
+  bool _soloMasVendidos = false;
+
+  /// Qué se anuncia junto a los productos.
+  bool _mostrarBs = true;
+  bool _mostrarTelefono = false;
+  bool _mostrarDelivery = false;
+
+  /// Variante oscura de la imagen exportada.
+  bool _oscuro = false;
+
   /// Plantillas de color del diseño.
   static const _plantillas = [
     (Color(0xFF0F6B5C), Color(0xFF0B4A40)),
@@ -53,6 +66,36 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   void initState() {
     super.initState();
     _destacado = widget.productos.firstOrNull;
+  }
+
+  /// Los productos que van a salir en la imagen, ya filtrados y ordenados.
+  ///
+  /// "Más vendidos" se ordena por unidades realmente vendidas en el
+  /// historial, no por precio ni por fecha de alta: lo que mueve el negocio
+  /// es lo que conviene anunciar.
+  List<Producto> get _seleccion {
+    var lista = widget.productos;
+
+    final q = _busqueda.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      lista = lista.where((p) => p.nombre.toLowerCase().contains(q)).toList();
+    }
+
+    if (_soloMasVendidos) {
+      final ventas = ref.read(historialVentasProvider).valueOrNull ?? const [];
+      final unidades = <String, double>{};
+      for (final v in ventas.where((v) => !v.anulada)) {
+        for (final i in v.items) {
+          if (i.productoId.isEmpty) continue;
+          unidades[i.productoId] = (unidades[i.productoId] ?? 0) + i.cantidad;
+        }
+      }
+      lista = [...lista]..sort(
+          (a, b) => (unidades[b.id] ?? 0).compareTo(unidades[a.id] ?? 0),
+        );
+    }
+
+    return lista;
   }
 
   @override
@@ -96,15 +139,22 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
 
     final precioAnterior =
         double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
+    final telefono = (negocio.telefonoContacto ?? '').trim().isEmpty
+        ? null
+        : negocio.telefonoContacto!.trim();
     final lienzo = _LienzoEstado(
       formato: _formato,
       negocioNombre: negocio.nombre,
-      productos: widget.productos,
+      productos: _seleccion,
       destacado: _destacado,
-      colores: _plantillas[_plantilla],
-      tasa: tasa,
+      colores: _oscuro
+          ? (const Color(0xFF262420), const Color(0xFF141311))
+          : _plantillas[_plantilla],
+      tasa: _mostrarBs ? tasa : null,
       esOferta: _formato == FormatoEstado.flyer && _esOferta,
       precioAnterior: precioAnterior,
+      telefono: _mostrarTelefono ? telefono : null,
+      delivery: _mostrarDelivery,
     );
 
     return Scaffold(
@@ -173,9 +223,54 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
               ),
               const SizedBox(height: 14),
 
+              LibretaInput(
+                hint: 'Buscar en mi mercancía…',
+                height: 44,
+                leading: const Icon(Icons.search, size: 18, color: LibretaColors.verde),
+                onChanged: (v) => setState(() => _busqueda = v),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _ChipFiltro(
+                    texto: 'Más vendidos',
+                    activo: _soloMasVendidos,
+                    onTap: () => setState(
+                      () => _soloMasVendidos = !_soloMasVendidos,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _ChipFiltro(
+                    texto: _oscuro ? 'Fondo oscuro' : 'Fondo claro',
+                    activo: _oscuro,
+                    onTap: () => setState(() => _oscuro = !_oscuro),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _ToggleEstado(
+                texto: 'Mostrar precios en Bs',
+                valor: _mostrarBs,
+                onChanged: (v) => setState(() => _mostrarBs = v),
+              ),
+              _ToggleEstado(
+                texto: 'Mostrar mi teléfono',
+                valor: _mostrarTelefono,
+                detalle: telefono ?? 'Agrega tu teléfono en Ajustes',
+                onChanged: telefono == null
+                    ? null
+                    : (v) => setState(() => _mostrarTelefono = v),
+              ),
+              _ToggleEstado(
+                texto: 'Anunciar delivery',
+                valor: _mostrarDelivery,
+                onChanged: (v) => setState(() => _mostrarDelivery = v),
+              ),
+              const SizedBox(height: 14),
+
               if (_formato == FormatoEstado.grilla)
                 Text(
-                  'Se incluirán ${widget.productos.length.clamp(0, 6)} productos '
+                  'Se incluirán ${_seleccion.length.clamp(0, 6)} productos '
                   'del catálogo.',
                   style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                 )
@@ -185,7 +280,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
                   style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
                 ),
                 const SizedBox(height: 10),
-                for (final p in widget.productos)
+                for (final p in _seleccion)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: GestureDetector(
@@ -362,6 +457,98 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   }
 }
 
+/// Chip de filtro de la mercancía que entra en la imagen.
+class _ChipFiltro extends StatelessWidget {
+  const _ChipFiltro({
+    required this.texto,
+    required this.activo,
+    required this.onTap,
+  });
+
+  final String texto;
+  final bool activo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: activo ? LibretaColors.verde : t.superficie,
+          border: Border.all(color: activo ? LibretaColors.verde : t.renglon),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Text(
+          texto,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: activo ? Colors.white : t.textoFuerte,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Interruptor de lo que se anuncia en la imagen del Estado.
+class _ToggleEstado extends StatelessWidget {
+  const _ToggleEstado({
+    required this.texto,
+    required this.valor,
+    required this.onChanged,
+    this.detalle,
+  });
+
+  final String texto;
+  final bool valor;
+  final String? detalle;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final activo = onChanged != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  texto,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: activo ? t.textoFuerte : t.textoMuted,
+                  ),
+                ),
+                if (detalle != null)
+                  Text(
+                    detalle!,
+                    style: TextStyle(fontSize: 11.5, color: t.textoMuted),
+                  ),
+              ],
+            ),
+          ),
+          Switch(
+            value: valor,
+            onChanged: onChanged,
+            activeTrackColor: LibretaColors.verde,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Pestana extends StatelessWidget {
   const _Pestana({
     required this.texto,
@@ -410,6 +597,8 @@ class _LienzoEstado extends StatelessWidget {
     required this.tasa,
     required this.esOferta,
     required this.precioAnterior,
+    this.telefono,
+    this.delivery = false,
   });
 
   final FormatoEstado formato;
@@ -423,6 +612,10 @@ class _LienzoEstado extends StatelessWidget {
   /// WHATSAPP`).
   final bool esOferta;
   final double? precioAnterior;
+
+  /// Contacto que se anuncia al pie de la imagen. `null` = no mostrarlo.
+  final String? telefono;
+  final bool delivery;
 
   @override
   Widget build(BuildContext context) {
@@ -490,6 +683,22 @@ class _LienzoEstado extends StatelessWidget {
           ),
 
           const SizedBox(height: 16),
+          if (telefono != null || delivery)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                [
+                  if (telefono != null) '📱 $telefono',
+                  if (delivery) '🛵 Hacemos delivery',
+                ].join('   ·   '),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xF2FFFFFF),
+                ),
+              ),
+            ),
           if (tasa != null)
             Text(
               'Tasa BCV ${MoneyFormatter.bs(tasa!)}',
