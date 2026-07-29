@@ -86,10 +86,10 @@ class PlanesScreen extends ConsumerWidget {
                   Text(
                     'Tu plan',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: context.libreta.textoFuerte,
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.5,
                     ),
                   ),
                 ],

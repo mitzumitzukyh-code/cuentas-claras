@@ -179,10 +179,10 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                   Text(
                     'Reportes',
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: t.textoFuerte,
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const Align(

@@ -74,10 +74,10 @@ class _SelectorBancoScreenState extends ConsumerState<SelectorBancoScreen> {
                       child: Text(
                         'Banco principal',
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
                           color: context.libreta.textoFuerte,
-                          letterSpacing: -0.4,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ),

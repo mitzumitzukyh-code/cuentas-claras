@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
@@ -824,12 +825,11 @@ class _HojaEnBlanco extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'todavía es temprano',
-                style: TextStyle(
+                style: GoogleFonts.caveat(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  fontStyle: FontStyle.italic,
                   color: LibretaColors.verde,
                 ),
               ),

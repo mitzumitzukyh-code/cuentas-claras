@@ -158,10 +158,10 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                             Text(
                               'Productos',
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w800,
                                 color: context.libreta.textoFuerte,
-                                letterSpacing: -0.4,
+                                letterSpacing: -0.5,
                               ),
                             ),
                             Text(

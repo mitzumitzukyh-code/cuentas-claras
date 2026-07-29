@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../shared/presentation/libreta/libreta.dart';
@@ -81,11 +82,11 @@ class _OverlayCobradoState extends State<OverlayCobrado>
             const SizedBox(height: 10),
             Text(
               widget.fiadoA != null ? '¡Fiado anotado!' : '¡Cobrado!',
-              style: const TextStyle(
-                fontSize: 30,
+              style: GoogleFonts.caveat(
+                fontSize: 36,
                 fontWeight: FontWeight.w700,
                 color: LibretaColors.verde,
-                fontStyle: FontStyle.italic,
+                height: 0.9,
               ),
             ),
             const SizedBox(height: 6),

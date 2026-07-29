@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_links.dart';
@@ -193,12 +194,11 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
                             letterSpacing: -0.5,
                           ),
                         ),
-                        const Text(
+                        Text(
                           '¿qué quieres mostrar hoy?',
-                          style: TextStyle(
-                            fontSize: 19,
+                          style: GoogleFonts.caveat(
+                            fontSize: 21,
                             fontWeight: FontWeight.w700,
-                            fontStyle: FontStyle.italic,
                             color: LibretaColors.verde,
                           ),
                         ),
