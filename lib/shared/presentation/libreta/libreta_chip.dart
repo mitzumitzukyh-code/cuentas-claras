@@ -12,6 +12,8 @@ class LibretaChip extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.dense = false,
+    this.colorSeleccionado = LibretaColors.verde,
+    this.alerta = false,
   });
 
   final String label;
@@ -19,9 +21,19 @@ class LibretaChip extends StatelessWidget {
   final VoidCallback onTap;
   final bool dense;
 
+  /// Color de fondo/borde cuando está seleccionado. Verde por defecto; grupos
+  /// distintos de chips (ej. método de pago vs. período) pueden usar otro
+  /// color para no verse todos idénticos al elegir uno de cada grupo.
+  final Color colorSeleccionado;
+
+  /// `true` marca la opción como algo a lo que prestar atención (ej.
+  /// "Anuladas"): se ve en ámbar aunque no esté seleccionada.
+  final bool alerta;
+
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
+    final color = alerta ? LibretaColors.aviso : colorSeleccionado;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -31,10 +43,12 @@ class LibretaChip extends StatelessWidget {
           vertical: dense ? 7 : 8,
         ),
         decoration: BoxDecoration(
-          color: selected ? LibretaColors.verde : t.superficie,
+          color: selected ? color : t.superficie,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: selected ? LibretaColors.verde : t.bordeSuave,
+            color: selected
+                ? color
+                : (alerta ? color.withValues(alpha: 0.5) : t.bordeSuave),
             width: 1.5,
           ),
         ),
@@ -43,7 +57,9 @@ class LibretaChip extends StatelessWidget {
           style: TextStyle(
             fontSize: dense ? 11.5 : 13,
             fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : t.textoFuerte,
+            color: selected
+                ? (alerta ? LibretaColors.tarjetaOscura : Colors.white)
+                : (alerta ? color : t.textoFuerte),
           ),
         ),
       ),

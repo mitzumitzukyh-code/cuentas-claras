@@ -81,14 +81,12 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                     ),
                     Text(
                       '${tasa == null ? "—" : MoneyFormatter.usdComoBs(proveedor.saldoUSD, tasa)}${_vence(proveedor.proximoVencimiento)}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: LibretaColors.aviso),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.libreta.textoFuerte),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
-              _BotonPedido(proveedor: proveedor),
-              const SizedBox(height: 10),
               LibretaButton(
                 label: 'Registrar pago',
                 height: 48,
@@ -100,6 +98,8 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                   },
                 ),
               ),
+              const SizedBox(height: 10),
+              _BotonPedido(proveedor: proveedor),
               const SizedBox(height: 20),
               Text('MOVIMIENTOS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted)),
               const SizedBox(height: 4),
@@ -130,7 +130,14 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.libreta.textoFuerte),
                                         ),
-                                        Text(_fechaCorta(m.fecha), style: TextStyle(fontSize: 12, color: context.libreta.textoMuted)),
+                                        Text(
+                                          m.tipo == TipoMovimientoProveedor.compra
+                                              ? '${_fechaCorta(m.fecha)} · a crédito'
+                                              : m.concepto.isEmpty
+                                                  ? _fechaCorta(m.fecha)
+                                                  : '${_fechaCorta(m.fecha)} · ${m.concepto}',
+                                          style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                                        ),
                                       ],
                                     ),
                                   ),

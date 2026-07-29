@@ -6,18 +6,20 @@ import '../presentation/libreta/libreta.dart';
 
 /// Abre WhatsApp con un mensaje ya escrito.
 ///
-/// Si hay número, va directo al chat de esa persona; si no, cae en el
-/// compartir genérico del sistema para que el dueño elija a dónde mandarlo.
+/// Si hay número, va directo al chat de esa persona. Si no, igual abre
+/// WhatsApp (con `wa.me/?text=`, que deja elegir el contacto o el propio
+/// Estado dentro de la app) en vez de caer directo al selector genérico del
+/// sistema. Solo si WhatsApp no está instalado se usa el compartir genérico.
 /// Devuelve `false` solo si no se pudo abrir nada.
 Future<bool> abrirWhatsApp({required String texto, String? telefono}) async {
   final numero = (telefono ?? '').replaceAll(RegExp(r'\D'), '');
-  if (numero.isNotEmpty) {
-    final uri = Uri.parse(
-      'https://wa.me/$numero?text=${Uri.encodeComponent(texto)}',
-    );
-    if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      return true;
-    }
+  final uri = Uri.parse(
+    numero.isNotEmpty
+        ? 'https://wa.me/$numero?text=${Uri.encodeComponent(texto)}'
+        : 'https://wa.me/?text=${Uri.encodeComponent(texto)}',
+  );
+  if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    return true;
   }
   await Share.share(texto);
   return true;

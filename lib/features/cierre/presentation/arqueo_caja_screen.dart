@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
@@ -39,6 +40,17 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
   bool _esHoy(DateTime f) {
     final ahora = DateTime.now();
     return f.year == ahora.year && f.month == ahora.month && f.day == ahora.day;
+  }
+
+  static const _dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+  static const _meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  String _fecha(DateTime f) => '${_dias[f.weekday - 1]} ${f.day} ${_meses[f.month - 1]}';
+
+  String _hora12(DateTime f) {
+    final h = f.hour % 12 == 0 ? 12 : f.hour % 12;
+    final m = f.minute.toString().padLeft(2, '0');
+    return '$h:$m ${f.hour < 12 ? "a. m." : "p. m."}';
   }
 
   Future<void> _cerrar(
@@ -86,6 +98,8 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
     final gastosAsync = ref.watch(gastosDelMesProvider);
     final fiadosAsync = ref.watch(movimientosFiadoHoyProvider);
     final cierreHoy = ref.watch(cierreDeHoyProvider).valueOrNull;
+    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+    final tasa = ref.watch(tasaActivaValorProvider);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -120,6 +134,10 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
               final efectivoEsperado = metodos[MetodoPago.efectivo.id] ?? 0;
               final contado = _contadoValor;
               final descuadre = contado == null ? null : contado - efectivoEsperado;
+              final activos = negocio?.metodosActivos ?? const [];
+              final primeraVenta = ventas.isEmpty
+                  ? null
+                  : ventas.map((v) => v.fecha).reduce((a, b) => a.isBefore(b) ? a : b);
 
               if (cierreHoy != null) {
                 return Center(
@@ -160,6 +178,17 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                           letterSpacing: -0.5,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        primeraVenta == null
+                            ? _fecha(DateTime.now())
+                            : '${_fecha(DateTime.now())} · abierta desde ${_hora12(primeraVenta)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: context.libreta.textoMuted,
+                        ),
+                      ),
                       const SizedBox(height: 14),
                       Text(
                         'ESPERADO SEGÚN EL SISTEMA',
@@ -175,17 +204,16 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                         clipBehavior: Clip.antiAlias,
                         child: Column(
                           children: [
-                            for (final m in MetodoPago.values)
-                              if ((metodos[m.id] ?? 0) > 0)
-                                _FilaMetodo(
-                                  etiqueta: _sinEmoji(m.etiqueta),
-                                  monto: metodos[m.id]!,
-                                  ultima: m == MetodoPago.values.lastWhere((x) => (metodos[x.id] ?? 0) > 0),
-                                ),
-                            if (metodos.isEmpty)
+                            for (final c in activos)
+                              _FilaMetodo(
+                                etiqueta: _sinEmoji(c.metodo.etiqueta),
+                                monto: metodos[c.metodo.id] ?? 0,
+                                ultima: c == activos.last,
+                              ),
+                            if (activos.isEmpty)
                               Padding(
                                 padding: EdgeInsets.all(16),
-                                child: Text('Sin ventas hoy todavía.', style: TextStyle(color: context.libreta.textoMuted)),
+                                child: Text('Configura tus métodos de pago para ver el arqueo.', style: TextStyle(color: context.libreta.textoMuted)),
                               ),
                           ],
                         ),
@@ -217,6 +245,13 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               onChanged: (_) => setState(() {}),
                             ),
+                            if (contado != null && tasa != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                MoneyFormatter.usdComoBs(contado, tasa),
+                                style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                              ),
+                            ],
                             if (descuadre != null) ...[
                               const SizedBox(height: 12),
                               Container(height: 1, color: context.libreta.renglon),

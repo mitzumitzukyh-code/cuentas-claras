@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:share_plus/share_plus.dart';
 
+import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../domain/cierre_caja.dart';
 
@@ -27,14 +28,9 @@ class ResumenDiaScreen extends ConsumerWidget {
       ..writeln(_fecha(cierre.cerradaEn))
       ..writeln()
       ..writeln('Ventas: +${MoneyFormatter.usd(cierre.ventasUSD)}')
-      ..writeln('Gastos: −${MoneyFormatter.usd(cierre.gastosUSD)}');
-    if (cierre.fiadoOtorgadoUSD > 0) {
-      texto.writeln('Fiado otorgado: −${MoneyFormatter.usd(cierre.fiadoOtorgadoUSD)}');
-    }
-    if (cierre.abonosUSD > 0) {
-      texto.writeln('Abonos recibidos: +${MoneyFormatter.usd(cierre.abonosUSD)}');
-    }
-    texto
+      ..writeln('Gastos: −${MoneyFormatter.usd(cierre.gastosUSD)}')
+      ..writeln('Fiado otorgado: −${MoneyFormatter.usd(cierre.fiadoOtorgadoUSD)}')
+      ..writeln('Abonos recibidos: +${MoneyFormatter.usd(cierre.abonosUSD)}')
       ..writeln()
       ..writeln('Neto en caja: ${MoneyFormatter.usd(cierre.netoUSD)}');
     if (cierre.descuadreUSD != 0) {
@@ -44,12 +40,13 @@ class ResumenDiaScreen extends ConsumerWidget {
             : 'Descuadre de efectivo: faltan ${MoneyFormatter.usd(-cierre.descuadreUSD)}',
       );
     }
-    await Share.share(texto.toString(), subject: 'Resumen del día');
+    await abrirWhatsApp(texto: texto.toString());
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+    final tasa = ref.watch(tasaActivaValorProvider);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -109,6 +106,12 @@ class ResumenDiaScreen extends ConsumerWidget {
                       MoneyFormatter.usd(cierre.netoUSD),
                       style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.7),
                     ),
+                    Text(
+                      tasa == null
+                          ? 'tasa no disponible'
+                          : '${MoneyFormatter.usdComoBs(cierre.netoUSD, tasa)} · a la tasa de hoy',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xD9FFFFFF)),
+                    ),
                   ],
                 ),
               ),
@@ -125,8 +128,7 @@ class ResumenDiaScreen extends ConsumerWidget {
                   children: [
                     _FilaResumen(etiqueta: 'Ventas', monto: cierre.ventasUSD, positivo: true),
                     _FilaResumen(etiqueta: 'Gastos', monto: -cierre.gastosUSD, positivo: false),
-                    if (cierre.fiadoOtorgadoUSD > 0)
-                      _FilaResumen(etiqueta: 'Fiado otorgado', monto: -cierre.fiadoOtorgadoUSD, positivo: false),
+                    _FilaResumen(etiqueta: 'Fiado otorgado', monto: -cierre.fiadoOtorgadoUSD, positivo: false),
                     _FilaResumen(
                       etiqueta: 'Abonos recibidos',
                       monto: cierre.abonosUSD,

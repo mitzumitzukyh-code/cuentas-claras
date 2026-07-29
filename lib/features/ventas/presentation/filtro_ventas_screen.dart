@@ -99,7 +99,15 @@ class _FiltroVentasScreenState extends State<FiltroVentasScreen> {
                               _filtro.personalizadoHasta != null
                           ? '${_fechaCorta(_filtro.personalizadoDesde!)} – ${_fechaCorta(_filtro.personalizadoHasta!)}'
                           : p.etiqueta,
-                      selected: _filtro.periodo == p,
+                      // "Personalizado" solo se marca seleccionado si de
+                      // verdad hay un rango elegido — si no, el filtro está
+                      // en su estado neutro (ver todo) y ningún chip de
+                      // período debe verse activo.
+                      selected: p == PeriodoFiltroVenta.personalizado
+                          ? _filtro.periodo == p &&
+                              _filtro.personalizadoDesde != null &&
+                              _filtro.personalizadoHasta != null
+                          : _filtro.periodo == p,
                       onTap: () => _elegirPeriodo(p),
                     ),
                 ],
@@ -115,12 +123,14 @@ class _FiltroVentasScreenState extends State<FiltroVentasScreen> {
                   LibretaChip(
                     label: 'Todos',
                     selected: _filtro.metodo == null,
+                    colorSeleccionado: LibretaColors.tarjetaOscura,
                     onTap: () => setState(() => _filtro = _filtro.copyWith(sinMetodo: true)),
                   ),
                   for (final m in MetodoPago.values)
                     LibretaChip(
                       label: m.etiquetaCorta,
                       selected: _filtro.metodo == m,
+                      colorSeleccionado: LibretaColors.tarjetaOscura,
                       onTap: () => setState(() => _filtro = _filtro.copyWith(metodo: m)),
                     ),
                 ],
@@ -137,6 +147,8 @@ class _FiltroVentasScreenState extends State<FiltroVentasScreen> {
                     LibretaChip(
                       label: e.etiqueta,
                       selected: _filtro.estado == e,
+                      colorSeleccionado: LibretaColors.tarjetaOscura,
+                      alerta: e == EstadoFiltroVenta.anuladas,
                       onTap: () => setState(() => _filtro = _filtro.copyWith(estado: e)),
                     ),
                 ],

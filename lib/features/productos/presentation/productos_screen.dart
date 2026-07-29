@@ -310,12 +310,17 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                     LibretaEstadoVacio(
                       busqueda: true,
                       titulo: 'Sin resultados',
-                      detalle:
-                          'No encontramos «${_busqueda.text.trim()}». '
-                          'Revisa la ortografía o prueba con menos palabras.',
+                      detalle: texto.isNotEmpty
+                          ? 'No hay productos que coincidan con '
+                              '«${_busqueda.text.trim()}».'
+                          : 'Ningún producto coincide con este filtro.',
                       boton: LibretaSecondaryButton(
-                        label: 'Limpiar búsqueda',
-                        onPressed: () => setState(() => _busqueda.clear()),
+                        label: 'Limpiar filtros',
+                        onPressed: () => setState(() {
+                          _busqueda.clear();
+                          _categoria = null;
+                          _soloStockBajo = false;
+                        }),
                       ),
                     )
                   else
@@ -523,7 +528,7 @@ class _TarjetaProducto extends StatelessWidget {
                 children: [
                   Text(
                     producto.nombre,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
