@@ -51,15 +51,13 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
       for (final p in productos)
         '"${p.nombre}","${p.categoria}",${p.precio},${p.cantidad}',
     ];
-    await Share.share(
-      filas.join('\n'),
-      subject: 'Inventario Cuenta Clara',
-    );
+    await Share.share(filas.join('\n'), subject: 'Inventario Cuenta Clara');
   }
 
   /// Abre WhatsApp con la lista de productos por reponer.
   Future<void> _pedirReabastecimiento(List<Producto> bajos) async {
-    final telefono = ref
+    final telefono =
+        ref
             .read(negocioActivoProvider)
             .valueOrNull
             ?.proveedorWhatsapp
@@ -73,7 +71,8 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
     final lista = bajos
         .map((p) => '• ${p.nombre} (quedan ${p.cantidadLabel})')
         .join('\n');
-    final texto = 'Hola, necesito reabastecer estos productos:\n\n$lista\n\n'
+    final texto =
+        'Hola, necesito reabastecer estos productos:\n\n$lista\n\n'
         '¡Gracias!';
     final uri = Uri.parse(
       'https://wa.me/$telefono?text=${Uri.encodeComponent(texto)}',
@@ -86,8 +85,9 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
 
   void _mostrar(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
@@ -101,46 +101,50 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
     return Scaffold(
       backgroundColor: context.libreta.papel,
       bottomNavigationBar: const AppBottomNav(activa: NavTab.productos),
-      floatingActionButton: puedeEditar
-          ? FloatingActionButton(
-              backgroundColor: LibretaColors.verde,
-              shape: const CircleBorder(),
-              onPressed: () => context.push(Routes.nuevoProducto),
-              child: const Icon(Icons.add, color: Colors.white, size: 26),
-            )
-          : null,
+      floatingActionButton:
+          puedeEditar
+              ? FloatingActionButton(
+                backgroundColor: LibretaColors.verde,
+                shape: const CircleBorder(),
+                onPressed: () => context.push(Routes.nuevoProducto),
+                child: const Icon(Icons.add, color: Colors.white, size: 26),
+              )
+              : null,
       body: LibretaPageBackground(
         child: SafeArea(
           bottom: false,
           child: productosAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No se pudieron cargar los productos.\n$e',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: context.libreta.textoMuted),
+            error:
+                (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'No se pudieron cargar los productos.\n$e',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: context.libreta.textoMuted),
+                    ),
+                  ),
                 ),
-              ),
-            ),
             data: (productos) {
-              final categorias = <String>{
-                for (final p in productos)
-                  if (p.categoria.isNotEmpty) p.categoria,
-              }.toList()
-                ..sort();
+              final categorias =
+                  <String>{
+                      for (final p in productos)
+                        if (p.categoria.isNotEmpty) p.categoria,
+                    }.toList()
+                    ..sort();
 
               final texto = _busqueda.text.trim().toLowerCase();
               final bajos = productos.where((p) => p.stockBajo).toList();
-              final visibles = productos.where((p) {
-                final porCategoria =
-                    _categoria == null || p.categoria == _categoria;
-                final porTexto =
-                    texto.isEmpty || p.nombre.toLowerCase().contains(texto);
-                final porStock = !_soloStockBajo || p.stockBajo;
-                return porCategoria && porTexto && porStock;
-              }).toList();
+              final visibles =
+                  productos.where((p) {
+                    final porCategoria =
+                        _categoria == null || p.categoria == _categoria;
+                    final porTexto =
+                        texto.isEmpty || p.nombre.toLowerCase().contains(texto);
+                    final porStock = !_soloStockBajo || p.stockBajo;
+                    return porCategoria && porTexto && porStock;
+                  }).toList();
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(22, 30, 22, 100),
@@ -203,20 +207,39 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                     hint: 'Buscar producto…',
                     height: 46,
                     bordeVerde: true,
-                    leading: const Icon(Icons.search, size: 18, color: LibretaColors.verde),
-                    suffix: _busqueda.text.isEmpty
-                        ? null
-                        : GestureDetector(
-                            onTap: () => setState(() => _busqueda.clear()),
-                            child: Icon(Icons.close, size: 17, color: context.libreta.textoMuted),
-                          ),
+                    leading: const Icon(
+                      Icons.search,
+                      size: 18,
+                      color: LibretaColors.verde,
+                    ),
+                    suffix:
+                        _busqueda.text.isEmpty
+                            ? null
+                            : GestureDetector(
+                              onTap: () => setState(() => _busqueda.clear()),
+                              child: Icon(
+                                Icons.close,
+                                size: 17,
+                                color: context.libreta.textoMuted,
+                              ),
+                            ),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '${visibles.length} de ${productos.length} productos',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.libreta.textoMuted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: context.libreta.textoMuted,
+                    ),
                   ),
+                  if (puedeEditar && productos.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _BotonContarInventario(
+                      onTap: () => context.push(Routes.arqueoInventario),
+                    ),
+                  ],
                   if (categorias.isNotEmpty || bajos.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     SizedBox(
@@ -228,10 +251,11 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                             label: 'Todas',
                             dense: true,
                             selected: _categoria == null && !_soloStockBajo,
-                            onTap: () => setState(() {
-                              _categoria = null;
-                              _soloStockBajo = false;
-                            }),
+                            onTap:
+                                () => setState(() {
+                                  _categoria = null;
+                                  _soloStockBajo = false;
+                                }),
                           ),
                           if (bajos.isNotEmpty)
                             Padding(
@@ -240,9 +264,10 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                                 label: 'Stock bajo (${bajos.length})',
                                 dense: true,
                                 selected: _soloStockBajo,
-                                onTap: () => setState(
-                                  () => _soloStockBajo = !_soloStockBajo,
-                                ),
+                                onTap:
+                                    () => setState(
+                                      () => _soloStockBajo = !_soloStockBajo,
+                                    ),
                               ),
                             ),
                           for (final c in categorias)
@@ -263,22 +288,30 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   if (productos.isEmpty)
                     LibretaEstadoVacio(
                       titulo: 'Tu inventario está vacío',
-                      detalle: 'Agrega tus productos con foto, precio y '
+                      detalle:
+                          'Agrega tus productos con foto, precio y '
                           'stock para empezar a cobrar rápido.',
                       tagline: 'empieza a llenar tu cuaderno',
-                      boton: puedeEditar
-                          ? LibretaButton(
-                              label: 'Agregar producto',
-                              icon: const Icon(Icons.add, size: 19, color: Colors.white),
-                              onPressed: () => context.push(Routes.nuevoProducto),
-                            )
-                          : null,
+                      boton:
+                          puedeEditar
+                              ? LibretaButton(
+                                label: 'Agregar producto',
+                                icon: const Icon(
+                                  Icons.add,
+                                  size: 19,
+                                  color: Colors.white,
+                                ),
+                                onPressed:
+                                    () => context.push(Routes.nuevoProducto),
+                              )
+                              : null,
                     )
                   else if (visibles.isEmpty)
                     LibretaEstadoVacio(
                       busqueda: true,
                       titulo: 'Sin resultados',
-                      detalle: 'No encontramos «${_busqueda.text.trim()}». '
+                      detalle:
+                          'No encontramos «${_busqueda.text.trim()}». '
                           'Revisa la ortografía o prueba con menos palabras.',
                       boton: LibretaSecondaryButton(
                         label: 'Limpiar búsqueda',
@@ -292,14 +325,16 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                         child: _TarjetaProducto(
                           producto: p,
                           tasa: tasa,
-                          onTap: puedeEditar
-                              ? () => Navigator.of(context).push(
+                          onTap:
+                              puedeEditar
+                                  ? () => Navigator.of(context).push(
                                     MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          NuevoProductoScreen(producto: p),
+                                      builder:
+                                          (_) =>
+                                              NuevoProductoScreen(producto: p),
                                     ),
                                   )
-                              : null,
+                                  : null,
                         ),
                       ),
                 ],
@@ -313,6 +348,44 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
 }
 
 /// Banner ámbar del filtro de stock bajo, con atajo a WhatsApp.
+/// Botón punteado "Contar inventario real" (Lote C).
+///
+/// Punteado y no sólido a propósito: no es una acción del día a día, es el
+/// mantenimiento que se hace de vez en cuando.
+class _BotonContarInventario extends StatelessWidget {
+  const _BotonContarInventario({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return GestureDetector(
+      onTap: onTap,
+      child: DottedBorderBox(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.fact_check_outlined, size: 17, color: t.textoMuted),
+              const SizedBox(width: 8),
+              Text(
+                'Contar inventario real',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: t.textoFuerte,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BannerStockBajo extends StatelessWidget {
   const _BannerStockBajo({required this.onPedir, required this.onCerrar});
 
@@ -361,7 +434,11 @@ class _BannerStockBajo extends StatelessWidget {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onCerrar,
-            child: const Icon(Icons.close, size: 16, color: LibretaColors.aviso),
+            child: const Icon(
+              Icons.close,
+              size: 16,
+              color: LibretaColors.aviso,
+            ),
           ),
         ],
       ),
@@ -416,27 +493,28 @@ class _TarjetaProducto extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
-              child: tieneFoto
-                  ? FotoRed(
-                      producto.fotoUrl!,
-                      width: 42,
-                      height: 42,
-                      alError: Icon(
-                        Icons.image_outlined,
-                        color: context.libreta.textoMuted,
-                        size: 18,
+              child:
+                  tieneFoto
+                      ? FotoRed(
+                        producto.fotoUrl!,
+                        width: 42,
+                        height: 42,
+                        alError: Icon(
+                          Icons.image_outlined,
+                          color: context.libreta.textoMuted,
+                          size: 18,
+                        ),
+                      )
+                      : Text(
+                        producto.nombre.isEmpty
+                            ? '?'
+                            : producto.nombre[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    )
-                  : Text(
-                      producto.nombre.isEmpty
-                          ? '?'
-                          : producto.nombre[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -463,11 +541,14 @@ class _TarjetaProducto extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: producto.stockBajo
-                          ? LibretaColors.aviso
-                          : context.libreta.textoMuted,
+                      color:
+                          producto.stockBajo
+                              ? LibretaColors.aviso
+                              : context.libreta.textoMuted,
                       fontWeight:
-                          producto.stockBajo ? FontWeight.w700 : FontWeight.w400,
+                          producto.stockBajo
+                              ? FontWeight.w700
+                              : FontWeight.w400,
                     ),
                   ),
                 ],
@@ -487,7 +568,10 @@ class _TarjetaProducto extends StatelessWidget {
                 if (tasa != null)
                   Text(
                     MoneyFormatter.usdComoBs(producto.precio, tasa!),
-                    style: TextStyle(fontSize: 11, color: context.libreta.textoMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.libreta.textoMuted,
+                    ),
                   ),
               ],
             ),

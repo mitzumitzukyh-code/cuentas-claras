@@ -85,6 +85,29 @@ class ProductoRepository {
     }));
   }
 
+  /// Fija la cantidad real de varios productos de una vez (arqueo de
+  /// inventario, `Lote C`).
+  ///
+  /// Escribe el valor contado, no un incremento: el punto del arqueo es que
+  /// lo que hay en el estante gana sobre lo que dice el sistema. Un solo
+  /// `batch` para que el conteo entre completo — un arqueo a medias deja el
+  /// inventario peor que antes de empezar.
+  Future<void> ajustarCantidades(
+    String negocioId,
+    Map<String, double> porProducto,
+  ) async {
+    if (porProducto.isEmpty) return;
+    final batch = _db.batch();
+    for (final e in porProducto.entries) {
+      batch.update(_col(negocioId).doc(e.key), {'cantidad': e.value});
+    }
+    if (await sinSenal()) {
+      _enSegundoPlano('arqueo', batch.commit());
+      return;
+    }
+    await batch.commit();
+  }
+
   /// Alta masiva desde el modal de importar. Un solo `batch` para que o entran
   /// todos o no entra ninguno.
   Future<void> crearVarios(String negocioId, List<Producto> productos) {

@@ -37,27 +37,43 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
   Future<void> _compartir(Venta venta) async {
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
     final lineas = venta.items
-        .map((i) => '• ${i.nombreCompleto} ×${i.cantidadLabel} — '
-            '${MoneyFormatter.usd(i.subtotal)}')
+        .map(
+          (i) =>
+              '• ${i.nombreCompleto} ×${i.cantidadLabel} — '
+              '${MoneyFormatter.usd(i.subtotal)}',
+        )
         .join('\n');
 
-    final texto = StringBuffer()
-      ..writeln(negocio?.nombre ?? 'Cuenta Clara')
-      ..writeln('Venta del ${_fechaLarga(venta.fecha)}')
-      ..writeln()
-      ..writeln(lineas)
-      ..writeln()
-      ..writeln('Total: ${MoneyFormatter.usd(venta.totalUSD)} · '
-          '${MoneyFormatter.bs(venta.totalBs)}')
-      ..write('Pago: ${venta.metodoPago.etiquetaCorta}');
+    final texto =
+        StringBuffer()
+          ..writeln(negocio?.nombre ?? 'Cuenta Clara')
+          ..writeln('Venta del ${_fechaLarga(venta.fecha)}')
+          ..writeln()
+          ..writeln(lineas)
+          ..writeln()
+          ..writeln(
+            'Total: ${MoneyFormatter.usd(venta.totalUSD)} · '
+            '${MoneyFormatter.bs(venta.totalBs)}',
+          )
+          ..write('Pago: ${venta.metodoPago.etiquetaCorta}');
 
     await Share.share(texto.toString(), subject: 'Venta');
   }
 
   String _fechaLarga(DateTime f) {
     const meses = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
     ];
     final m = f.minute.toString().padLeft(2, '0');
     return '${f.day} ${meses[f.month - 1]} · ${f.hour}:$m';
@@ -73,23 +89,24 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
     if (!config.configurada) {
       final ir = await showDialog<bool>(
         context: context,
-        builder: (d) => AlertDialog(
-          title: const Text('Sin impresora'),
-          content: const Text(
-            'Todavía no has conectado una impresora de tickets. '
-            '¿Quieres configurarla ahora?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(d).pop(false),
-              child: const Text('Ahora no'),
+        builder:
+            (d) => AlertDialog(
+              title: const Text('Sin impresora'),
+              content: const Text(
+                'Todavía no has conectado una impresora de tickets. '
+                '¿Quieres configurarla ahora?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(d).pop(false),
+                  child: const Text('Ahora no'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(d).pop(true),
+                  child: const Text('Configurar'),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.of(d).pop(true),
-              child: const Text('Configurar'),
-            ),
-          ],
-        ),
       );
       if (ir == true && mounted) {
         await context.push(Routes.impresora);
@@ -116,8 +133,9 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
   }
 
   void _aviso(String mensaje) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   Future<void> _anular(Venta venta) async {
@@ -126,24 +144,25 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
 
     final confirmado = await showDialog<bool>(
       context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('¿Anular esta venta?'),
-        content: const Text(
-          'La venta quedará marcada como anulada y el inventario volverá a su '
-          'estado anterior. No se puede deshacer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(d).pop(false),
-            child: const Text('Cancelar'),
+      builder:
+          (d) => AlertDialog(
+            title: const Text('¿Anular esta venta?'),
+            content: const Text(
+              'La venta quedará marcada como anulada y el inventario volverá a su '
+              'estado anterior. No se puede deshacer.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(d).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(d).pop(true),
+                style: TextButton.styleFrom(foregroundColor: AppColors.peligro),
+                child: const Text('Anular'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(d).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.peligro),
-            child: const Text('Anular'),
-          ),
-        ],
-      ),
     );
     if (confirmado != true) return;
 
@@ -171,8 +190,18 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
 
   String _fechaHora(DateTime f) {
     const meses = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
     ];
     final h = f.hour % 12 == 0 ? 12 : f.hour % 12;
     final m = f.minute.toString().padLeft(2, '0');
@@ -246,13 +275,14 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          border: i != venta.items.length - 1
-                              ? Border(
-                                  bottom: BorderSide(
-                                    color: context.libreta.renglon,
-                                  ),
-                                )
-                              : null,
+                          border:
+                              i != venta.items.length - 1
+                                  ? Border(
+                                    bottom: BorderSide(
+                                      color: context.libreta.renglon,
+                                    ),
+                                  )
+                                  : null,
                         ),
                         child: Row(
                           children: [
@@ -301,8 +331,10 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
               if (venta.anulada) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.peligroSuave,
                     borderRadius: BorderRadius.circular(14),
@@ -320,8 +352,10 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
               ] else if (venta.pendiente) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.avisoSuave,
                     borderRadius: BorderRadius.circular(14),
@@ -342,7 +376,10 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
 
               // --- Productos + método + total ---
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
                   border: Border.all(color: const Color(0x141E2A38)),
@@ -350,7 +387,10 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                 ),
                 child: Column(
                   children: [
-                    _Dato(etiqueta: 'Subtotal', valor: MoneyFormatter.usd(venta.subtotalUSD)),
+                    _Dato(
+                      etiqueta: 'Subtotal',
+                      valor: MoneyFormatter.usd(venta.subtotalUSD),
+                    ),
                     _Dato(
                       etiqueta: 'Método de pago',
                       valor: venta.metodoPago.etiqueta,
@@ -443,60 +483,63 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
 
               if (esDueno && !venta.anulada) ...[
                 const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0x14F2A93C),
-                    border: Border.all(
-                      color: const Color(0x80F2A93C),
-                      // Guiones (dashed) reales requieren un painter aparte;
-                      // el borde sólido más suave mantiene la idea sin más
-                      // complejidad de la que aporta valor aquí.
+                DottedBorderBox(
+                  color: const Color(0x80F2A93C),
+                  fondo: const Color(0x14F2A93C),
+                  radius: 14,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
                     ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.lock_outline, size: 15, color: LibretaColors.aviso),
-                          SizedBox(width: 6),
-                          Text(
-                            'SOLO DUEÑO',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              size: 15,
                               color: LibretaColors.aviso,
                             ),
+                            SizedBox(width: 6),
+                            Text(
+                              'SOLO DUEÑO',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                                color: LibretaColors.aviso,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed:
+                              (_anulando || venta.pendiente)
+                                  ? null
+                                  : () => _anular(venta),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFF2A93C)),
+                            foregroundColor: LibretaColors.aviso,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: (_anulando || venta.pendiente)
-                            ? null
-                            : () => _anular(venta),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFF2A93C)),
-                          foregroundColor: LibretaColors.aviso,
-                          minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          child: Text(
+                            venta.pendiente
+                                ? 'Espera a que se confirme para anular'
+                                : (_anulando ? 'Anulando…' : 'Anular venta'),
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          venta.pendiente
-                              ? 'Espera a que se confirme para anular'
-                              : (_anulando ? 'Anulando…' : 'Anular venta'),
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -525,22 +568,23 @@ class _FotoItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
-      child: tieneFoto
-          ? FotoRed(
-              url!,
-              width: 42,
-              height: 42,
-              alError: Icon(
+      child:
+          tieneFoto
+              ? FotoRed(
+                url!,
+                width: 42,
+                height: 42,
+                alError: Icon(
+                  Icons.inventory_2_outlined,
+                  size: 18,
+                  color: context.libreta.textoMuted,
+                ),
+              )
+              : Icon(
                 Icons.inventory_2_outlined,
                 size: 18,
                 color: context.libreta.textoMuted,
               ),
-            )
-          : Icon(
-              Icons.inventory_2_outlined,
-              size: 18,
-              color: context.libreta.textoMuted,
-            ),
     );
   }
 }
