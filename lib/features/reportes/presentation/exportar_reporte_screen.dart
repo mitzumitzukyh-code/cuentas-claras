@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../fiados/data/fiado_repository.dart';
 import '../../gastos/data/gasto_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../ventas/data/venta_repository.dart';
+import '../data/exportador_reporte.dart';
 import '../domain/periodo_reporte.dart';
-
-enum _Formato { excel, pdf }
 
 enum _PeriodoExportar {
   semana,
@@ -29,9 +27,9 @@ enum _PeriodoExportar {
 /// Exportar reporte (réplica visual de `P1 · EXPORTAR`, `Lote N · Reportes
 /// y Más`).
 ///
-/// El formato Excel/PDF todavía no genera el archivo real (CLAUDE.md: plan
-/// Premium, Fase 5) — "Exportar y compartir" comparte de verdad un resumen de
-/// texto por ahora, en vez de fingir una descarga que no existe.
+/// Genera el archivo de verdad — .xlsx con una hoja por sección o .pdf con el
+/// resumen y las tablas — y lo comparte como adjunto, que es lo que muestra
+/// `P3`: el reporte llegándole al contador por WhatsApp.
 class ExportarReporteScreen extends ConsumerStatefulWidget {
   const ExportarReporteScreen({
     super.key,
@@ -47,7 +45,7 @@ class ExportarReporteScreen extends ConsumerStatefulWidget {
 }
 
 class _ExportarReporteScreenState extends ConsumerState<ExportarReporteScreen> {
-  _Formato _formato = _Formato.excel;
+  FormatoReporte _formato = FormatoReporte.excel;
   late _PeriodoExportar _periodo = switch (widget.periodoInicial) {
     PeriodoReporte.hoy || PeriodoReporte.semana => _PeriodoExportar.semana,
     PeriodoReporte.mes => _PeriodoExportar.mes,
@@ -106,44 +104,62 @@ class _ExportarReporteScreenState extends ConsumerState<ExportarReporteScreen> {
     setState(() => _generando = true);
 
     final (desde, hasta) = _rango();
-    final partes = <String>['*Reporte de ${widget.negocio}*', 'Periodo: ${_periodo.etiqueta.toLowerCase()}', ''];
 
     try {
-      if (_incluirVentas) {
-        final ventas = (await ref.read(ventaRepositoryProvider).ventasDesde(membresia.negocioId, desde).first)
-            .where((v) => !v.anulada && (hasta == null || v.fecha.isBefore(hasta)))
-            .toList();
-        final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
-        partes
-          ..add('*Ventas*')
-          ..add('${ventas.length} ventas · ${MoneyFormatter.usd(total)}')
-          ..add('');
-      }
-      if (_incluirGastos) {
-        final gastos = (await ref.read(gastoRepositoryProvider).gastosDesde(membresia.negocioId, desde).first)
-            .where((g) => hasta == null || g.fecha.isBefore(hasta))
-            .toList();
-        final total = gastos.fold<double>(0, (s, g) => s + g.monto);
-        partes
-          ..add('*Gastos*')
-          ..add('${gastos.length} gastos · ${MoneyFormatter.usd(total)}')
-          ..add('');
-      }
-      if (_incluirFiados) {
-        final clientes = await ref.read(clientesFiadoProvider.future);
-        final pendiente = clientes.where((c) => c.saldoUSD > 0).toList();
-        final total = pendiente.fold<double>(0, (s, c) => s + c.saldoUSD);
-        partes
-          ..add('*Fiados pendientes (a hoy)*')
-          ..add('${pendiente.length} clientes · ${MoneyFormatter.usd(total)}')
-          ..add('');
-      }
+      final ventas = !_incluirVentas
+          ? null
+          : (await ref.read(ventaRepositoryProvider).ventasDesde(membresia.negocioId, desde).first)
+              .where((v) => !v.anulada && (hasta == null || v.fecha.isBefore(hasta)))
+              .toList();
+      final gastos = !_incluirGastos
+          ? null
+          : (await ref.read(gastoRepositoryProvider).gastosDesde(membresia.negocioId, desde).first)
+              .where((g) => hasta == null || g.fecha.isBefore(hasta))
+              .toList();
+      // El fiado no se recorta al período: lo que interesa es cuánto le deben
+      // al negocio hoy, no qué se fió en julio.
+      final fiados = !_incluirFiados
+          ? null
+          : (await ref.read(clientesFiadoProvider.future))
+              .where((c) => c.saldoUSD > 0)
+              .toList();
 
+      final datos = DatosReporte(
+        negocio: widget.negocio,
+        periodo: _etiquetaPeriodo(),
+        desde: desde,
+        hasta: hasta,
+        ventas: ventas,
+        gastos: gastos,
+        fiados: fiados,
+      );
+
+      const exportador = ExportadorReporte();
+      final ruta = await exportador.generar(datos, _formato);
       if (!mounted) return;
-      await Share.share(partes.join('\n').trim(), subject: 'Reporte ${widget.negocio}');
+
+      await Share.shareXFiles(
+        [XFile(ruta)],
+        subject: 'Reporte ${widget.negocio}',
+        text: 'Reporte de ${widget.negocio} — ${datos.periodo.toLowerCase()}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo crear el archivo: $e')),
+      );
     } finally {
       if (mounted) setState(() => _generando = false);
     }
+  }
+
+  String _etiquetaPeriodo() {
+    final r = _rangoPersonalizado;
+    if (_periodo != _PeriodoExportar.personalizado || r == null) {
+      return _periodo.etiqueta;
+    }
+    String d(DateTime f) => '${f.day}/${f.month}/${f.year}';
+    return '${d(r.start)} – ${d(r.end)}';
   }
 
   @override
@@ -173,9 +189,9 @@ class _ExportarReporteScreenState extends ConsumerState<ExportarReporteScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(child: _TarjetaFormato(icono: Icons.description_outlined, etiqueta: 'Excel', seleccionado: _formato == _Formato.excel, onTap: () => setState(() => _formato = _Formato.excel))),
+                  Expanded(child: _TarjetaFormato(icono: Icons.description_outlined, etiqueta: 'Excel', seleccionado: _formato == FormatoReporte.excel, onTap: () => setState(() => _formato = FormatoReporte.excel))),
                   const SizedBox(width: 12),
-                  Expanded(child: _TarjetaFormato(icono: Icons.picture_as_pdf_outlined, etiqueta: 'PDF', seleccionado: _formato == _Formato.pdf, onTap: () => setState(() => _formato = _Formato.pdf))),
+                  Expanded(child: _TarjetaFormato(icono: Icons.picture_as_pdf_outlined, etiqueta: 'PDF', seleccionado: _formato == FormatoReporte.pdf, onTap: () => setState(() => _formato = FormatoReporte.pdf))),
                 ],
               ),
               const SizedBox(height: 18),

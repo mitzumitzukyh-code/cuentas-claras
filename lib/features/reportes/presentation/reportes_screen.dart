@@ -276,9 +276,21 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                           MoneyFormatter.usd(total),
                           style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.6),
                         ),
-                        Text(
-                          '${ventas.length} ${ventas.length == 1 ? "venta" : "ventas"}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xD9FFFFFF)),
+                        Builder(
+                          builder: (_) {
+                            final tasa = ref.watch(tasaActivaValorProvider);
+                            final cuenta =
+                                '${ventas.length} ${ventas.length == 1 ? "venta" : "ventas"}';
+                            return Text(
+                              // El diseño pone el equivalente en Bs junto al
+                              // conteo: el dueño piensa el mes en bolívares
+                              // aunque el precio se capture en dólares.
+                              tasa == null
+                                  ? cuenta
+                                  : '${MoneyFormatter.usdComoBs(total, tasa)} · $cuenta',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xD9FFFFFF)),
+                            );
+                          },
                         ),
                       ],
                     ),

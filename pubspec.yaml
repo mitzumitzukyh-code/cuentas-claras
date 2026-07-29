@@ -49,6 +49,7 @@ dependencies:
   url_launcher: ^6.3.2           # abrir app de correo (iOS: esquema message:)
   android_intent_plus: ^5.3.0    # abrir la bandeja de correo en Android
   excel: ^4.0.6                  # importar productos desde Excel
+  pdf: ^3.11.1                   # exportar el reporte en PDF (Lote N · P1)
   in_app_purchase: ^3.2.2        # suscripcion Premium
 
   # --- Utilidades ---
