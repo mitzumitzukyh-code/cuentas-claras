@@ -93,11 +93,13 @@ class _SplashScreenState extends State<SplashScreen>
             const Positioned.fill(
               child: CustomPaint(painter: _RenglonesPainter()),
             ),
-            const Positioned(
-              top: 8,
+            Positioned(
+              // Debajo de la barra de estado: pegados al notch, los huecos de
+              // espiral se confundían con los íconos de batería/wifi/señal.
+              top: MediaQuery.of(context).padding.top + 8,
               left: 0,
               right: 0,
-              child: LibretaSpiralStrip(
+              child: const LibretaSpiralStrip(
                 height: 16,
                 color: Color(0x8CFFFFFF),
               ),

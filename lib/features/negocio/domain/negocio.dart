@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../onboarding/domain/rubro.dart';
+import '../../ventas/domain/venta.dart' show MetodoPago;
 import 'metodo_pago_config.dart';
 
 /// Un negocio del usuario (CLAUDE.md §4: `negocios/{negocioId}`).
@@ -17,7 +18,6 @@ class Negocio {
     this.alertaStockActiva = true,
     this.metaMensualUsd = 0,
     this.proveedorWhatsapp,
-    this.telefonoContacto,
     this.haceDelivery = false,
     this.fotoUrl,
     this.fotoComoFondo = false,
@@ -51,11 +51,6 @@ class Negocio {
   /// Teléfono del proveedor para pedir reabastecimiento por WhatsApp.
   final String? proveedorWhatsapp;
 
-  /// Teléfono de contacto del propio negocio — el que se muestra al cliente
-  /// en el catálogo y en la imagen del Estado. No confundir con
-  /// [proveedorWhatsapp], que es hacia el otro lado de la cadena.
-  final String? telefonoContacto;
-
   /// `true` si el negocio hace delivery. Se anuncia en el Estado.
   final bool haceDelivery;
 
@@ -87,6 +82,19 @@ class Negocio {
   List<MetodoPagoConfig> get metodosActivos =>
       metodosPago.where((m) => m.activo).toList();
 
+  /// Teléfono que se muestra al cliente en el catálogo y en el Estado.
+  ///
+  /// Se toma del Pago Móvil ya cargado en Métodos de pago: pedirlo aparte en
+  /// Ajustes era duplicar un dato que el dueño ya tenía que llenar para
+  /// cobrar. Si no activó Pago Móvil, no hay teléfono que mostrar.
+  String? get telefonoParaCliente {
+    final pagoMovil = metodosActivos
+        .where((m) => m.metodo == MetodoPago.pagoMovil)
+        .firstOrNull;
+    final telefono = pagoMovil?.telefonoAsociado?.trim();
+    return (telefono == null || telefono.isEmpty) ? null : telefono;
+  }
+
   /// IVA venezolano, fijo en 16 % (CLAUDE.md §6).
   static const double tasaIva = 0.16;
 
@@ -106,7 +114,6 @@ class Negocio {
       alertaStockActiva: (data['alertaStockActiva'] as bool?) ?? true,
       metaMensualUsd: (data['metaMensualUsd'] as num?)?.toDouble() ?? 0,
       proveedorWhatsapp: data['proveedorWhatsapp'] as String?,
-      telefonoContacto: data['telefonoContacto'] as String?,
       haceDelivery: (data['haceDelivery'] as bool?) ?? false,
       bancoCodigo: data['bancoCodigo'] as String?,
       bancoNombre: data['bancoNombre'] as String?,
@@ -141,7 +148,6 @@ class Negocio {
     'alertaStockActiva': alertaStockActiva,
     'metaMensualUsd': metaMensualUsd,
     'proveedorWhatsapp': proveedorWhatsapp,
-    'telefonoContacto': telefonoContacto,
     'haceDelivery': haceDelivery,
     'bancoCodigo': bancoCodigo,
     'bancoNombre': bancoNombre,

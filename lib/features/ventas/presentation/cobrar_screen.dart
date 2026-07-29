@@ -17,6 +17,7 @@ import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
+import '../../productos/presentation/widgets/escaner_codigo_barras.dart';
 import '../data/carrito_provider.dart';
 import '../data/venta_repository.dart';
 import '../domain/item_carrito.dart';
@@ -26,6 +27,34 @@ import 'widgets/overlay_cobrado.dart';
 /// Qué se está armando: una venta que se cobra ya, o una cotización que se
 /// manda por WhatsApp y no toca inventario ni caja.
 enum _Modo { venta, cotizacion }
+
+/// Ventas de los últimos 30 días: la base para saber qué se mueve de verdad.
+final _ventasRecientesProvider = StreamProvider.autoDispose<List<Venta>>((ref) {
+  final membresia = ref.watch(membresiaActivaProvider);
+  if (membresia == null) return Stream.value(const []);
+  final hace30dias = DateTime.now().subtract(const Duration(days: 30));
+  return ref
+      .watch(ventaRepositoryProvider)
+      .ventasDesde(membresia.negocioId, hace30dias);
+});
+
+/// Unidades vendidas por producto en los últimos 30 días.
+///
+/// Ordena el catálogo de Cobrar por lo que de verdad se mueve: en una bodega
+/// con cientos de productos, lo más vendido debe estar arriba sin que el
+/// cajero tenga que escribir nada con clientes esperando.
+final _frecuenciaVentaProvider = Provider.autoDispose<Map<String, int>>((ref) {
+  final ventas = ref.watch(_ventasRecientesProvider).valueOrNull ?? const [];
+  final conteo = <String, int>{};
+  for (final v in ventas) {
+    if (v.anulada) continue;
+    for (final item in v.items) {
+      if (item.productoId.isEmpty) continue;
+      conteo[item.productoId] = (conteo[item.productoId] ?? 0) + item.cantidad.round();
+    }
+  }
+  return conteo;
+});
 
 /// Pantalla 7 — Cobrar (`Lote B · P0`).
 ///
@@ -50,6 +79,9 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   bool _fiado = false;
   ClienteFiado? _cliente;
 
+  final _busqueda = TextEditingController();
+  String _termino = '';
+
   /// Venta rápida sin producto: se suma al total y no descuenta inventario.
   double _montoLibre = 0;
 
@@ -57,6 +89,12 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   bool _mostrarCheck = false;
   double _montoCobrado = 0;
   String? _fiadoA;
+
+  @override
+  void dispose() {
+    _busqueda.dispose();
+    super.dispose();
+  }
 
   double _totalDe(List<ItemCarrito> carrito) =>
       carrito.fold<double>(0, (s, i) => s + i.subtotal) + _montoLibre;
@@ -78,6 +116,41 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   }
 
   // ── Catálogo ────────────────────────────────────────────────────────────
+
+  /// Filtra por nombre y ordena por lo más vendido — con empate, se respeta
+  /// el orden original para que la grilla no "baile" en cada venta.
+  List<Producto> _filtrarYOrdenar(
+    List<Producto> productos,
+    Map<String, int> frecuencia,
+  ) {
+    final termino = _termino.trim().toLowerCase();
+    final indexados = productos
+        .asMap()
+        .entries
+        .where((e) => termino.isEmpty || e.value.nombre.toLowerCase().contains(termino))
+        .toList();
+    indexados.sort((a, b) {
+      final fa = frecuencia[a.value.id] ?? 0;
+      final fb = frecuencia[b.value.id] ?? 0;
+      if (fa != fb) return fb.compareTo(fa);
+      return a.key.compareTo(b.key);
+    });
+    return [for (final e in indexados) e.value];
+  }
+
+  Future<void> _escanearProducto(List<Producto> productos) async {
+    final codigo = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const EscanerCodigoBarras()),
+    );
+    if (codigo == null || !mounted) return;
+    final producto =
+        productos.where((p) => p.codigoBarras == codigo).firstOrNull;
+    if (producto == null) {
+      _aviso('Ningún producto tiene ese código de barras.');
+      return;
+    }
+    await _agregar(producto);
+  }
 
   Future<void> _agregar(Producto p) async {
     var cantidad = 1;
@@ -487,6 +560,8 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final carrito = ref.watch(carritoProvider);
     final productos = ref.watch(productosProvider).valueOrNull ?? const [];
+    final frecuencia = ref.watch(_frecuenciaVentaProvider);
+    final productosVisibles = _filtrarYOrdenar(productos, frecuencia);
     final total = _totalDe(carrito);
     final piezas = _piezasDe(carrito);
     final esCotizacion = _modo == _Modo.cotizacion;
@@ -593,6 +668,12 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          _BuscadorProductos(
+                            controller: _busqueda,
+                            onChanged: (v) => setState(() => _termino = v),
+                            onEscanear: () => _escanearProducto(productos),
+                          ),
+                          const SizedBox(height: 10),
                           _TarjetaTotal(
                             etiqueta: esCotizacion
                                 ? 'TOTAL A COTIZAR'
@@ -617,9 +698,33 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                             ),
                           ],
                           const SizedBox(height: 10),
+                          if (_termino.isEmpty && frecuencia.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.local_fire_department_rounded,
+                                    size: 13,
+                                    color: LibretaColors.aviso,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'MÁS VENDIDOS PRIMERO',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.4,
+                                      color: t.textoMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           Expanded(
                             child: _GridCatalogo(
-                              productos: productos,
+                              productos: productosVisibles,
+                              buscando: _termino.isNotEmpty,
                               onTap: _agregar,
                             ),
                           ),
@@ -1163,12 +1268,113 @@ class _FilaCarrito extends StatelessWidget {
   }
 }
 
+/// Buscador del catálogo + atajo al escáner de código de barras.
+///
+/// Con muchos productos y varios clientes esperando, deslizar buscando por
+/// nombre no alcanza: escribir dos letras o escanear el código es más rápido
+/// que leer etiquetas truncadas en la grilla.
+class _BuscadorProductos extends StatelessWidget {
+  const _BuscadorProductos({
+    required this.controller,
+    required this.onChanged,
+    required this.onEscanear,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onEscanear;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: t.superficie,
+              border: Border.all(color: t.renglon),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded, size: 18, color: t.textoMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: t.textoFuerte,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      hintText: 'Buscar producto…',
+                      hintStyle: TextStyle(
+                        color: t.textoMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                if (controller.text.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      controller.clear();
+                      onChanged('');
+                    },
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: t.textoMuted,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: onEscanear,
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: LibretaColors.tarjetaOscura,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.qr_code_scanner_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Catálogo en dos columnas. Es la superficie de captura de la pantalla.
 class _GridCatalogo extends StatelessWidget {
-  const _GridCatalogo({required this.productos, required this.onTap});
+  const _GridCatalogo({
+    required this.productos,
+    required this.onTap,
+    this.buscando = false,
+  });
 
   final List<Producto> productos;
   final ValueChanged<Producto> onTap;
+  final bool buscando;
 
   @override
   Widget build(BuildContext context) {
@@ -1178,8 +1384,10 @@ class _GridCatalogo extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'Todavía no tienes productos cargados.\nToca el total para cobrar '
-            'un monto libre.',
+            buscando
+                ? 'Ningún producto coincide con esa búsqueda.'
+                : 'Todavía no tienes productos cargados.\nToca el total '
+                    'para cobrar un monto libre.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13.5,

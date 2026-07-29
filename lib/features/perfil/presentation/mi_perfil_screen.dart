@@ -58,52 +58,25 @@ class MiPerfilScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               Center(
-                child: SizedBox(
+                child: Container(
                   width: 88,
                   height: 88,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 88,
-                        height: 88,
-                        clipBehavior: Clip.antiAlias,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: LibretaColors.tarjetaOscura,
-                          shape: BoxShape.circle,
-                        ),
-                        child:
-                            usuario?.photoURL != null &&
-                                    usuario!.photoURL!.isNotEmpty
-                                ? FotoRed(
-                                  usuario.photoURL!,
-                                  width: 88,
-                                  height: 88,
-                                  alError: Text(inicial, style: _estiloInicial),
-                                )
-                                : Text(inicial, style: _estiloInicial),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: LibretaColors.verde,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: t.papel, width: 3),
-                          ),
-                          child: const Icon(
-                            Icons.edit_outlined,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
+                  clipBehavior: Clip.antiAlias,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: LibretaColors.tarjetaOscura,
+                    shape: BoxShape.circle,
                   ),
+                  child:
+                      usuario?.photoURL != null &&
+                              usuario!.photoURL!.isNotEmpty
+                          ? FotoRed(
+                            usuario.photoURL!,
+                            width: 88,
+                            height: 88,
+                            alError: Text(inicial, style: _estiloInicial),
+                          )
+                          : Text(inicial, style: _estiloInicial),
                 ),
               ),
               const SizedBox(height: 12),

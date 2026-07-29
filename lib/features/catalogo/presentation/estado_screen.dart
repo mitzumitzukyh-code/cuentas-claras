@@ -202,9 +202,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
 
     final precioAnterior =
         double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
-    final telefono = (negocio.telefonoContacto ?? '').trim().isEmpty
-        ? null
-        : negocio.telefonoContacto!.trim();
+    final telefono = negocio.telefonoParaCliente;
     final lienzo = _LienzoEstado(
       formato: _formato,
       negocioNombre: negocio.nombre,

@@ -45,7 +45,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
   final _reciboMensaje = TextEditingController();
   final _meta = TextEditingController();
   final _proveedor = TextEditingController();
-  final _telefonoContacto = TextEditingController();
 
   bool _inicializado = false;
   bool _sucio = false;
@@ -58,7 +57,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     _reciboMensaje.dispose();
     _meta.dispose();
     _proveedor.dispose();
-    _telefonoContacto.dispose();
     super.dispose();
   }
 
@@ -70,7 +68,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     _meta.text =
         n.metaMensualUsd == 0 ? '' : n.metaMensualUsd.toStringAsFixed(0);
     _proveedor.text = n.proveedorWhatsapp ?? '';
-    _telefonoContacto.text = n.telefonoContacto ?? '';
   }
 
   void _marcarSucio() {
@@ -124,7 +121,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
             metaMensualUsd:
                 double.tryParse(_meta.text.replaceAll(',', '.')) ?? 0,
             proveedorWhatsapp: _proveedor.text.trim(),
-            telefonoContacto: _telefonoContacto.text.trim(),
           );
       if (!mounted) return;
       setState(() {
@@ -453,33 +449,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                     onChanged: (_) => _marcarSucio(),
                                   ),
                                   const SizedBox(height: 14),
-                                  Text(
-                                    'Mi teléfono de contacto',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: context.libreta.textoFuerte,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'El que ven tus clientes en el catálogo y '
-                                    'en el Estado',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: context.libreta.textoMuted,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  LibretaInput(
-                                    controller: _telefonoContacto,
-                                    hint: 'Ej: 0414 123 4567',
-                                    height: 42,
-                                    enabled: esDueno,
-                                    keyboardType: TextInputType.phone,
-                                    onChanged: (_) => _marcarSucio(),
-                                  ),
-                                  const SizedBox(height: 4),
                                   _FilaInterruptor(
                                     titulo: 'Hago delivery',
                                     detalle:
