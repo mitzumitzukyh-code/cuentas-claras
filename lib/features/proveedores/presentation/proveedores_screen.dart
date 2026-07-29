@@ -10,6 +10,8 @@ import '../data/proveedor_repository.dart';
 import '../domain/proveedor.dart';
 import 'anotar_movimiento_proveedor_screen.dart';
 
+final _busquedaProveedorProvider = StateProvider<String>((_) => '');
+
 /// Cuentas por pagar (réplica visual de `P2 · CUENTAS POR PAGAR`, `Lote H ·
 /// Cierre y Proveedores`).
 class ProveedoresScreen extends ConsumerWidget {
@@ -27,6 +29,7 @@ class ProveedoresScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final proveedoresAsync = ref.watch(proveedoresProvider);
     final tasa = ref.watch(tasaActivaValorProvider);
+    final busqueda = ref.watch(_busquedaProveedorProvider);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -43,6 +46,13 @@ class ProveedoresScreen extends ConsumerWidget {
             data: (todos) {
               final conDeuda = todos.where((p) => p.saldoUSD > 0).toList();
               final total = conDeuda.fold<double>(0, (s, p) => s + p.saldoUSD);
+
+              final filtrados = busqueda.isEmpty
+                  ? conDeuda
+                  : conDeuda
+                      .where((p) =>
+                          p.nombre.toLowerCase().contains(busqueda.toLowerCase()))
+                      .toList();
 
               return Stack(
                 children: [
@@ -99,13 +109,25 @@ class ProveedoresScreen extends ConsumerWidget {
                           'PROVEEDORES',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted),
                         ),
-                        for (final p in conDeuda)
-                          _FilaProveedor(
-                            proveedor: p,
-                            vence: _vence(p.proximoVencimiento),
-                            tasa: tasa,
-                            onTap: () => context.push(Routes.proveedorDetalle.replaceAll(':proveedorId', p.id), extra: p),
-                          ),
+                        const SizedBox(height: 8),
+                        _BuscadorProveedores(),
+                        const SizedBox(height: 4),
+                        if (filtrados.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 24),
+                            child: LibretaEstadoVacio(
+                              titulo: 'Sin resultados',
+                              detalle: 'Ningún proveedor coincide con la búsqueda',
+                            ),
+                          )
+                        else
+                          for (final p in filtrados)
+                            _FilaProveedor(
+                              proveedor: p,
+                              vence: _vence(p.proximoVencimiento),
+                              tasa: tasa,
+                              onTap: () => context.push(Routes.proveedorDetalle.replaceAll(':proveedorId', p.id), extra: p),
+                            ),
                       ],
                     ],
                   ),
@@ -126,6 +148,31 @@ class ProveedoresScreen extends ConsumerWidget {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Buscador de proveedores.
+class _BuscadorProveedores extends ConsumerWidget {
+  const _BuscadorProveedores();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextField(
+      onChanged: (v) => ref.read(_busquedaProveedorProvider.notifier).state = v,
+      style: TextStyle(fontSize: 14, color: context.libreta.textoFuerte),
+      decoration: InputDecoration(
+        hintText: 'Buscar proveedor…',
+        hintStyle: TextStyle(color: context.libreta.textoMuted),
+        prefixIcon: Icon(Icons.search, size: 20, color: context.libreta.textoMuted),
+        filled: true,
+        fillColor: context.libreta.superficie,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }

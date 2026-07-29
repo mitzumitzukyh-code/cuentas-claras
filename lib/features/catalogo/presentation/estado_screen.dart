@@ -111,7 +111,16 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
       backgroundColor: context.libreta.papel,
       body: LibretaPageBackground(
         child: SafeArea(
-          child: ListView(
+          child: widget.productos.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.fromLTRB(24, 100, 24, 0),
+                  child: LibretaEstadoVacio(
+                    titulo: 'Catálogo vacío',
+                    detalle: 'Agrega productos al catálogo para poder'
+                        ' publicarlos en tu Estado de WhatsApp.',
+                  ),
+                )
+              : ListView(
             padding: const EdgeInsets.fromLTRB(22, 26, 22, 32),
             children: [
               Row(

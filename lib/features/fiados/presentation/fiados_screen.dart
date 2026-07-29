@@ -9,6 +9,8 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
 
+final _busquedaFiadosProvider = StateProvider<String>((_) => '');
+
 /// Fiados (réplica visual de `P0 · LISTA DE FIADOS`, `Lote G · Fiados`).
 ///
 /// Lista de clientes con deuda, más reciente primero. El total por cobrar es
@@ -27,6 +29,7 @@ class FiadosScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final clientesAsync = ref.watch(clientesFiadoProvider);
     final tasa = ref.watch(tasaActivaValorProvider);
+    final busqueda = ref.watch(_busquedaFiadosProvider);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -47,6 +50,14 @@ class FiadosScreen extends ConsumerWidget {
             data: (todos) {
               final conDeuda = todos.where((c) => c.saldoUSD > 0).toList();
               final total = conDeuda.fold<double>(0, (s, c) => s + c.saldoUSD);
+
+              final filtrados = busqueda.isEmpty
+                  ? conDeuda
+                  : conDeuda
+                      .where((c) => c.nombre
+                          .toLowerCase()
+                          .contains(busqueda.toLowerCase()))
+                      .toList();
 
               return Stack(
                 children: [
@@ -128,13 +139,26 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
                             color: context.libreta.textoMuted,
                           ),
                         ),
-                        for (final c in conDeuda)
-                          _FilaCliente(
-                            cliente: c,
-                            hace: _hace(c.actualizadoEn),
-                            tasa: tasa,
-                            onTap: () => context.push(Routes.fiadoDetalle.replaceAll(':clienteId', c.id), extra: c),
-                          ),
+                        const SizedBox(height: 8),
+                        _BuscadorFiados(),
+                        const SizedBox(height: 4),
+                        if (filtrados.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24),
+                            child: LibretaEstadoVacio(
+                              titulo: 'Sin resultados',
+                              detalle:
+                                  'Ningún cliente coincide con "$busqueda"',
+                            ),
+                          )
+                        else
+                          for (final c in filtrados)
+                            _FilaCliente(
+                              cliente: c,
+                              hace: _hace(c.actualizadoEn),
+                              tasa: tasa,
+                              onTap: () => context.push(Routes.fiadoDetalle.replaceAll(':clienteId', c.id), extra: c),
+                            ),
                       ],
                     ],
                   ),
@@ -153,6 +177,34 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Buscador de clientes fiados.
+class _BuscadorFiados extends ConsumerWidget {
+  const _BuscadorFiados();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextField(
+      onChanged: (v) => ref.read(_busquedaFiadosProvider.notifier).state = v,
+      style: TextStyle(
+        fontSize: 14,
+        color: context.libreta.textoFuerte,
+      ),
+      decoration: InputDecoration(
+        hintText: 'Buscar cliente…',
+        hintStyle: TextStyle(color: context.libreta.textoMuted),
+        prefixIcon: Icon(Icons.search, size: 20, color: context.libreta.textoMuted),
+        filled: true,
+        fillColor: context.libreta.superficie,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }
