@@ -41,12 +41,11 @@ class PlanesScreen extends ConsumerWidget {
       precio: '\$5',
       periodo: '/mes',
       destacado: true,
-      // Lista literal del diseño (Lote D · P0). OJO: "Pedidos por WhatsApp
-      // automáticos" describe un bot con webhook que todavía NO existe en la
-      // app — se muestra porque el diseño manda, pero no se puede cobrar por
-      // él hasta construirlo.
+      // Orden del diseño (Lote D · P0) menos "Pedidos por WhatsApp
+      // automáticos": describía un bot con webhook que no existe, y no se
+      // puede cobrar $5 al mes por algo que la app no hace. Si algún día se
+      // construye, va de primero como en el lote.
       beneficios: [
-        'Pedidos por WhatsApp automáticos',
         'Catálogo y estados sin marca de agua',
         'Recordatorios de fiado automáticos',
         'Pedido a proveedor con 1 toque',
