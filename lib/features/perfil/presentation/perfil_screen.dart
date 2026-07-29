@@ -130,6 +130,14 @@ class PerfilScreen extends ConsumerWidget {
               _Grupo(
                 titulo: 'Negocio',
                 filas: [
+                  // Solo los rubros que cocinan o arman lo que venden: en una
+                  // bodega un renglón de "Insumos" no significa nada.
+                  if (negocio?.rubro.config.usaReceta ?? false)
+                    _Fila(
+                      icono: Icons.blender_outlined,
+                      etiqueta: 'Insumos',
+                      onTap: () => context.push(Routes.insumos),
+                    ),
                   if (ref.watch(puedeProvider(Permisos.gestionarEmpleados)))
                     _Fila(
                       icono: Icons.groups_2_outlined,

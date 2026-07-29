@@ -54,6 +54,9 @@ class VentaRepository {
   CollectionReference<Map<String, dynamic>> _productos(String negocioId) =>
       _negocioRef(negocioId).collection(FirestorePaths.productos);
 
+  CollectionReference<Map<String, dynamic>> _insumos(String negocioId) =>
+      _negocioRef(negocioId).collection(FirestorePaths.insumos);
+
   DocumentReference<Map<String, dynamic>> _cliente(
     String negocioId,
     String clienteId,
@@ -140,6 +143,28 @@ class VentaRepository {
     return grupos;
   }
 
+  /// Cuánto de cada insumo consume esta parte de la venta, según la receta
+  /// guardada en el documento del producto (`Lote C · P3`).
+  ///
+  /// Se acumula por insumoId porque dos productos distintos de la misma venta
+  /// pueden gastar la misma harina, y el documento del insumo tiene que
+  /// bajarse una sola vez.
+  void _acumularReceta(
+    Map<String, dynamic>? data,
+    List<ItemVenta> items,
+    Map<String, double> consumo,
+  ) {
+    final receta = (data?['receta'] as List?) ?? const [];
+    if (receta.isEmpty) return;
+    final unidades = items.fold<double>(0, (s, x) => s + x.cantidad);
+    for (final linea in receta.whereType<Map<String, dynamic>>()) {
+      final id = (linea['insumoId'] as String?) ?? '';
+      final porUnidad = (linea['cantidadUsada'] as num?)?.toDouble() ?? 0;
+      if (id.isEmpty || porUnidad == 0) continue;
+      consumo[id] = (consumo[id] ?? 0) + porUnidad * unidades;
+    }
+  }
+
   /// Copia editable del arreglo `variantes` del documento, o `null` si el
   /// producto no maneja variantes.
   List<Map<String, dynamic>>? _variantesDe(Map<String, dynamic>? data) {
@@ -182,9 +207,12 @@ class VentaRepository {
         snaps.add(await tx.get(ref));
       }
 
+      final consumoInsumos = <String, double>{};
+
       for (var i = 0; i < grupos.length; i++) {
         final items = grupos[i].value;
         final data = snaps[i].data();
+        _acumularReceta(data, items, consumoInsumos);
         final actual = (data?['cantidad'] as num?)?.toDouble() ?? 0;
         final vendido = items.fold<double>(0, (s, x) => s + x.cantidad);
         final restante = actual - vendido;
@@ -225,6 +253,15 @@ class VentaRepository {
         tx.update(refs[i], cambios);
       }
 
+      // Los insumos bajan con `increment` y sin leerlos: la receta ya dice
+      // cuánto se gasta, y no se bloquea la venta por quedarse corto de
+      // harina — el mostrador ya despachó, el aviso es cosa del inventario.
+      consumoInsumos.forEach((insumoId, gastado) {
+        tx.update(_insumos(negocioId).doc(insumoId), {
+          'cantidad': FieldValue.increment(-gastado),
+        });
+      });
+
       tx.set(_ventas(negocioId).doc(), venta.toMap());
       if (fiadoA != null) _anotarFiado(tx, negocioId, venta, fiadoA);
     });
@@ -247,6 +284,7 @@ class VentaRepository {
     FiadoDeVenta? fiadoA,
   ) async {
     final batch = _db.batch();
+    final consumoInsumos = <String, double>{};
     for (final g in _porProducto(venta.items).entries) {
       // Línea "monto libre": no hay producto que descontar.
       if (g.key.isEmpty) continue;
@@ -255,6 +293,15 @@ class VentaRepository {
       final cambios = <String, dynamic>{
         'cantidad': FieldValue.increment(-vendido),
       };
+
+      // La receta se lee de la copia local: sin señal es la única que hay, y
+      // si el producto no está en caché simplemente no se descuentan insumos.
+      try {
+        final snap = await ref.get(const GetOptions(source: Source.cache));
+        _acumularReceta(snap.data(), g.value, consumoInsumos);
+      } catch (_) {
+        // Producto sin copia en caché: no se sabe qué insumos gasta.
+      }
 
       // El arreglo de variantes no admite un increment relativo: hay que
       // reescribirlo desde la copia local en caché. Si dos vendedores sin
@@ -286,6 +333,11 @@ class VentaRepository {
       }
       batch.update(ref, cambios);
     }
+    consumoInsumos.forEach((insumoId, gastado) {
+      batch.update(_insumos(negocioId).doc(insumoId), {
+        'cantidad': FieldValue.increment(-gastado),
+      });
+    });
     batch.set(_ventas(negocioId).doc(), venta.toMap());
     if (fiadoA != null) _anotarFiado(batch, negocioId, venta, fiadoA);
 
@@ -377,11 +429,14 @@ class VentaRepository {
         snaps.add(await tx.get(ref));
       }
 
+      final devolucionInsumos = <String, double>{};
+
       for (var i = 0; i < grupos.length; i++) {
         // Un producto borrado después de la venta ya no puede recibir stock.
         if (!snaps[i].exists) continue;
         final data = snaps[i].data();
         final items = grupos[i].value;
+        _acumularReceta(data, items, devolucionInsumos);
         final actual = (data?['cantidad'] as num?)?.toDouble() ?? 0;
         final devuelto = items.fold<double>(0, (s, x) => s + x.cantidad);
         final cambios = <String, dynamic>{'cantidad': actual + devuelto};
@@ -404,6 +459,14 @@ class VentaRepository {
         }
         tx.update(refs[i], cambios);
       }
+
+      // Anular devuelve también los insumos: si la torta no se vendió, la
+      // harina sigue en el depósito.
+      devolucionInsumos.forEach((insumoId, gastado) {
+        tx.update(_insumos(negocioId).doc(insumoId), {
+          'cantidad': FieldValue.increment(gastado),
+        });
+      });
 
       tx.update(ventaRef, {'anulada': true});
     });

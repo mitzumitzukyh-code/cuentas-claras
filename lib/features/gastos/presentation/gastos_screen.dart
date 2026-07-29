@@ -161,13 +161,28 @@ class GastosScreen extends ConsumerWidget {
                     onPressed: () => context.push(Routes.nuevoGasto),
                   ),
                 )
-              else
+              else ...[
+                // El diseño rotula el bloque con el mes: sin él la lista
+                // arranca en seco y no dice de cuándo es lo que se ve.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    _mesEnLetras(DateTime.now()).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: context.libreta.textoMuted,
+                    ),
+                  ),
+                ),
                 for (var i = 0; i < gastos.length; i++)
                   _FilaGasto(
                     gasto: gastos[i],
                     ultima: i == gastos.length - 1,
                     onEliminar: () => _confirmarEliminar(context, ref, gastos[i]),
                   ),
+              ],
             ],
           ),
         ),
@@ -175,6 +190,18 @@ class GastosScreen extends ConsumerWidget {
     );
   }
 }
+
+const _meses = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+const _mesesCortos = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+
+String _mesEnLetras(DateTime f) => _meses[f.month - 1];
 
 /// Quita el emoji de `categoriaLabel` — el ícono ya se dibuja aparte.
 String _sinEmoji(String etiqueta) =>
@@ -251,7 +278,7 @@ class _FilaGasto extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${f.day}/${f.month} · ${_sinEmoji(gasto.categoriaLabel)}',
+                  '${f.day} ${_mesesCortos[f.month - 1]} · ${_sinEmoji(gasto.categoriaLabel)}',
                   style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
                 ),
               ],

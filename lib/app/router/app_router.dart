@@ -8,6 +8,7 @@ import '../../core/session/sesion_provider.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/cierre/presentation/arqueo_caja_screen.dart';
 import '../../features/productos/presentation/arqueo_inventario_screen.dart';
+import '../../features/productos/presentation/insumos_screen.dart';
 import '../../shared/presentation/permiso_requerido.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/fiados/presentation/fiados_screen.dart';
@@ -135,6 +136,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           permiso: Permisos.editarInventario,
           titulo: 'Contar el inventario es del dueño',
           child: ArqueoInventarioScreen(),
+        )),
+      ),
+      GoRoute(
+        path: Routes.insumos,
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.editarInventario,
+          titulo: 'Los insumos los maneja el dueño',
+          child: InsumosScreen(),
         )),
       ),
       GoRoute(

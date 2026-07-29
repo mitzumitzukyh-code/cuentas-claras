@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'insumo.dart';
 import 'variante.dart';
 
 /// Cómo se gestiona el inventario de este producto.
@@ -37,6 +38,7 @@ class Producto {
     this.precioAnterior,
     this.enOferta = false,
     this.garantiaMeses,
+    this.receta = const [],
   });
 
   final String id;
@@ -87,6 +89,12 @@ class Producto {
   /// Meses de garantía (solo Electrónica). `null` = sin garantía.
   final int? garantiaMeses;
 
+  /// Qué insumos consume una unidad de este producto (solo los rubros que
+  /// cocinan o arman). Al vender se descuentan del inventario de insumos.
+  final List<LineaReceta> receta;
+
+  bool get tieneReceta => receta.isNotEmpty;
+
   /// Porcentaje de descuento derivado, para pintar "−16 %".
   int? get descuentoPct {
     if (!enOferta || precioAnterior == null || precioAnterior == 0) return null;
@@ -136,6 +144,10 @@ class Producto {
       precioAnterior: (data['precioAnterior'] as num?)?.toDouble(),
       enOferta: (data['enOferta'] as bool?) ?? false,
       garantiaMeses: (data['garantiaMeses'] as num?)?.toInt(),
+      receta: ((data['receta'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(LineaReceta.fromMap)
+          .toList(),
     );
   }
 
@@ -158,5 +170,6 @@ class Producto {
         'precioAnterior': precioAnterior,
         'enOferta': enOferta,
         'garantiaMeses': garantiaMeses,
+        'receta': receta.map((l) => l.toMap()).toList(),
       };
 }

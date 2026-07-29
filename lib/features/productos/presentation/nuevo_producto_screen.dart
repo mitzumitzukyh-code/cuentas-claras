@@ -2,15 +2,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../app/router/routes.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../onboarding/domain/rubro.dart';
+import '../data/insumo_repository.dart';
 import '../data/producto_repository.dart';
+import '../domain/insumo.dart';
 import '../domain/producto.dart';
 import '../domain/variante.dart';
 import 'widgets/escaner_codigo_barras.dart';
@@ -47,6 +51,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   File? _foto;
   DateTime? _vencimiento;
   final List<Variante> _variantes = [];
+  final List<LineaReceta> _receta = [];
   bool _vendidoPorPeso = false;
   bool _guardando = false;
   bool _leyendoIA = false;
@@ -73,6 +78,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     _vencimiento = p.fechaVencimiento;
     _vendidoPorPeso = p.vendidoPorPeso;
     _variantes.addAll(p.variantes);
+    _receta.addAll(p.receta);
     _tipo = p.tipo;
     _bloquearAlAgotarse = p.bloquearAlAgotarse;
     _enOferta = p.enOferta;
@@ -283,6 +289,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         precioAnterior: _enOferta ? precioAnteriorValor : null,
         enOferta: _enOferta,
         garantiaMeses: _garantiaMeses,
+        receta: _receta,
       );
 
       final confirmado = _editando
@@ -767,21 +774,13 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 ),
               ],
 
-              // Receta (comida rápida) — requiere gestión de insumos, fuera de
-              // la Fase 1.
+              // Receta (rubros que cocinan o arman) — Lote C · P3.
               if (config.usaReceta) ...[
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0x21F2A93C),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Text(
-                    'La receta por insumos se habilita junto con la gestión de '
-                    'insumos (pendiente).',
-                    style: TextStyle(color: LibretaColors.aviso, fontSize: 13),
-                  ),
+                _EditorReceta(
+                  receta: _receta,
+                  onAgregar: (l) => setState(() => _receta.add(l)),
+                  onEliminar: (i) => setState(() => _receta.removeAt(i)),
                 ),
               ],
 
@@ -1085,6 +1084,214 @@ class _TipoPill extends StatelessWidget {
             color: selected ? Colors.white : context.libreta.textoMuted,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Receta del producto: qué insumos gasta cada unidad (`Lote C · P3`).
+///
+/// Solo deja elegir insumos ya dados de alta — escribir el nombre a mano
+/// haría que la venta no supiera de qué existencia descontar.
+class _EditorReceta extends ConsumerStatefulWidget {
+  const _EditorReceta({
+    required this.receta,
+    required this.onAgregar,
+    required this.onEliminar,
+  });
+
+  final List<LineaReceta> receta;
+  final void Function(LineaReceta) onAgregar;
+  final void Function(int) onEliminar;
+
+  @override
+  ConsumerState<_EditorReceta> createState() => _EditorRecetaState();
+}
+
+class _EditorRecetaState extends ConsumerState<_EditorReceta> {
+  final _cantidad = TextEditingController();
+  Insumo? _elegido;
+
+  @override
+  void dispose() {
+    _cantidad.dispose();
+    super.dispose();
+  }
+
+  void _agregar() {
+    final insumo = _elegido;
+    final cantidad = double.tryParse(_cantidad.text.replaceAll(',', '.')) ?? 0;
+    if (insumo == null || cantidad <= 0) return;
+    widget.onAgregar(
+      LineaReceta(
+        insumoId: insumo.id,
+        nombre: insumo.nombre,
+        cantidadUsada: cantidad,
+        unidad: insumo.unidad,
+      ),
+    );
+    _cantidad.clear();
+    setState(() => _elegido = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final insumos = ref.watch(insumosProvider).valueOrNull ?? const <Insumo>[];
+    final yaEnReceta = widget.receta.map((l) => l.insumoId).toSet();
+    final disponibles =
+        insumos.where((i) => !yaEnReceta.contains(i.id)).toList();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+      decoration: BoxDecoration(
+        color: t.superficie,
+        border: Border.all(color: t.bordeSuave),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Receta / insumos',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: t.textoFuerte,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => context.push(Routes.insumos),
+                child: const Text(
+                  'Ver insumos',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: LibretaColors.verde,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Al vender, se descuenta del inventario de insumos.',
+            style: TextStyle(fontSize: 12, height: 1.4, color: t.textoMuted),
+          ),
+          const SizedBox(height: 10),
+
+          for (var i = 0; i < widget.receta.length; i++)
+            Container(
+              height: 38,
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: t.renglon)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.receta[i].nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: t.textoFuerte,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    widget.receta[i].cantidadLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: t.textoMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => widget.onEliminar(i),
+                    child: const Icon(Icons.close, size: 17, color: LibretaColors.peligro),
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 12),
+          if (insumos.isEmpty)
+            Text(
+              'Todavía no tienes insumos cargados. Créalos primero en '
+              '«Ver insumos» y vuelve para armar la receta.',
+              style: TextStyle(fontSize: 12.5, height: 1.4, color: t.textoMuted),
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<Insumo>(
+                    value: _elegido,
+                    isExpanded: true,
+                    hint: const Text('Insumo', style: TextStyle(fontSize: 13)),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      filled: true,
+                      fillColor: t.papel,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: t.bordeSuave),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: t.bordeSuave),
+                      ),
+                    ),
+                    items: [
+                      for (final i in disponibles)
+                        DropdownMenuItem(
+                          value: i,
+                          child: Text(
+                            '${i.nombre} (${i.cantidadLabel})',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _elegido = v),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LibretaInput(
+                    controller: _cantidad,
+                    hint: _elegido?.unidad.corta ?? 'Cant.',
+                    height: 44,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _agregar,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: LibretaColors.verde,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
