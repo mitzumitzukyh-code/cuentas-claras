@@ -93,38 +93,34 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
                   onAtras: _paso == 0 ? null : _atras,
                 ),
                 const SizedBox(height: 20),
+                // Solo el contenido scrollea; el botón del paso queda anclado
+                // abajo, como en el diseño. Antes el paso entero iba dentro de
+                // un `SingleChildScrollView` con un `Spacer()` al final: el
+                // Spacer se come el espacio sobrante y, cuando el contenido
+                // pasaba del alto de pantalla, el botón quedaba fuera y la
+                // lista no se dejaba desplazar.
                 Expanded(
-                  child: LayoutBuilder(
-                    builder:
-                        (context, c) => SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: c.maxHeight),
-                            child: IntrinsicHeight(
-                              child: switch (_paso) {
-                                0 => _PasoNegocio(
-                                  nombre: _nombre,
-                                  rubro: _rubro,
-                                  onRubro: (r) => setState(() => _rubro = r),
-                                  onCambio: () => setState(() {}),
-                                  onSiguiente: _siguiente,
-                                ),
-                                1 => _PasoMoneda(
-                                  moneda: _moneda,
-                                  onMoneda: (m) => setState(() => _moneda = m),
-                                  onSiguiente: _siguiente,
-                                ),
-                                _ => _PasoResumen(
-                                  nombreNegocio: _nombre.text.trim(),
-                                  rubro: _rubro,
-                                  moneda: _moneda,
-                                  cargando: _cargando,
-                                  onEmpezar: _crearNegocio,
-                                ),
-                              },
-                            ),
-                          ),
-                        ),
-                  ),
+                  child: switch (_paso) {
+                    0 => _PasoNegocio(
+                      nombre: _nombre,
+                      rubro: _rubro,
+                      onRubro: (r) => setState(() => _rubro = r),
+                      onCambio: () => setState(() {}),
+                      onSiguiente: _siguiente,
+                    ),
+                    1 => _PasoMoneda(
+                      moneda: _moneda,
+                      onMoneda: (m) => setState(() => _moneda = m),
+                      onSiguiente: _siguiente,
+                    ),
+                    _ => _PasoResumen(
+                      nombreNegocio: _nombre.text.trim(),
+                      rubro: _rubro,
+                      moneda: _moneda,
+                      cargando: _cargando,
+                      onEmpezar: _crearNegocio,
+                    ),
+                  },
                 ),
               ],
             ),
@@ -153,9 +149,10 @@ class _BarraPasos extends StatelessWidget {
       children: [
         SizedBox(
           width: 36,
-          child: onAtras == null
-              ? null
-              : LibretaBackButton(oscuro: true, onTap: onAtras),
+          child:
+              onAtras == null
+                  ? null
+                  : LibretaBackButton(oscuro: true, onTap: onAtras),
         ),
         Expanded(
           child: Row(
@@ -166,9 +163,10 @@ class _BarraPasos extends StatelessWidget {
                   child: Container(
                     height: 4,
                     decoration: BoxDecoration(
-                      color: i <= paso
-                          ? LibretaColors.verde
-                          : context.libreta.bordeSuave,
+                      color:
+                          i <= paso
+                              ? LibretaColors.verde
+                              : context.libreta.bordeSuave,
                       borderRadius: BorderRadius.circular(100),
                     ),
                   ),
@@ -218,7 +216,10 @@ class _Encabezado extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(subtitulo, style: TextStyle(fontSize: 14, color: context.libreta.textoMuted)),
+        Text(
+          subtitulo,
+          style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
+        ),
       ],
     );
   }
@@ -247,57 +248,69 @@ class _PasoNegocio extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Encabezado(
-          paso: 'PASO 1 DE 3',
-          titulo: '¿Cómo se llama tu negocio?',
-          subtitulo: 'Así lo verán tus recibos y tu equipo.',
-        ),
-        const SizedBox(height: 16),
-        LibretaSecondaryButton(
-          label: '¿Te invitaron? Entra con tu código',
-          height: 46,
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const UnirseCodigoScreen(),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _Encabezado(
+                  paso: 'PASO 1 DE 3',
+                  titulo: '¿Cómo se llama tu negocio?',
+                  subtitulo: 'Así lo verán tus recibos y tu equipo.',
+                ),
+                const SizedBox(height: 16),
+                LibretaSecondaryButton(
+                  label: '¿Te invitaron? Entra con tu código',
+                  height: 46,
+                  onPressed:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const UnirseCodigoScreen(),
+                        ),
+                      ),
+                ),
+                const SizedBox(height: 22),
+                LibretaInput(
+                  controller: nombre,
+                  hint: 'Ej: Abasto La Esquina',
+                  height: 52,
+                  onChanged: (_) => onCambio(),
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'Rubro de tu negocio',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.libreta.textoMuted,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.25,
+                  children: [
+                    for (final r in Rubro.values)
+                      _TarjetaRubro(
+                        rubro: r,
+                        seleccionado: rubro == r,
+                        onTap: () => onRubro(r),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(height: 22),
-        LibretaInput(
-          controller: nombre,
-          hint: 'Ej: Abasto La Esquina',
-          height: 52,
-          onChanged: (_) => onCambio(),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          'Rubro de tu negocio',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: context.libreta.textoMuted,
-          ),
-        ),
-        const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.25,
-          children: [
-            for (final r in Rubro.values)
-              _TarjetaRubro(
-                rubro: r,
-                seleccionado: rubro == r,
-                onTap: () => onRubro(r),
-              ),
-          ],
-        ),
-        const Spacer(),
         const SizedBox(height: 18),
-        LibretaButton(label: 'Continuar', onPressed: listo ? onSiguiente : null),
+        LibretaButton(
+          label: 'Continuar',
+          onPressed: listo ? onSiguiente : null,
+        ),
       ],
     );
   }
@@ -322,10 +335,14 @@ class _TarjetaRubro extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: seleccionado ? const Color(0x0F0E9F6E) : context.libreta.superficie,
+          color:
+              seleccionado
+                  ? const Color(0x0F0E9F6E)
+                  : context.libreta.superficie,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
+            color:
+                seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
             width: seleccionado ? 2 : 1.5,
           ),
         ),
@@ -383,31 +400,39 @@ class _PasoMoneda extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Encabezado(
-          paso: 'PASO 2 DE 3',
-          titulo: '¿En qué moneda manejas tus precios?',
-          subtitulo: 'Podrás cobrar y ver todo en ambas monedas.',
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _Encabezado(
+                  paso: 'PASO 2 DE 3',
+                  titulo: '¿En qué moneda manejas tus precios?',
+                  subtitulo: 'Podrás cobrar y ver todo en ambas monedas.',
+                ),
+                const SizedBox(height: 22),
+                _OpcionMoneda(
+                  titulo: 'Dólares (USD)',
+                  detalle: 'Precios base en \$, conversión automática',
+                  seleccionado: moneda == 'USD',
+                  onTap: () => onMoneda('USD'),
+                ),
+                const SizedBox(height: 10),
+                _OpcionMoneda(
+                  titulo: 'Bolívares (Bs)',
+                  detalle: 'Precios base en Bs, referencia en \$',
+                  seleccionado: moneda == 'Bs',
+                  onTap: () => onMoneda('Bs'),
+                ),
+                const SizedBox(height: 22),
+                _TarjetaTasa(
+                  tasaAsync: tasaAsync,
+                  onRefrescar: () => ref.invalidate(bcvRateProvider),
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 22),
-        _OpcionMoneda(
-          titulo: 'Dólares (USD)',
-          detalle: 'Precios base en \$, conversión automática',
-          seleccionado: moneda == 'USD',
-          onTap: () => onMoneda('USD'),
-        ),
-        const SizedBox(height: 10),
-        _OpcionMoneda(
-          titulo: 'Bolívares (Bs)',
-          detalle: 'Precios base en Bs, referencia en \$',
-          seleccionado: moneda == 'Bs',
-          onTap: () => onMoneda('Bs'),
-        ),
-        const SizedBox(height: 22),
-        _TarjetaTasa(
-          tasaAsync: tasaAsync,
-          onRefrescar: () => ref.invalidate(bcvRateProvider),
-        ),
-        const Spacer(),
         const SizedBox(height: 18),
         LibretaButton(label: 'Continuar', onPressed: onSiguiente),
       ],
@@ -437,10 +462,14 @@ class _OpcionMoneda extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: seleccionado ? const Color(0x0F0E9F6E) : context.libreta.superficie,
+          color:
+              seleccionado
+                  ? const Color(0x0F0E9F6E)
+                  : context.libreta.superficie,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
+            color:
+                seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
             width: 1.5,
           ),
         ),
@@ -461,7 +490,10 @@ class _OpcionMoneda extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     detalle,
-                    style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: context.libreta.textoMuted,
+                    ),
                   ),
                 ],
               ),
@@ -473,13 +505,17 @@ class _OpcionMoneda extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: seleccionado ? LibretaColors.verde : Colors.transparent,
                 border: Border.all(
-                  color: seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
+                  color:
+                      seleccionado
+                          ? LibretaColors.verde
+                          : context.libreta.bordeSuave,
                   width: 2,
                 ),
               ),
-              child: seleccionado
-                  ? const Icon(Icons.check, size: 13, color: Colors.white)
-                  : null,
+              child:
+                  seleccionado
+                      ? const Icon(Icons.check, size: 13, color: Colors.white)
+                      : null,
             ),
           ],
         ),
@@ -520,7 +556,11 @@ class _TarjetaTasa extends StatelessWidget {
               ),
               GestureDetector(
                 onTap: onRefrescar,
-                child: Icon(Icons.refresh, size: 18, color: context.libreta.textoMuted),
+                child: Icon(
+                  Icons.refresh,
+                  size: 18,
+                  color: context.libreta.textoMuted,
+                ),
               ),
             ],
           ),
@@ -529,33 +569,51 @@ class _TarjetaTasa extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('Bs', style: TextStyle(fontSize: 15, color: context.libreta.textoMuted)),
+              Text(
+                'Bs',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: context.libreta.textoMuted,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: tasaAsync.when(
-                  loading: () => const Text(
-                    '—',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: LibretaColors.verde,
-                    ),
-                  ),
-                  error: (_, __) => Text(
-                    'sin conexión',
-                    style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
-                  ),
-                  data: (r) => Text(
-                    MoneyFormatter.bs(r.tasa).replaceFirst('Bs ', ''),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: LibretaColors.verde,
-                    ),
-                  ),
+                  loading:
+                      () => const Text(
+                        '—',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: LibretaColors.verde,
+                        ),
+                      ),
+                  error:
+                      (_, __) => Text(
+                        'sin conexión',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: context.libreta.textoMuted,
+                        ),
+                      ),
+                  data:
+                      (r) => Text(
+                        MoneyFormatter.bs(r.tasa).replaceFirst('Bs ', ''),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: LibretaColors.verde,
+                        ),
+                      ),
                 ),
               ),
-              Text('por \$1', style: TextStyle(fontSize: 13, color: context.libreta.textoMuted)),
+              Text(
+                'por \$1',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.libreta.textoMuted,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -591,63 +649,85 @@ class _PasoResumen extends ConsumerWidget {
 
     return Column(
       children: [
-        const SizedBox(height: 20),
-        Container(
-          width: 88,
-          height: 88,
-          decoration: const BoxDecoration(color: Color(0x1F0E9F6E), shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: const Icon(Icons.check, size: 40, color: LibretaColors.verde),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          'PASO 3 DE 3',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: LibretaColors.verde,
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: const BoxDecoration(
+                    color: Color(0x1F0E9F6E),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.check,
+                    size: 40,
+                    color: LibretaColors.verde,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'PASO 3 DE 3',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: LibretaColors.verde,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '¡Todo listo, $nombreNegocio!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: context.libreta.textoFuerte,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: 260,
+                  child: Text(
+                    'Configuramos tu cuenta para empezar a vender hoy mismo.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: context.libreta.textoMuted,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      _FilaResumen(
+                        etiqueta: 'Rubro',
+                        valor: rubro?.etiqueta ?? '—',
+                      ),
+                      _FilaResumen(etiqueta: 'Moneda principal', valor: moneda),
+                      _FilaResumen(
+                        etiqueta: 'Tasa BCV',
+                        valor:
+                            tasa == null ? '—' : MoneyFormatter.bs(tasa.tasa),
+                        ultima: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          '¡Todo listo, $nombreNegocio!',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: context.libreta.textoFuerte,
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: 260,
-          child: Text(
-            'Configuramos tu cuenta para empezar a vender hoy mismo.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Container(
-          decoration: BoxDecoration(
-            color: context.libreta.superficie,
-            border: Border.all(color: const Color(0x141E2A38)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _FilaResumen(etiqueta: 'Rubro', valor: rubro?.etiqueta ?? '—'),
-              _FilaResumen(etiqueta: 'Moneda principal', valor: moneda),
-              _FilaResumen(
-                etiqueta: 'Tasa BCV',
-                valor: tasa == null ? '—' : MoneyFormatter.bs(tasa.tasa),
-                ultima: true,
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
         const SizedBox(height: 18),
         LibretaButton(
           label: 'Empezar a vender',
@@ -675,14 +755,18 @@ class _FilaResumen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        border: ultima
-            ? null
-            : Border(bottom: BorderSide(color: context.libreta.renglon)),
+        border:
+            ultima
+                ? null
+                : Border(bottom: BorderSide(color: context.libreta.renglon)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(etiqueta, style: TextStyle(fontSize: 13, color: context.libreta.textoMuted)),
+          Text(
+            etiqueta,
+            style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+          ),
           Text(
             valor,
             style: TextStyle(

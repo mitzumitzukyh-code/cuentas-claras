@@ -56,13 +56,18 @@ class LibretaButton extends StatelessWidget {
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (icon != null) ...[icon!, const SizedBox(width: 10)],
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                  if (icon != null) ...[icon!, const SizedBox(width: 9)],
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ],
@@ -105,11 +110,22 @@ class LibretaSecondaryButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[icon!, const SizedBox(width: 10)],
-            Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            if (icon != null) ...[icon!, const SizedBox(width: 8)],
+            // Flexible + ellipsis: en dos botones lado a lado, una etiqueta
+            // larga ("Escanear código") se salía de su caja en pantallas
+            // angostas en vez de recortarse.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),
