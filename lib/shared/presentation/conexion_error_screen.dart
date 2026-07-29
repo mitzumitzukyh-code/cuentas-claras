@@ -118,10 +118,10 @@ class _ConexionErrorScreenState extends State<ConexionErrorScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
-                LibretaSecondaryButton(
+                LibretaButton(
                   label: 'Reintentar',
                   height: 50,
-                  icon: Icon(Icons.refresh, size: 18, color: context.libreta.textoFuerte),
+                  icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
                   onPressed: widget.onReintentar,
                 ),
               ],

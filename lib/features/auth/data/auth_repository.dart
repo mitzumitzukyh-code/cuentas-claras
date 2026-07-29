@@ -50,6 +50,13 @@ class AuthRepository {
     await _seguro.delete(key: _kClave);
   }
 
+  /// `true` cuando la sesión guardada se descartó sola porque las credenciales
+  /// dejaron de servir (`Lote F · P4`).
+  ///
+  /// Distinto de "nunca hubo sesión": el dueño sí había entrado y de pronto se
+  /// encuentra el login. Sin decírselo parece que la app perdió sus datos.
+  bool sesionExpirada = false;
+
   /// Restaura la sesión al arrancar cuando Firebase no lo hace por su cuenta.
   ///
   /// En release, sobre el ROM del teléfono de pruebas (Z2464N), Firebase Auth
@@ -102,7 +109,10 @@ class AuthRepository {
         'user-not-found',
         'user-disabled',
       };
-      if (invalidas.contains(e.code)) await _olvidarSesion();
+      if (invalidas.contains(e.code)) {
+        sesionExpirada = true;
+        await _olvidarSesion();
+      }
     } catch (_) {
       // Red u otro fallo transitorio: se reintenta en el próximo arranque.
     }

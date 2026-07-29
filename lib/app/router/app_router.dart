@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/session/sesion_provider.dart';
+import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/sesion_expirada_screen.dart';
 import '../../features/cierre/presentation/arqueo_caja_screen.dart';
 import '../../features/productos/presentation/arqueo_inventario_screen.dart';
 import '../../features/productos/presentation/insumos_screen.dart';
@@ -82,6 +84,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         case SesionEstado.cargando:
           return loc == Routes.splash ? null : Routes.splash;
         case SesionEstado.sinSesion:
+          // Si la sesión guardada se cayó sola, se explica antes de mandar al
+          // login (Lote F · P4): aterrizar ahí sin aviso parece pérdida de
+          // datos. El botón de esa pantalla baja la bandera y sigue al login.
+          if (ref.read(authRepositoryProvider).sesionExpirada) {
+            return loc == Routes.sesionExpirada ? null : Routes.sesionExpirada;
+          }
           return loc == Routes.login ? null : Routes.login;
         case SesionEstado.sinNegocio:
           return loc == Routes.onboarding ? null : Routes.onboarding;
@@ -105,6 +113,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.login,
         pageBuilder: (_, s) => _pagina(s, const LoginScreen()),
+      ),
+      GoRoute(
+        path: Routes.sesionExpirada,
+        pageBuilder: (_, s) => _pagina(s, const SesionExpiradaScreen()),
       ),
       GoRoute(
         path: Routes.onboarding,
