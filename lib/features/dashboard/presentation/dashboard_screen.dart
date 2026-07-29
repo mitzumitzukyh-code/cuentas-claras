@@ -72,13 +72,21 @@ class DashboardScreen extends ConsumerWidget {
       bottomNavigationBar: const AppBottomNav(activa: NavTab.inicio),
       body: Stack(
         children: [
-          if (tieneFondo)
+          if (tieneFondo) ...[
             Positioned.fill(
               child: FotoRed(
                 negocio!.fotoUrl!,
                 alError: Container(color: t.papel),
               ),
             ),
+            // Velo sobre la foto del negocio. Sin él, el saludo y el nombre
+            // —navy sobre una foto de estantes llenos de color— quedan
+            // ilegibles. La foto sigue viéndose como textura; el texto no se
+            // pelea con ella.
+            Positioned.fill(
+              child: ColoredBox(color: t.papel.withValues(alpha: 0.86)),
+            ),
+          ],
           Column(
             children: [
               // Barra de sin conexión: pegada arriba del todo, fuera del

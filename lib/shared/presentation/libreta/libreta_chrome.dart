@@ -117,7 +117,10 @@ class LibretaPageBackground extends StatelessWidget {
         children: [
           if (spiral)
             Positioned(
-              top: 6,
+              // Bajo la barra de estado, no debajo de ella: en el diseño la
+              // espiral asoma en el borde de la hoja, y el marco del teléfono
+              // empieza donde termina el reloj del sistema.
+              top: MediaQuery.paddingOf(context).top + 6,
               left: 0,
               right: 0,
               child: LibretaSpiralStrip(
