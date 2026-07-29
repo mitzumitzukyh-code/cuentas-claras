@@ -36,6 +36,20 @@ enum Rubro {
         Rubro.otro => 'Otro',
       };
 
+  /// Color de la pastilla del icono en la selección de rubro (`Lote F · P0`).
+  ///
+  /// Cada rubro tiene el suyo: la cuadrícula se recorre por color antes que
+  /// por texto, y dos bodegas seguidas en verde no se distinguirían.
+  Color get color => switch (this) {
+        Rubro.bodega => const Color(0xFF0E9F6E),
+        Rubro.ropa => const Color(0xFFC1503A),
+        Rubro.belleza => const Color(0xFFB5527C),
+        Rubro.quincalleria => const Color(0xFFB07D1E),
+        Rubro.comidaRapida => const Color(0xFFD9722F),
+        Rubro.electronica => const Color(0xFF3D6CA8),
+        Rubro.otro => const Color(0xFF8A9A96),
+      };
+
   IconData get icono => switch (this) {
         Rubro.bodega => Icons.storefront_outlined,
         Rubro.ropa => Icons.checkroom_outlined,

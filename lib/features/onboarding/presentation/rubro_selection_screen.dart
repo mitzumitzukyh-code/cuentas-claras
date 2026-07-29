@@ -283,9 +283,9 @@ class _PasoNegocio extends StatelessWidget {
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.7,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.25,
           children: [
             for (final r in Rubro.values)
               _TarjetaRubro(
@@ -320,7 +320,7 @@ class _TarjetaRubro extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: seleccionado ? const Color(0x0F0E9F6E) : context.libreta.superficie,
           borderRadius: BorderRadius.circular(16),
@@ -330,19 +330,29 @@ class _TarjetaRubro extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              rubro.icono,
-              size: 26,
-              color: seleccionado ? LibretaColors.verde : context.libreta.textoFuerte,
+            // Pastilla con el color propio del rubro: la cuadrícula se
+            // recorre por color antes que por texto.
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: rubro.color,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(rubro.icono, size: 24, color: Colors.white),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               rubro.etiqueta,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: context.libreta.textoFuerte,
               ),
