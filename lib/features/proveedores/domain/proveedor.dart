@@ -6,12 +6,17 @@ class Proveedor {
     required this.id,
     required this.nombre,
     required this.saldoUSD,
+    this.telefono,
     this.proximoVencimiento,
     required this.actualizadoEn,
   });
 
   final String id;
   final String nombre;
+
+  /// WhatsApp del proveedor, para mandarle el pedido de reabastecimiento
+  /// sin salir a buscarlo en la agenda.
+  final String? telefono;
 
   /// Deuda pendiente en USD. `0` = al día.
   final double saldoUSD;
@@ -35,6 +40,7 @@ class Proveedor {
       id: doc.id,
       nombre: (data['nombre'] as String?) ?? '',
       saldoUSD: (data['saldoUSD'] as num?)?.toDouble() ?? 0,
+      telefono: data['telefono'] as String?,
       proximoVencimiento: (data['proximoVencimiento'] as Timestamp?)?.toDate(),
       actualizadoEn:
           (data['actualizadoEn'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -44,6 +50,7 @@ class Proveedor {
   Map<String, dynamic> toMap() => {
         'nombre': nombre,
         'saldoUSD': saldoUSD,
+        if (telefono != null) 'telefono': telefono,
         'proximoVencimiento': proximoVencimiento == null
             ? null
             : Timestamp.fromDate(proximoVencimiento!),

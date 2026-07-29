@@ -48,18 +48,30 @@ class ProveedorRepository {
   Future<String> buscarOCrearProveedor(
     String negocioId, {
     required String nombre,
+    String? telefono,
   }) async {
     final existente = await _proveedores(negocioId)
         .where('nombre', isEqualTo: nombre.trim())
         .limit(1)
         .get();
-    if (existente.docs.isNotEmpty) return existente.docs.first.id;
+    if (existente.docs.isNotEmpty) {
+      final doc = existente.docs.first;
+      // Si el proveedor ya existía sin teléfono y ahora lo escribieron, se
+      // completa; nunca se pisa uno que ya estaba.
+      final tieneTelefono =
+          ((doc.data()['telefono'] as String?) ?? '').trim().isNotEmpty;
+      if (!tieneTelefono && (telefono ?? '').trim().isNotEmpty) {
+        await doc.reference.update({'telefono': telefono!.trim()});
+      }
+      return doc.id;
+    }
 
     final ref = _proveedores(negocioId).doc();
     await ref.set(
       Proveedor(
         id: ref.id,
         nombre: nombre.trim(),
+        telefono: (telefono ?? '').trim().isEmpty ? null : telefono!.trim(),
         saldoUSD: 0,
         actualizadoEn: DateTime.now(),
       ).toMap(),

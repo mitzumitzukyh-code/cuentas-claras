@@ -6,6 +6,10 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/whatsapp.dart';
+import '../../negocio/data/negocio_repository.dart';
+import '../../productos/data/producto_repository.dart';
+import '../../productos/domain/producto.dart';
 import '../data/proveedor_repository.dart';
 import '../domain/proveedor.dart';
 
@@ -83,6 +87,8 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              _BotonPedido(proveedor: proveedor),
+              const SizedBox(height: 10),
               LibretaButton(
                 label: 'Registrar pago',
                 height: 48,
@@ -141,6 +147,64 @@ class ProveedorDetalleScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Pedir reabastecimiento": arma el pedido solo con los productos que están
+/// en stock bajo y lo manda por WhatsApp (Lote H · F7).
+///
+/// La lista no se escribe a mano — se saca del inventario, que es justamente
+/// el dato que la app ya tiene y el dueño tendría que ir a mirar producto por
+/// producto.
+class _BotonPedido extends ConsumerWidget {
+  const _BotonPedido({required this.proveedor});
+
+  final Proveedor proveedor;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bajos = (ref.watch(productosProvider).valueOrNull ?? const <Producto>[])
+        .where((p) => p.stockBajo)
+        .toList();
+    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+
+    Future<void> enviar() async {
+      if (bajos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No hay productos en stock bajo por ahora.'),
+          ),
+        );
+        return;
+      }
+      final lista = bajos
+          .map((p) => '• ${p.nombre} — quedan ${p.cantidadLabel}')
+          .join('\n');
+      final borrador =
+          'Hola ${proveedor.nombre} 👋 te escribo de '
+          '${negocio?.nombre ?? "la bodega"}. Necesito reponer:\n\n'
+          '$lista\n\n'
+          '¿Me confirmas disponibilidad y precio? ¡Gracias!';
+      final texto = await editarMensaje(
+        context,
+        titulo: 'Pedido a ${proveedor.nombre}',
+        inicial: borrador,
+      );
+      if (texto == null || texto.isEmpty) return;
+      await abrirWhatsApp(texto: texto, telefono: proveedor.telefono);
+    }
+
+    return LibretaSecondaryButton(
+      label: bajos.isEmpty
+          ? 'Nada en stock bajo'
+          : 'Pedir reabastecimiento (${bajos.length})',
+      onPressed: bajos.isEmpty ? null : enviar,
+      icon: const Icon(
+        Icons.local_shipping_outlined,
+        size: 18,
+        color: LibretaColors.verde,
       ),
     );
   }

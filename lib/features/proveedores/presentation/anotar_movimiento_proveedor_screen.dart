@@ -29,6 +29,7 @@ class AnotarMovimientoProveedorScreen extends ConsumerStatefulWidget {
 class _AnotarMovimientoProveedorScreenState
     extends ConsumerState<AnotarMovimientoProveedorScreen> {
   final _nombre = TextEditingController();
+  final _telefono = TextEditingController();
   final _monto = TextEditingController();
   final _concepto = TextEditingController();
   final _diasVencimiento = TextEditingController(text: '15');
@@ -50,6 +51,7 @@ class _AnotarMovimientoProveedorScreenState
   @override
   void dispose() {
     _nombre.dispose();
+    _telefono.dispose();
     _monto.dispose();
     _concepto.dispose();
     _diasVencimiento.dispose();
@@ -71,7 +73,11 @@ class _AnotarMovimientoProveedorScreenState
     try {
       final repo = ref.read(proveedorRepositoryProvider);
       final proveedorId = _proveedorSeleccionado?.id ??
-          await repo.buscarOCrearProveedor(membresia.negocioId, nombre: _nombre.text);
+          await repo.buscarOCrearProveedor(
+            membresia.negocioId,
+            nombre: _nombre.text,
+            telefono: _telefono.text,
+          );
 
       DateTime? vencimiento;
       if (_tipo == TipoMovimientoProveedor.compra) {
@@ -195,6 +201,23 @@ class _AnotarMovimientoProveedorScreenState
                     ],
                   ),
                 ),
+              const SizedBox(height: 12),
+              // Solo al crear uno nuevo: si ya existe, su teléfono se edita
+              // desde su ficha, no desde el formulario de un movimiento.
+              if (_proveedorSeleccionado == null && !bloqueado) ...[
+                Text('WhatsApp del proveedor (opcional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.libreta.textoMuted)),
+                const SizedBox(height: 6),
+                LibretaInput(
+                  controller: _telefono,
+                  hint: '0414 123 4567',
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sirve para mandarle el pedido de reabastecimiento con un toque.',
+                  style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                ),
+              ],
               const SizedBox(height: 16),
 
               Text('Monto (USD)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.libreta.textoMuted)),

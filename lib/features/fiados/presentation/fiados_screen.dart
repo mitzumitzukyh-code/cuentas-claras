@@ -6,6 +6,8 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/whatsapp.dart';
+import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
 
@@ -62,7 +64,7 @@ class FiadosScreen extends ConsumerWidget {
               return Stack(
                 children: [
                   ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 30, 22, 100),
+                    padding: const EdgeInsets.fromLTRB(24, 26, 24, 100),
                     children: [
                       Text(
                         'Fiados',
@@ -134,6 +136,7 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
                           ),
                         )
                       else ...[
+                        _RecordatorioVencido(clientes: conDeuda),
                         Text(
                           'CLIENTES CON DEUDA',
                           style: TextStyle(
@@ -167,8 +170,8 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
                     ],
                   ),
                   Positioned(
-                    left: 54,
-                    right: 22,
+                    left: 24,
+                    right: 24,
                     bottom: 16,
                     child: LibretaButton(
                       label: 'Nuevo fiado',
@@ -181,6 +184,112 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Recordatorio del fiado más atrasado (Lote G · F7).
+///
+/// Solo aparece con deudas de [_diasParaAvisar] días o más y solo señala una
+/// —la más vieja—: una lista de morosos en la pantalla principal convierte
+/// Fiados en un tablero de reclamos, y el dueño deja de abrirla.
+class _RecordatorioVencido extends ConsumerWidget {
+  const _RecordatorioVencido({required this.clientes});
+
+  final List<ClienteFiado> clientes;
+
+  static const int _diasParaAvisar = 15;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ahora = DateTime.now();
+    final vencidos = clientes
+        .where((c) => ahora.difference(c.actualizadoEn).inDays >= _diasParaAvisar)
+        .toList()
+      ..sort((a, b) => a.actualizadoEn.compareTo(b.actualizadoEn));
+    if (vencidos.isEmpty) return const SizedBox.shrink();
+
+    final c = vencidos.first;
+    final dias = ahora.difference(c.actualizadoEn).inDays;
+    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+    final t = context.libreta;
+
+    Future<void> enviar() async {
+      final borrador =
+          'Hola ${c.nombre} 👋 te escribo de ${negocio?.nombre ?? "la bodega"}. '
+          'Tienes un saldo pendiente de ${MoneyFormatter.usd(c.saldoUSD)}. '
+          '¿Puedes pasar a abonar esta semana? ¡Gracias!';
+      final texto = await editarMensaje(
+        context,
+        titulo: 'Recordatorio para ${c.nombre}',
+        inicial: borrador,
+      );
+      if (texto == null || texto.isEmpty) return;
+      await abrirWhatsApp(texto: texto, telefono: c.telefono);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: const Color(0x1FF2A93C),
+        border: Border.all(color: const Color(0x59F2A93C)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.notifications_active_outlined,
+                size: 16,
+                color: LibretaColors.aviso,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '${c.nombre} lleva $dias días sin abonar',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: t.textoFuerte,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Recordatorio listo para enviar · ${MoneyFormatter.usd(c.saldoUSD)}',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: t.textoMuted,
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: enviar,
+            child: Container(
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2A93C),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Enviar recordatorio',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: LibretaColors.tarjetaOscura,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
