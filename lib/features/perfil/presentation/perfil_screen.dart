@@ -170,7 +170,7 @@ class PerfilScreen extends ConsumerWidget {
                   _Fila(
                     icono: Icons.schedule_outlined,
                     etiqueta: 'Estado de WhatsApp',
-                    onTap: () => context.push(Routes.catalogo),
+                    onTap: () => context.push(Routes.estadoWhatsApp),
                   ),
                 ],
               ),

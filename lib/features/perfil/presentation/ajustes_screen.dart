@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_links.dart';
 import 'legal_screen.dart';
@@ -79,16 +78,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
   }
 
   bool _exportando = false;
-
-  /// Abre el correo de soporte con el asunto ya puesto.
-  Future<void> _escribirSoporte() async {
-    final uri = Uri(
-      scheme: 'mailto',
-      path: AppLinks.correoSoporte,
-      queryParameters: {'subject': 'Ayuda con Cuenta Clara'},
-    );
-    await launchUrl(uri);
-  }
 
   /// Exporta ventas, gastos, productos y fiados a un .zip de CSV y lo comparte
   /// (`Lote E · P3`).
@@ -624,6 +613,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                         child: Column(
                           children: [
                             _Fila(
+                              ultima: true,
                               child: _FilaInterruptor(
                                 titulo: 'Avísame si baja el stock',
                                 detalle:
@@ -636,29 +626,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                           alertaStock: v,
                                         )
                                         : null,
-                              ),
-                            ),
-                            _Fila(
-                              ultima: true,
-                              onTap: () => context.push(Routes.notificaciones),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Ver mis notificaciones',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: context.libreta.textoFuerte,
-                                      ),
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 19,
-                                    color: context.libreta.textoMuted,
-                                  ),
-                                ],
                               ),
                             ),
                           ],
@@ -743,39 +710,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                     DocumentoLegal.terminos,
                                   ),
                               child: _FilaLegal(texto: 'Términos de uso'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // --- 8. Ayuda ---
-                    _EntradaSuave(
-                      orden: 10,
-                      child: _Seccion(
-                        titulo: 'Ayuda',
-                        child: Column(
-                          children: [
-                            _Fila(
-                              onTap: () => context.push(Routes.ayuda),
-                              child: _FilaSimple(
-                                icono: Icons.help_outline_rounded,
-                                texto: 'Centro de ayuda',
-                              ),
-                            ),
-                            // El diseño dice "Escríbenos por WhatsApp", pero
-                            // no hay número de soporte configurado: se manda
-                            // por correo, que es el canal que sí existe
-                            // (CLAUDE.md §8). Cambiar la etiqueta el día que
-                            // haya número.
-                            _Fila(
-                              ultima: true,
-                              onTap: _escribirSoporte,
-                              child: _FilaSimple(
-                                icono: Icons.mail_outline_rounded,
-                                texto: 'Escríbenos a soporte',
-                              ),
                             ),
                           ],
                         ),

@@ -338,10 +338,9 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                         const SizedBox(height: 10),
                         LibretaSecondaryButton(
                           label: 'Publicar en Estado de WhatsApp',
-                          onPressed: () => context.push(
-                            Routes.estadoWhatsApp,
-                            extra: elegidos.isEmpty ? productos : elegidos,
-                          ),
+                          // Sin `extra`: Estado lee el inventario por su
+                          // cuenta y trae su propio buscador y filtros.
+                          onPressed: () => context.push(Routes.estadoWhatsApp),
                         ),
                       ],
                     ),

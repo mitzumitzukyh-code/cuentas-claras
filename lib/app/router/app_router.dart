@@ -43,7 +43,6 @@ import '../../features/gastos/presentation/registrar_gasto_screen.dart';
 import '../../features/notificaciones/presentation/notificaciones_screen.dart';
 import '../../features/onboarding/presentation/tutorial_screen.dart';
 import '../../features/perfil/presentation/eliminar_cuenta_screen.dart';
-import '../../features/productos/domain/producto.dart';
 import '../../features/productos/presentation/importar_inventario_screen.dart';
 import '../../features/productos/presentation/migrar_otra_app_screen.dart';
 import '../../features/proveedores/domain/proveedor.dart';
@@ -305,7 +304,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.estadoWhatsApp,
-        pageBuilder: (_, s) => _pagina(s, EstadoScreen(productos: (s.extra as List<dynamic>).cast<Producto>())),
+        pageBuilder: (_, s) => _pagina(s, const EstadoScreen()),
       ),
       GoRoute(
         path: Routes.legal,

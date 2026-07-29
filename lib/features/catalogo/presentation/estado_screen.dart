@@ -9,6 +9,7 @@ import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/captura_widget.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
 import '../../ventas/data/venta_repository.dart';
 
@@ -21,9 +22,7 @@ enum FormatoEstado { grilla, flyer }
 /// Genera una imagen vertical 9:16 lista para subir. En grilla entran varios
 /// productos; en flyer se destaca uno solo.
 class EstadoScreen extends ConsumerStatefulWidget {
-  const EstadoScreen({super.key, required this.productos});
-
-  final List<Producto> productos;
+  const EstadoScreen({super.key});
 
   @override
   ConsumerState<EstadoScreen> createState() => _EstadoScreenState();
@@ -63,11 +62,9 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
     (Color(0xFF8A5FB0), Color(0xFF5F3F7D)),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _destacado = widget.productos.firstOrNull;
-  }
+  /// Todo el inventario, sin filtrar.
+  List<Producto> get _todos =>
+      ref.watch(productosProvider).valueOrNull ?? const [];
 
   /// Los productos que van a salir en la imagen, ya filtrados y ordenados.
   ///
@@ -75,7 +72,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   /// historial, no por precio ni por fecha de alta: lo que mueve el negocio
   /// es lo que conviene anunciar.
   List<Producto> get _seleccion {
-    var lista = widget.productos;
+    var lista = ref.watch(productosProvider).valueOrNull ?? const [];
 
     final q = _busqueda.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -138,6 +135,10 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // El destacado se siembra al llegar los productos, no en initState: la
+    // lista es asíncrona y al construir la pantalla todavía no está.
+    _destacado ??= _todos.firstOrNull;
+
     final precioAnterior =
         double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
     final telefono = (negocio.telefonoContacto ?? '').trim().isEmpty
@@ -162,7 +163,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
       backgroundColor: context.libreta.papel,
       body: LibretaPageBackground(
         child: SafeArea(
-          child: widget.productos.isEmpty
+          child: _todos.isEmpty
               ? const Padding(
                   padding: EdgeInsets.fromLTRB(24, 100, 24, 0),
                   child: LibretaEstadoVacio(
@@ -501,7 +502,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
               LibretaButton(
                 label: 'Compartir en Estado',
                 loading: _generando,
-                onPressed: widget.productos.isEmpty ? null : _compartir,
+                onPressed: _todos.isEmpty ? null : _compartir,
               ),
               const SizedBox(height: 10),
               Text(
