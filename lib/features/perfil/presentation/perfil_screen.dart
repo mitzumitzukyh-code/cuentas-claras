@@ -13,7 +13,6 @@ import '../../auth/data/auth_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
 import '../../../shared/presentation/permiso_requerido.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../negocio/domain/membresia.dart';
 import '../../proveedores/data/proveedor_repository.dart';
 
 /// "Más" (réplica visual de `P2 · MÁS`, `Lote N · Reportes y Más`).
@@ -24,29 +23,12 @@ import '../../proveedores/data/proveedor_repository.dart';
 class PerfilScreen extends ConsumerWidget {
   const PerfilScreen({super.key});
 
-  Future<void> _cambiarNegocio(
-    BuildContext context,
-    WidgetRef ref,
-    List<Membresia> membresias,
-    String actualId,
-  ) async {
-    final elegido = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _HojaCambiarNegocio(membresias: membresias, actualId: actualId),
-    );
-    if (elegido != null) {
-      ref.read(negocioSeleccionadoProvider.notifier).state = elegido;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final esDueno = ref.watch(esDuenoProvider);
     final membresias = ref.watch(misMembresiasProvider).valueOrNull ?? const [];
-    final membresiaActiva = ref.watch(membresiaActivaProvider);
 
     final fiadosPendientes = (ref.watch(clientesFiadoProvider).valueOrNull ?? const [])
         .where((c) => c.saldoUSD > 0)
@@ -76,9 +58,7 @@ class PerfilScreen extends ConsumerWidget {
               // --- Negocio activo / selector ---
               InkWell(
                 borderRadius: BorderRadius.circular(15),
-                onTap: membresias.length > 1
-                    ? () => _cambiarNegocio(context, ref, membresias, membresiaActiva?.negocioId ?? '')
-                    : () => context.push(Routes.ajustes),
+                onTap: () => context.push(Routes.misNegocios),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -304,59 +284,6 @@ class _AvatarNegocio extends StatelessWidget {
 }
 
 /// Hoja para elegir entre los negocios donde el usuario tiene membresía.
-class _HojaCambiarNegocio extends ConsumerWidget {
-  const _HojaCambiarNegocio({required this.membresias, required this.actualId});
-
-  final List<Membresia> membresias;
-  final String actualId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.libreta;
-    return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(color: t.papel, borderRadius: BorderRadius.circular(20)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Cambiar de negocio',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: t.textoFuerte),
-                ),
-              ),
-            ),
-            for (final m in membresias)
-              Consumer(
-                builder: (context, ref, _) {
-                  final negocio = ref.watch(negocioPorIdProvider(m.negocioId)).valueOrNull;
-                  final activo = m.negocioId == actualId;
-                  final nombre = negocio?.nombre ?? '…';
-                  return ListTile(
-                    leading: _AvatarNegocio(fotoUrl: negocio?.fotoUrl, inicial: nombre.isEmpty ? '?' : nombre[0].toUpperCase()),
-                    title: Text(nombre, style: TextStyle(fontWeight: FontWeight.w700, color: t.textoFuerte)),
-                    subtitle: Text(
-                      m.rol == RolMembresia.dueno ? 'Dueño' : 'Empleado',
-                      style: TextStyle(fontSize: 12, color: t.textoMuted),
-                    ),
-                    trailing: activo ? const Icon(Icons.check_circle, color: LibretaColors.verde) : null,
-                    onTap: () => Navigator.of(context).pop(m.negocioId),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Título de sección + tarjeta con filas.
 class _Grupo extends StatelessWidget {
   const _Grupo({required this.titulo, required this.filas});
 

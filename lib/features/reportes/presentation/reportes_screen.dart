@@ -7,6 +7,7 @@ import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../ventas/domain/venta.dart';
+import '../../../core/providers/tasa_activa_provider.dart';
 import '../data/balance_acumulado_provider.dart';
 import '../data/reportes_providers.dart';
 import '../domain/periodo_reporte.dart';
@@ -186,7 +187,9 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                   ),
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: LibretaAvisoOfflineCompacto(),
+                    child: LibretaAvisoOfflineCompacto(
+                      copy: 'Sin conexión — datos hasta el último sync',
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -232,6 +235,13 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                     decoration: BoxDecoration(
                       color: LibretaColors.verde,
                       borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x470E9F6E),
+                          offset: Offset(0, 12),
+                          blurRadius: 26,
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,7 +284,6 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const _BalanceAcumulado(),
 
                   Row(
                     children: [
@@ -295,6 +304,8 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  const _BalanceAcumulado(),
                   const SizedBox(height: 12),
 
                   Container(
@@ -385,21 +396,13 @@ class _TopProducto {
   }
 }
 
-/// Balance desde que el negocio empezó a usar la app (Lote N · F7).
+/// Balance desde que el negocio empezó a usar la app (`Lote N · P0`).
 ///
 /// Los periodos de arriba dicen cómo va la semana; esto dice cómo va el
-/// negocio. Se calcula en el servidor, así que sin señal simplemente no
-/// aparece en vez de bloquear la pantalla.
+/// negocio. Se calcula con agregaciones del servidor, que no leen caché: sin
+/// señal la tarjeta no aparece en vez de bloquear la pantalla.
 class _BalanceAcumulado extends ConsumerWidget {
   const _BalanceAcumulado();
-
-  static String _desdeCuando(DateTime f) {
-    const meses = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-    ];
-    return '${meses[f.month - 1]} ${f.year}';
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -407,97 +410,70 @@ class _BalanceAcumulado extends ConsumerWidget {
     if (balance == null || balance.vacio) return const SizedBox.shrink();
 
     final t = context.libreta;
+    final tasa = ref.watch(tasaActivaValorProvider);
     final positivo = balance.balanceUSD >= 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: LibretaColors.tarjetaOscura,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: t.bordeHero, width: 1.5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            balance.desde == null
-                ? 'DESDE QUE EMPEZASTE'
-                : 'DESDE ${_desdeCuando(balance.desde!).toUpperCase()}',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: Color(0x99FFFFFF),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'BALANCE ACUMULADO',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                    color: Color(0x99FFFFFF),
+                  ),
+                ),
+                SizedBox(height: 1),
+                Text(
+                  'desde que empezaste',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0x8CFFFFFF),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            MoneyFormatter.usd(balance.balanceUSD),
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              color: positivo ? Colors.white : const Color(0xFFF2A93C),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: _MiniDato(
-                  etiqueta: 'Vendido',
-                  valor: MoneyFormatter.usd(balance.ventasUSD),
+              Text(
+                MoneyFormatter.usd(balance.balanceUSD),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: positivo ? Colors.white : const Color(0xFFF2A93C),
                 ),
               ),
-              Expanded(
-                child: _MiniDato(
-                  etiqueta: 'Gastado',
-                  valor: MoneyFormatter.usd(balance.gastosUSD),
+              if (tasa != null)
+                Text(
+                  MoneyFormatter.usdComoBs(balance.balanceUSD, tasa),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0x99FFFFFF),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _MiniDato(
-                  etiqueta: 'Ventas',
-                  valor: '${balance.numeroVentas}',
-                ),
-              ),
             ],
           ),
         ],
       ),
-    );
-  }
-}
-
-class _MiniDato extends StatelessWidget {
-  const _MiniDato({required this.etiqueta, required this.valor});
-
-  final String etiqueta;
-  final String valor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          etiqueta,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: Color(0x8CFFFFFF),
-          ),
-        ),
-        Text(
-          valor,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
-        ),
-      ],
     );
   }
 }
