@@ -154,6 +154,8 @@ class Venta {
     this.descuentoPct = 0,
     this.ivaUSD = 0,
     this.pendiente = false,
+    this.fiadoClienteId,
+    this.fiadoClienteNombre,
   });
 
   final String id;
@@ -183,6 +185,19 @@ class Venta {
   /// `SnapshotMetadata.hasPendingWrites`, así que es tan real como pueda
   /// serlo — no depende de que nadie lo actualice a mano.
   final bool pendiente;
+
+  /// Cliente al que se le fió esta venta, si se cobró con la pastilla "Fiado"
+  /// (Lote B · P0). El movimiento que sube su deuda vive en
+  /// `clientes/{id}/movimientos`; esto es solo la contraparte en la venta,
+  /// para que el historial pueda decir "fiado · María" sin cruzar colecciones.
+  ///
+  /// Deliberadamente NO es un valor de [MetodoPago]: el fiado no es una forma
+  /// de pago que se configure en Ajustes ni que entre en el efectivo esperado
+  /// del cierre de caja — es plata que todavía no entró.
+  final String? fiadoClienteId;
+  final String? fiadoClienteNombre;
+
+  bool get esFiada => fiadoClienteId != null && fiadoClienteId!.isNotEmpty;
 
   /// Suma de las líneas, antes de descuento e IVA.
   double get subtotalUSD => items.fold<double>(0, (s, i) => s + i.subtotal);
@@ -226,6 +241,8 @@ class Venta {
       metodoPago: MetodoPago.fromId(data['metodoPago'] as String?),
       descuentoPct: (data['descuentoPct'] as num?)?.toInt() ?? 0,
       ivaUSD: (data['ivaUSD'] as num?)?.toDouble() ?? 0,
+      fiadoClienteId: data['fiadoClienteId'] as String?,
+      fiadoClienteNombre: data['fiadoClienteNombre'] as String?,
     );
   }
 
@@ -240,5 +257,8 @@ class Venta {
         'metodoPago': metodoPago.id,
         'descuentoPct': descuentoPct,
         'ivaUSD': ivaUSD,
+        if (fiadoClienteId != null) 'fiadoClienteId': fiadoClienteId,
+        if (fiadoClienteNombre != null)
+          'fiadoClienteNombre': fiadoClienteNombre,
       };
 }

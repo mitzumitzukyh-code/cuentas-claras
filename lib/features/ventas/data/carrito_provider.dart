@@ -11,11 +11,14 @@ class CarritoNotifier extends StateNotifier<List<ItemCarrito>> {
 
   int get cantidad => state.fold(0, (sum, item) => sum + item.cantidad);
 
-  /// Agrega un producto. Si ya existe (mismo productoId y varianteId),
+  /// Agrega un producto. Si ya existe (mismo producto y misma variante),
   /// incrementa la cantidad en vez de duplicar la fila.
   void agregar(ItemCarrito item) {
     final idx = state.indexWhere(
-      (i) => i.productoId == item.productoId && i.varianteId == item.varianteId,
+      (i) =>
+          i.productoId == item.productoId &&
+          i.varianteValor == item.varianteValor &&
+          i.varianteColor == item.varianteColor,
     );
     if (idx >= 0) {
       final existente = state[idx];

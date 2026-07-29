@@ -7,8 +7,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/firestore_paths.dart';
 import '../../../core/providers/firebase_providers.dart';
+import '../../fiados/domain/cliente_fiado.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../domain/venta.dart';
+
+/// Cliente al que se le fía una venta (Lote B · P0, pastilla "Fiado").
+class FiadoDeVenta {
+  const FiadoDeVenta({
+    required this.clienteId,
+    required this.clienteNombre,
+    required this.concepto,
+  });
+
+  final String clienteId;
+  final String clienteNombre;
+
+  /// Qué se llevó, para el libro mayor del cliente ("Combo desayuno ×2").
+  final String concepto;
+}
 
 /// Resultado de registrar una venta: para que la UI diga "registrada" o
 /// "guardada, se sube sola" según corresponda, en vez de un mensaje genérico.
@@ -38,6 +54,14 @@ class VentaRepository {
   CollectionReference<Map<String, dynamic>> _productos(String negocioId) =>
       _negocioRef(negocioId).collection(FirestorePaths.productos);
 
+  DocumentReference<Map<String, dynamic>> _cliente(
+    String negocioId,
+    String clienteId,
+  ) =>
+      _negocioRef(negocioId)
+          .collection(FirestorePaths.clientes)
+          .doc(clienteId);
+
   /// Registra una venta y descuenta el stock de cada producto.
   ///
   /// Decide el camino ANTES de intentar nada, no compitiendo un timeout
@@ -46,19 +70,63 @@ class VentaRepository {
   /// segundo plano mientras la app sigue con un plan B, ambas podrían acabar
   /// aplicándose — la misma venta duplicada y el stock descontado dos veces
   /// en cuanto regrese la señal. Preguntar primero evita ese escenario.
-  Future<ResultadoVenta> registrarVenta(String negocioId, Venta venta) async {
+  ///
+  /// Si se pasa [fiadoA], la venta se anota además en la cuenta de ese cliente
+  /// (movimiento `fiado` + `saldoUSD`) **en la misma escritura atómica** que la
+  /// venta: una venta fiada que quedara registrada sin subir la deuda del
+  /// cliente es plata que el negocio deja de cobrar sin enterarse.
+  Future<ResultadoVenta> registrarVenta(
+    String negocioId,
+    Venta venta, {
+    FiadoDeVenta? fiadoA,
+  }) async {
     final estado = await _connectivity.checkConnectivity();
     final sinSenal = estado.isEmpty || estado.every(
       (r) => r == ConnectivityResult.none,
     );
 
     if (sinSenal) {
-      await _registrarSinConexion(negocioId, venta);
+      await _registrarSinConexion(negocioId, venta, fiadoA);
       return ResultadoVenta.pendienteDeSincronizar;
     }
 
-    await _registrarConTransaccion(negocioId, venta);
+    await _registrarConTransaccion(negocioId, venta, fiadoA);
     return ResultadoVenta.confirmada;
+  }
+
+  /// Escribe el movimiento de fiado y sube el saldo del cliente. `saldoUSD`
+  /// usa `FieldValue.increment` (operación relativa) para que dos vendedores
+  /// simultáneos sumen, en vez de que uno pise al otro.
+  void _anotarFiado(
+    Object escritor,
+    String negocioId,
+    Venta venta,
+    FiadoDeVenta fiado,
+  ) {
+    final movRef = _cliente(negocioId, fiado.clienteId)
+        .collection(FirestorePaths.movimientos)
+        .doc();
+    final movimiento = MovimientoFiado(
+      id: movRef.id,
+      tipo: TipoMovimientoFiado.fiado,
+      montoUSD: venta.totalUSD,
+      concepto: fiado.concepto,
+      fecha: venta.fecha,
+      registradoPor: venta.vendidoPor,
+      negocioId: negocioId,
+    ).toMap();
+    final saldo = <String, dynamic>{
+      'saldoUSD': FieldValue.increment(venta.totalUSD),
+      'actualizadoEn': Timestamp.fromDate(venta.fecha),
+    };
+
+    if (escritor is Transaction) {
+      escritor.set(movRef, movimiento);
+      escritor.update(_cliente(negocioId, fiado.clienteId), saldo);
+    } else if (escritor is WriteBatch) {
+      escritor.set(movRef, movimiento);
+      escritor.update(_cliente(negocioId, fiado.clienteId), saldo);
+    }
   }
 
   /// Agrupa las líneas por producto: con variantes, una misma venta puede
@@ -94,7 +162,11 @@ class VentaRepository {
   /// Camino normal: todo o nada, y bloquea si no queda stock. Requiere hablar
   /// con el servidor porque solo él conoce el valor verdadero y simultáneo
   /// entre todos los vendedores del negocio.
-  Future<void> _registrarConTransaccion(String negocioId, Venta venta) {
+  Future<void> _registrarConTransaccion(
+    String negocioId,
+    Venta venta,
+    FiadoDeVenta? fiadoA,
+  ) {
     return _db.runTransaction((tx) async {
       // Las líneas "monto libre" (sin producto asociado, `productoId` vacío
       // — venta rápida del teclado numérico) no tienen inventario que tocar.
@@ -154,6 +226,7 @@ class VentaRepository {
       }
 
       tx.set(_ventas(negocioId).doc(), venta.toMap());
+      if (fiadoA != null) _anotarFiado(tx, negocioId, venta, fiadoA);
     });
   }
 
@@ -168,7 +241,11 @@ class VentaRepository {
   /// que uno borre el efecto del otro. Lo único que no se puede garantizar
   /// offline es que el stock no termine en negativo — el mismo límite que
   /// tiene cualquier punto de venta físico sin conexión.
-  Future<void> _registrarSinConexion(String negocioId, Venta venta) async {
+  Future<void> _registrarSinConexion(
+    String negocioId,
+    Venta venta,
+    FiadoDeVenta? fiadoA,
+  ) async {
     final batch = _db.batch();
     for (final g in _porProducto(venta.items).entries) {
       // Línea "monto libre": no hay producto que descontar.
@@ -210,6 +287,7 @@ class VentaRepository {
       batch.update(ref, cambios);
     }
     batch.set(_ventas(negocioId).doc(), venta.toMap());
+    if (fiadoA != null) _anotarFiado(batch, negocioId, venta, fiadoA);
 
     // No se espera a `commit()`. Verificado en un dispositivo real: sin señal,
     // ese Future NO resuelve hasta que hay conexión de verdad —igual que una

@@ -86,27 +86,15 @@ class LibretaBackButton extends StatelessWidget {
   }
 }
 
-/// Margen vertical coral a 38px del borde izquierdo — el renglón de libreta
-/// de las pantallas internas (Cobrar, Historial, Detalle, Pendientes…).
-class LibretaCoralMargin extends StatelessWidget {
-  const LibretaCoralMargin({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: 0,
-      bottom: 0,
-      left: 38,
-      width: 2,
-      child: ColoredBox(color: context.libreta.margenCoral),
-    );
-  }
-}
-
-/// Fondo estándar de una pantalla interna del sistema "libreta": papel,
-/// espiral asomando arriba y margen coral a la izquierda. El contenido
-/// propio de cada pantalla debe dejar [padIzquierdo]px de margen izquierdo
-/// para no pisar la línea.
+/// Fondo estándar de una pantalla interna del sistema "libreta": papel y la
+/// espiral asomando arriba. El contenido propio de cada pantalla deja
+/// [padIzquierdo]px de sangrado lateral.
+///
+/// **Sin raya coral.** La línea vertical de margen se retiró de las pantallas
+/// de producto (`system-diseno-libreta.md` § Sangrado): sobrevive solo en las
+/// ilustraciones/iconos de libreta ([LibretaEstadoVacio]) y en las imágenes
+/// exportadas a WhatsApp. Era además lo único que justificaba el sangrado de
+/// 54px; sin ella, el sangrado es el de lectura ([padIzquierdo]).
 class LibretaPageBackground extends StatelessWidget {
   /// Sangrado lateral estándar del sistema "libreta": 24px (decisión D1).
   /// Ver `Comparación sangrado.dc.html` col. B.
@@ -115,12 +103,10 @@ class LibretaPageBackground extends StatelessWidget {
     super.key,
     required this.child,
     this.spiral = true,
-    this.coralMargin = true,
   });
 
   final Widget child;
   final bool spiral;
-  final bool coralMargin;
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +125,6 @@ class LibretaPageBackground extends StatelessWidget {
                 color: t.textoFuerte.withValues(alpha: 0.30),
               ),
             ),
-          if (coralMargin) const LibretaCoralMargin(),
           child,
         ],
       ),

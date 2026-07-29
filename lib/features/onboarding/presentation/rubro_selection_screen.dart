@@ -81,7 +81,6 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
       backgroundColor: context.libreta.papel,
       body: LibretaPageBackground(
         spiral: false,
-        coralMargin: false,
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),

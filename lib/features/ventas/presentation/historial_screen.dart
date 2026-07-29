@@ -92,7 +92,13 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
             ),
             data: (ventas) {
               final activas = ventas.where((v) => !v.anulada).toList();
-              final total = activas.fold<double>(0, (s, v) => s + v.totalUSD);
+              // "Esta semana" = últimos 7 días corridos, no la semana
+              // calendario: a media semana el dueño quiere saber cuánto lleva
+              // vendido, no cuánto va del lunes.
+              final desde = DateTime.now().subtract(const Duration(days: 7));
+              final totalSemana = activas
+                  .where((v) => v.fecha.isAfter(desde))
+                  .fold<double>(0, (s, v) => s + v.totalUSD);
               final visibles = ventas.where(_filtro.aplicaA).toList();
 
               // Agrupa por día conservando el orden (ya viene más reciente
@@ -103,7 +109,7 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
               }
 
               return ListView(
-                padding: const EdgeInsets.fromLTRB(22, 30, 22, 32),
+                padding: const EdgeInsets.fromLTRB(24, 26, 24, 32),
                 children: [
                   Row(
                     children: [
@@ -113,14 +119,39 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          'Historial',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: context.libreta.textoFuerte,
-                            letterSpacing: -0.4,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Historial',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: context.libreta.textoFuerte,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(text: 'Esta semana · '),
+                                  TextSpan(
+                                    text: MoneyFormatter.usd(totalSemana),
+                                    style: const TextStyle(
+                                      color: LibretaColors.verde,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: context.libreta.textoMuted,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       LibretaIconButton(
@@ -158,50 +189,10 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
-
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: LibretaColors.verde,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Total histórico',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xD9FFFFFF),
-                                ),
-                              ),
-                              Text(
-                                MoneyFormatter.usd(total),
-                                style: AppTypography.money(
-                                  fontSize: 22,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '${activas.length} '
-                          '${activas.length == 1 ? "venta" : "ventas"}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xD9FFFFFF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
+                  // El diseño retiró la tarjeta verde de "total histórico":
+                  // el encabezado ya lleva el número que importa ("Esta
+                  // semana"), y la lista arranca directo.
+                  const SizedBox(height: 8),
 
                   if (ventas.isEmpty)
                     LibretaEstadoVacio(

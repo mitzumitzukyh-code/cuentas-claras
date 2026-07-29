@@ -3,13 +3,28 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../shared/presentation/libreta/libreta.dart';
 
-/// Overlay animado que muestra "¡Cobrado!" con un check verde después de
-/// registrar una venta.
+/// Overlay animado con el check verde que se dibuja solo, después de
+/// registrar una venta (`Lote B · P0`).
+///
+/// Cambia de copy según lo que pasó: una venta cobrada confirma la plata que
+/// entró; un fiado confirma a nombre de quién quedó la deuda.
 class OverlayCobrado extends StatefulWidget {
-  const OverlayCobrado({super.key, required this.monto, required this.onTap});
+  const OverlayCobrado({
+    super.key,
+    required this.monto,
+    required this.onTap,
+    this.tasa,
+    this.fiadoA,
+  });
 
   final double monto;
   final VoidCallback onTap;
+
+  /// Tasa activa, para mostrar el equivalente en Bs. Si es `null` se omite.
+  final double? tasa;
+
+  /// Nombre del cliente si la venta se fió; `null` si se cobró.
+  final String? fiadoA;
 
   @override
   State<OverlayCobrado> createState() => _OverlayCobradoState();
@@ -34,6 +49,14 @@ class _OverlayCobradoState extends State<OverlayCobrado>
     super.dispose();
   }
 
+  String get _subtitulo {
+    final usd = MoneyFormatter.usd(widget.monto);
+    if (widget.fiadoA != null) return '$usd a la cuenta de ${widget.fiadoA}';
+    if (widget.tasa == null) return '$usd registrado';
+    return '$usd · ${MoneyFormatter.usdComoBs(widget.monto, widget.tasa!)} '
+        'registrado';
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
@@ -56,9 +79,9 @@ class _OverlayCobradoState extends State<OverlayCobrado>
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              '¡Cobrado!',
-              style: TextStyle(
+            Text(
+              widget.fiadoA != null ? '¡Fiado anotado!' : '¡Cobrado!',
+              style: const TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.w700,
                 color: LibretaColors.verde,
@@ -66,12 +89,16 @@ class _OverlayCobradoState extends State<OverlayCobrado>
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              '${MoneyFormatter.usd(widget.monto)} registrado',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: t.textoMuted,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _subtitulo,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: t.textoMuted,
+                ),
               ),
             ),
           ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -30,6 +31,37 @@ class VentaDetalleScreen extends ConsumerStatefulWidget {
 class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
   bool _anulando = false;
   bool _imprimiendo = false;
+
+  /// Manda el detalle como texto por WhatsApp/lo que el teléfono ofrezca.
+  /// No es una factura fiscal y el texto no pretende serlo.
+  Future<void> _compartir(Venta venta) async {
+    final negocio = ref.read(negocioActivoProvider).valueOrNull;
+    final lineas = venta.items
+        .map((i) => '• ${i.nombreCompleto} ×${i.cantidadLabel} — '
+            '${MoneyFormatter.usd(i.subtotal)}')
+        .join('\n');
+
+    final texto = StringBuffer()
+      ..writeln(negocio?.nombre ?? 'Cuenta Clara')
+      ..writeln('Venta del ${_fechaLarga(venta.fecha)}')
+      ..writeln()
+      ..writeln(lineas)
+      ..writeln()
+      ..writeln('Total: ${MoneyFormatter.usd(venta.totalUSD)} · '
+          '${MoneyFormatter.bs(venta.totalBs)}')
+      ..write('Pago: ${venta.metodoPago.etiquetaCorta}');
+
+    await Share.share(texto.toString(), subject: 'Venta');
+  }
+
+  String _fechaLarga(DateTime f) {
+    const meses = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
+    final m = f.minute.toString().padLeft(2, '0');
+    return '${f.day} ${meses[f.month - 1]} · ${f.hour}:$m';
+  }
 
   Future<void> _imprimir(Venta venta) async {
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
@@ -381,14 +413,32 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
               ),
 
               const SizedBox(height: 20),
-              LibretaSecondaryButton(
-                label: _imprimiendo ? 'Enviando…' : 'Imprimir ticket',
-                onPressed: _imprimiendo ? null : () => _imprimir(venta),
-                icon: Icon(
-                  Icons.print_outlined,
-                  size: 18,
-                  color: context.libreta.textoFuerte,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: LibretaSecondaryButton(
+                      label: _imprimiendo ? 'Enviando…' : 'Reimprimir',
+                      onPressed: _imprimiendo ? null : () => _imprimir(venta),
+                      icon: Icon(
+                        Icons.print_outlined,
+                        size: 17,
+                        color: context.libreta.textoFuerte,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: LibretaSecondaryButton(
+                      label: 'Compartir',
+                      onPressed: () => _compartir(venta),
+                      icon: const Icon(
+                        Icons.ios_share_rounded,
+                        size: 17,
+                        color: LibretaColors.verde,
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
               if (esDueno && !venta.anulada) ...[
