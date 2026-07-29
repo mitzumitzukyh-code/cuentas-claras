@@ -88,6 +88,11 @@ class _SplashScreenState extends State<SplashScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Renglones de cuaderno sobre el degradado, al 9%: es lo que hace
+            // que la portada se lea como papel y no como un fondo de color.
+            const Positioned.fill(
+              child: CustomPaint(painter: _RenglonesPainter()),
+            ),
             const Positioned(
               top: 8,
               left: 0,
@@ -427,3 +432,23 @@ class _Cargando extends StatelessWidget {
   }
 }
 
+
+/// Renglones horizontales cada 33px, al 9% de blanco (`Lote A · P0`).
+class _RenglonesPainter extends CustomPainter {
+  const _RenglonesPainter();
+
+  static const double _paso = 33;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pincel = Paint()
+      ..color = const Color(0x17FFFFFF)
+      ..strokeWidth = 1;
+    for (var y = _paso; y < size.height; y += _paso) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), pincel);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RenglonesPainter oldDelegate) => false;
+}

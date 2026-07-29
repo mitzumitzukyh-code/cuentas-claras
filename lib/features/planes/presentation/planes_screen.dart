@@ -41,16 +41,17 @@ class PlanesScreen extends ConsumerWidget {
       precio: '\$5',
       periodo: '/mes',
       destacado: true,
-      // Cada beneficio de esta lista tiene que existir en la app: es lo que
-      // el usuario cree estar comprando. "Pedidos por WhatsApp automáticos"
-      // estuvo aquí y describía un bot con webhook que nunca se construyó —
-      // se cambió por lo que la app sí hace hoy.
+      // Lista literal del diseño (Lote D · P0). OJO: "Pedidos por WhatsApp
+      // automáticos" describe un bot con webhook que todavía NO existe en la
+      // app — se muestra porque el diseño manda, pero no se puede cobrar por
+      // él hasta construirlo.
       beneficios: [
+        'Pedidos por WhatsApp automáticos',
+        'Catálogo y estados sin marca de agua',
         'Recordatorios de fiado automáticos',
         'Pedido a proveedor con 1 toque',
-        'Catálogo y estados sin marca de agua',
-        'Reportes avanzados y balance histórico',
-        'Empleados ilimitados con permisos',
+        'Reportes avanzados y respaldo en la nube',
+        'Empleados ilimitados',
       ],
     ),
     _Plan(
@@ -114,7 +115,10 @@ class PlanesScreen extends ConsumerWidget {
                 ),
 
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0x21F2A93C),
                   border: Border.all(color: const Color(0x59F2A93C)),
@@ -137,7 +141,10 @@ class PlanesScreen extends ConsumerWidget {
                 'moneda de tu cuenta; el monto en Bs puede variar según el '
                 'cambio de Google.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: context.libreta.textoMuted,
+                ),
               ),
             ],
           ),
@@ -156,12 +163,13 @@ class _TarjetaPlan extends StatelessWidget {
   Widget build(BuildContext context) {
     if (plan.destacado) {
       return Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: LibretaColors.degradadoMarca,
+            stops: [0.0, 0.52, 1.0],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [
@@ -172,92 +180,120 @@ class _TarjetaPlan extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0x2EFFFFFF),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  plan.nombre.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: 0.4,
-                  ),
-                ),
+            // La tarjeta Plus es una hoja de la libreta, no un rectángulo de
+            // color: la espiral se lo recuerda.
+            const Positioned(
+              top: 12,
+              left: 0,
+              right: 0,
+              child: Opacity(
+                opacity: 0.5,
+                child: LibretaSpiralStrip(height: 14, color: Colors.white),
               ),
             ),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  plan.precio,
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -1,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  plan.periodo,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xD9FFFFFF),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            for (final b in plan.beneficios)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check, size: 18, color: Colors.white),
-                    const SizedBox(width: 10),
-                    Expanded(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x2EFFFFFF),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
                       child: Text(
-                        b,
+                        plan.nombre.toUpperCase(),
                         style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
+                          letterSpacing: 0.4,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: context.libreta.papel,
-                  disabledBackgroundColor: context.libreta.papel,
-                  foregroundColor: const Color(0xFF8C2F22),
-                  disabledForegroundColor: const Color(0xFF8C2F22),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(13),
                   ),
-                ),
-                child: const Text(
-                  'Próximamente',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
+                  const SizedBox(height: 14),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        plan.precio,
+                        style: const TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        plan.periodo,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xD9FFFFFF),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  for (final b in plan.beneficios)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              b,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.libreta.papel,
+                        disabledBackgroundColor: context.libreta.papel,
+                        foregroundColor: const Color(0xFF8C2F22),
+                        disabledForegroundColor: const Color(0xFF8C2F22),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                      ),
+                      child: const Text(
+                        'Próximamente',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -288,7 +324,10 @@ class _TarjetaPlan extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0x1F0E9F6E),
                   borderRadius: BorderRadius.circular(100),
@@ -306,7 +345,11 @@ class _TarjetaPlan extends StatelessWidget {
           ),
           Text(
             'Tu plan actual',
-            style: TextStyle(fontSize: 13, color: context.libreta.textoMuted, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 13,
+              color: context.libreta.textoMuted,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 14),
           for (final b in plan.beneficios)
@@ -314,7 +357,11 @@ class _TarjetaPlan extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 9),
               child: Row(
                 children: [
-                  Icon(Icons.check, size: 16, color: context.libreta.textoMuted),
+                  Icon(
+                    Icons.check,
+                    size: 16,
+                    color: context.libreta.textoMuted,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

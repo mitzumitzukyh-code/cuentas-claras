@@ -308,17 +308,10 @@ class _FilaMiembro extends StatelessWidget {
   final VoidCallback onRol;
   final VoidCallback onQuitar;
 
-  static const _colores = [
-    Color(0xFF0F6B5C),
-    Color(0xFF3D6CA8),
-    Color(0xFFC9852B),
-    Color(0xFF8A5FB0),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final color =
-        _colores[miembro.usuarioId.hashCode.abs() % _colores.length];
+    final t = context.libreta;
+    final esDueno = miembro.rol.esDueno;
 
     return GestureDetector(
       onTap: onTap,
@@ -332,15 +325,20 @@ class _FilaMiembro extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: esDueno
+                    ? LibretaColors.tarjetaOscura
+                    : t.textoFuerte.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
               alignment: Alignment.center,
               child: Text(
                 miembro.iniciales,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
+                style: TextStyle(
+                  color: esDueno ? Colors.white : t.textoFuerte,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -355,14 +353,16 @@ class _FilaMiembro extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: context.libreta.textoFuerte,
+                      color: t.textoFuerte,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    miembro.correo ?? miembro.rol.etiqueta,
+                    esDueno
+                        ? (miembro.correo ?? 'tú')
+                        : miembro.rol.etiqueta,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
@@ -371,25 +371,19 @@ class _FilaMiembro extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: esYo ? null : onRol,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            if (esDueno)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: miembro.rol.esDueno
-                      ? const Color(0x1F0E9F6E)
-                      : const Color(0x0F1E2A38),
+                  color: const Color(0x1F0E9F6E),
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: Text(
-                  miembro.rol.etiqueta,
+                child: const Text(
+                  'DUEÑO',
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: miembro.rol.esDueno
-                        ? LibretaColors.verde
-                        : context.libreta.textoMuted,
-                  ),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: LibretaColors.verde,
                 ),
               ),
             ),
