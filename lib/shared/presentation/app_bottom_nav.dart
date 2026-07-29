@@ -53,7 +53,14 @@ class AppBottomNav extends ConsumerWidget {
       padding: EdgeInsets.only(bottom: insetInferior),
       decoration: BoxDecoration(
         color: t.papel,
-        border: Border(top: BorderSide(color: t.bordeSuave)),
+        border: Border(top: BorderSide(color: t.renglon)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D1E2A38),
+            offset: Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
       ),
       child: Row(
         children: [
