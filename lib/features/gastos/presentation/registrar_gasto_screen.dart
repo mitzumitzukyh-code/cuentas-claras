@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/utils/money_formatter.dart';
@@ -235,16 +236,45 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _foto == null
-                          ? '¿Tienes el recibo a mano? Fotografíalo y la IA '
-                              'rellena el gasto por ti.'
-                          : 'Recibo listo. Puedes leerlo con IA o guardarlo '
-                              'como comprobante.',
-                      style: TextStyle(fontSize: 12.5, color: context.libreta.textoMuted),
-                    ),
-                    const SizedBox(height: 10),
+                    if (_foto == null) ...[
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => _elegirFoto(ImageSource.camera),
+                          child: const _ReciboPegado(),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Text(
+                          'toca para tomar la foto',
+                          style: GoogleFonts.caveat(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: context.libreta.textoMuted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Con el recibo a mano, la IA rellena el gasto por ti.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: context.libreta.textoMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     if (_foto != null) ...[
+                      Text(
+                        'Recibo listo. Puedes leerlo con IA o guardarlo como '
+                        'comprobante.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: context.libreta.textoMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.file(
@@ -425,3 +455,81 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
 /// Quita el emoji de `etiqueta` — las categorías se muestran sin emoji aquí.
 String _sinEmoji(String etiqueta) =>
     etiqueta.replaceFirst(RegExp(r'^\S+\s'), '');
+
+/// Recibo pegado con dos tiras de cinta (`Lote C · P1`).
+///
+/// Ladeado −2,5° a propósito: el sistema libreta es papel, y un papel pegado
+/// nunca queda recto. Es lo que separa esta pantalla de un formulario.
+class _ReciboPegado extends StatelessWidget {
+  const _ReciboPegado();
+
+  static const _cinta = Color(0x8CE8D796);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return SizedBox(
+      width: 170,
+      height: 168,
+      child: Transform.rotate(
+        angle: -0.0436, // −2,5°
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                color: t.superficie,
+                border: Border.all(color: t.renglon),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x241E2A38),
+                    offset: Offset(0, 8),
+                    blurRadius: 18,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 34,
+                    color: t.textoMuted,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Foto del recibo',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: t.textoMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 12,
+              child: Transform.rotate(
+                angle: -0.314, // −18°
+                child: Container(width: 52, height: 22, color: _cinta),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 10,
+              child: Transform.rotate(
+                angle: 0.262, // 15°
+                child: Container(width: 52, height: 22, color: _cinta),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
