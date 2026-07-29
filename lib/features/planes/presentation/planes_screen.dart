@@ -11,6 +11,7 @@ class _Plan {
     required this.precio,
     required this.periodo,
     required this.beneficios,
+    this.limites = const [],
     this.actual = false,
     this.destacado = false,
   });
@@ -19,6 +20,11 @@ class _Plan {
   final String precio;
   final String periodo;
   final List<String> beneficios;
+
+  /// Lo que el plan **no** trae. El diseño (`Lote D · P0`) las pinta en gris y
+  /// sin check: "Sin respaldo en la nube" con un ✓ al lado se lee como una
+  /// ventaja, que es justo lo contrario de lo que dice.
+  final List<String> limites;
 
   final bool actual;
 
@@ -60,8 +66,11 @@ class PlanesScreen extends ConsumerWidget {
       actual: true,
       beneficios: [
         'Ventas, gastos e inventario',
-        'Catálogo con marca de agua',
+        'Fiados con recordatorio manual',
         '1 negocio · 1 empleado',
+      ],
+      limites: [
+        'Catálogo con marca de agua',
         'Sin respaldo en la nube',
       ],
     ),
@@ -351,30 +360,45 @@ class _TarjetaPlan extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          for (final b in plan.beneficios)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check,
-                    size: 16,
-                    color: context.libreta.textoMuted,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      b,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.libreta.textoFuerte,
-                      ),
-                    ),
-                  ),
-                ],
+          for (final b in plan.beneficios) _FilaPlanGratis(texto: b, incluido: true),
+          for (final l in plan.limites) _FilaPlanGratis(texto: l, incluido: false),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una línea del plan gratis: lo que trae con check, lo que no con una raya
+/// y en gris (`Lote D · P0`).
+class _FilaPlanGratis extends StatelessWidget {
+  const _FilaPlanGratis({required this.texto, required this.incluido});
+
+  final String texto;
+  final bool incluido;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
+        children: [
+          Icon(
+            incluido ? Icons.check : Icons.remove,
+            size: 16,
+            color: incluido ? LibretaColors.verde : t.textoMuted,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: incluido ? t.textoFuerte : t.textoMuted,
               ),
             ),
+          ),
         ],
       ),
     );
