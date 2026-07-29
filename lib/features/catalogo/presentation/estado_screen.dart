@@ -167,9 +167,10 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
               ? const Padding(
                   padding: EdgeInsets.fromLTRB(24, 100, 24, 0),
                   child: LibretaEstadoVacio(
-                    titulo: 'Catálogo vacío',
-                    detalle: 'Agrega productos al catálogo para poder'
-                        ' publicarlos en tu Estado de WhatsApp.',
+                    titulo: 'Todavía no tienes mercancía',
+                    detalle: 'Carga tus productos y arma con ellos la imagen '
+                        'para tu Estado de WhatsApp.',
+                    tagline: 'tus precios, en la pantalla de todos',
                   ),
                 )
               : ListView(
