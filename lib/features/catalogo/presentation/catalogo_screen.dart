@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../app/router/routes.dart';
 import '../../../core/constants/app_links.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -335,13 +333,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               ? null
                               : () => _compartirImagen(negocio.nombre),
                         ),
-                        const SizedBox(height: 10),
-                        LibretaSecondaryButton(
-                          label: 'Publicar en Estado de WhatsApp',
-                          // Sin `extra`: Estado lee el inventario por su
-                          // cuenta y trae su propio buscador y filtros.
-                          onPressed: () => context.push(Routes.estadoWhatsApp),
-                        ),
+
                       ],
                     ),
                   ),

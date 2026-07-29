@@ -7,14 +7,49 @@ import '../../../core/constants/app_links.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/captura_widget.dart';
+import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
 import '../../ventas/data/venta_repository.dart';
 
-/// Formato de la imagen para el Estado de WhatsApp.
-enum FormatoEstado { grilla, flyer }
+/// Formato de la imagen para el Estado de WhatsApp (`Lote O · P0`).
+enum FormatoEstado {
+  /// Hasta 6 productos con su precio.
+  grilla,
+
+  /// Un producto grande, para destacar.
+  flyer,
+
+  /// Cuatro productos y el total de llevárselos juntos.
+  combo,
+
+  /// Aviso de mercancía recién llegada.
+  nuevo;
+
+  String get titulo => switch (this) {
+        FormatoEstado.grilla => 'Lista de precios',
+        FormatoEstado.flyer => 'Oferta del día',
+        FormatoEstado.combo => 'Combo',
+        FormatoEstado.nuevo => 'Llegó nuevo',
+      };
+
+  String get detalle => switch (this) {
+        FormatoEstado.grilla => 'hasta 6 productos',
+        FormatoEstado.flyer => '1 producto grande',
+        FormatoEstado.combo => '4 productos + total',
+        FormatoEstado.nuevo => 'avisar mercancía',
+      };
+
+  /// Cuántos productos entran.
+  int get cupo => switch (this) {
+        FormatoEstado.grilla => 6,
+        FormatoEstado.flyer => 1,
+        FormatoEstado.combo => 4,
+        FormatoEstado.nuevo => 3,
+      };
+}
 
 /// Los tres pasos del asistente (`Lote O · P0-P2`).
 enum _Paso { plantilla, productos, prevista }
@@ -111,7 +146,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   /// En "Oferta del día" se destaca un producto: elegir otro reemplaza.
   void _alternarProducto(Producto p) {
     setState(() {
-      if (_formato == FormatoEstado.flyer) {
+      if (_formato.cupo == 1) {
         _elegidos
           ..clear()
           ..add(p.id);
@@ -233,12 +268,11 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
                   onSiguiente: () => setState(() => _paso = _Paso.productos),
                 )
               : _PasoProductos(
-                  titulo: _formato == FormatoEstado.grilla
-                      ? 'Lista de precios'
-                      : 'Oferta del día',
+                  titulo: _formato.titulo,
+                  cupo: _formato.cupo,
                   productos: _seleccion,
                   elegidos: _elegidos,
-                  unicoDestacado: _formato == FormatoEstado.flyer,
+                  unicoDestacado: _formato.cupo == 1,
                   masVendidos: _soloMasVendidos,
                   mostrarBs: _mostrarBs,
                   mostrarTelefono: _mostrarTelefono,
@@ -369,27 +403,22 @@ class _PasoPlantilla extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Row(
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.92,
                 children: [
-                  Expanded(
-                    child: _TarjetaPlantilla(
-                      titulo: 'Lista de precios',
-                      detalle: 'hasta 6 productos',
-                      activa: formato == FormatoEstado.grilla,
-                      vista: const _VistaLista(),
-                      onTap: () => onFormato(FormatoEstado.grilla),
+                  for (final f in FormatoEstado.values)
+                    _TarjetaPlantilla(
+                      titulo: f.titulo,
+                      detalle: f.detalle,
+                      activa: formato == f,
+                      vista: _VistaPlantilla(formato: f),
+                      onTap: () => onFormato(f),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _TarjetaPlantilla(
-                      titulo: 'Oferta del día',
-                      detalle: '1 producto grande',
-                      activa: formato == FormatoEstado.flyer,
-                      vista: const _VistaOferta(),
-                      onTap: () => onFormato(FormatoEstado.flyer),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 18),
@@ -453,6 +482,7 @@ class _PasoPlantilla extends StatelessWidget {
 class _PasoProductos extends StatelessWidget {
   const _PasoProductos({
     required this.titulo,
+    required this.cupo,
     required this.productos,
     required this.elegidos,
     required this.unicoDestacado,
@@ -472,6 +502,7 @@ class _PasoProductos extends StatelessWidget {
   });
 
   final String titulo;
+  final int cupo;
   final List<Producto> productos;
   final Set<String> elegidos;
   final bool unicoDestacado;
@@ -489,13 +520,9 @@ class _PasoProductos extends StatelessWidget {
   final VoidCallback onAtras;
   final VoidCallback? onVer;
 
-  /// La parrilla del diseño entra con hasta 6 productos.
-  static const _tope = 6;
-
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    final tope = unicoDestacado ? 1 : _tope;
 
     return Column(
       children: [
@@ -521,7 +548,7 @@ class _PasoProductos extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${elegidos.length} de $tope escogidos',
+                          '${elegidos.length} de $cupo escogidos',
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -584,7 +611,7 @@ class _PasoProductos extends StatelessWidget {
                 elegido: elegido,
                 // Con el cupo lleno solo se puede quitar, no agregar.
                 bloqueado: !elegido && !unicoDestacado &&
-                    elegidos.length >= _tope,
+                    elegidos.length >= cupo,
                 onTap: () => onAlternar(p),
               );
             },
@@ -891,19 +918,14 @@ class _Prevista extends StatelessWidget {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        _ChipPlantilla(
-                          texto: 'Lista',
-                          activo:
-                              formato == FormatoEstado.grilla && !oscuro,
-                          onTap: () => onFormato(FormatoEstado.grilla),
-                        ),
-                        const SizedBox(width: 8),
-                        _ChipPlantilla(
-                          texto: 'Oferta',
-                          activo: formato == FormatoEstado.flyer && !oscuro,
-                          onTap: () => onFormato(FormatoEstado.flyer),
-                        ),
-                        const SizedBox(width: 8),
+                        for (final f in FormatoEstado.values) ...[
+                          _ChipPlantilla(
+                            texto: f.titulo,
+                            activo: formato == f && !oscuro,
+                            onTap: () => onFormato(f),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         _ChipPlantilla(
                           texto: 'Oscuro',
                           activo: oscuro,
@@ -1047,6 +1069,96 @@ class _TarjetaPlantilla extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// La miniatura que corresponde a cada plantilla.
+class _VistaPlantilla extends StatelessWidget {
+  const _VistaPlantilla({required this.formato});
+
+  final FormatoEstado formato;
+
+  @override
+  Widget build(BuildContext context) => switch (formato) {
+        FormatoEstado.grilla => const _VistaLista(),
+        FormatoEstado.flyer => const _VistaOferta(),
+        FormatoEstado.combo => const _VistaCombo(),
+        FormatoEstado.nuevo => const _VistaNuevo(),
+      };
+}
+
+/// Miniatura del combo: cuatro casillas de colores.
+class _VistaCombo extends StatelessWidget {
+  const _VistaCombo();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Container(
+      color: t.papel,
+      padding: const EdgeInsets.all(10),
+      child: GridView.count(
+        crossAxisCount: 2,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 6,
+        crossAxisSpacing: 6,
+        children: [
+          for (final c in const [
+            Color(0x240E9F6E),
+            Color(0x240E9F6E),
+            Color(0x1A1E2A38),
+            Color(0x4DF2A93C),
+          ])
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: c,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Miniatura de "llegó nuevo": caja sobre navy.
+class _VistaNuevo extends StatelessWidget {
+  const _VistaNuevo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: LibretaColors.tarjetaOscura,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0x24FFFFFF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.card_giftcard_rounded,
+              size: 22,
+              color: Color(0xFFF2A93C),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: 56,
+            height: 6,
+            decoration: BoxDecoration(
+              color: const Color(0x80FFFFFF),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1246,13 +1358,17 @@ class _LienzoEstado extends StatelessWidget {
           const SizedBox(height: 28),
 
           Expanded(
-            child: formato == FormatoEstado.flyer
-                ? _Flyer(
-                    producto: destacado,
-                    tasa: tasa,
-                    precioAnterior: esOferta ? precioAnterior : null,
-                  )
-                : _Grilla(productos: productos, tasa: tasa),
+            child: switch (formato) {
+              FormatoEstado.flyer => _Flyer(
+                  producto: destacado,
+                  tasa: tasa,
+                  precioAnterior: esOferta ? precioAnterior : null,
+                ),
+              FormatoEstado.combo => _Combo(productos: productos, tasa: tasa),
+              FormatoEstado.nuevo => _LlegoNuevo(productos: productos),
+              FormatoEstado.grilla =>
+                _Grilla(productos: productos, tasa: tasa),
+            },
           ),
 
           const SizedBox(height: 16),
@@ -1310,11 +1426,11 @@ class _Grilla extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
-      childAspectRatio: 1.15,
+      childAspectRatio: 0.78,
       children: [
         for (final p in visibles)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: const Color(0x26FFFFFF),
               borderRadius: BorderRadius.circular(14),
@@ -1323,6 +1439,21 @@ class _Grilla extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                if (p.fotoUrl != null && p.fotoUrl!.isNotEmpty)
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FotoRed(
+                          p.fotoUrl!,
+                          alError: const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (p.fotoUrl != null && p.fotoUrl!.isNotEmpty)
+                  const SizedBox(height: 7),
                 Text(
                   p.nombre,
                   maxLines: 2,
@@ -1388,9 +1519,11 @@ class _Flyer extends StatelessWidget {
       );
     }
 
+    final foto = p.fotoUrl;
+
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
           color: const Color(0x26FFFFFF),
           borderRadius: BorderRadius.circular(22),
@@ -1398,6 +1531,17 @@ class _Flyer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (foto != null && foto.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  width: 190,
+                  height: 190,
+                  child: FotoRed(foto, alError: const SizedBox.shrink()),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
             Text(
               p.nombre,
               textAlign: TextAlign.center,
@@ -1451,6 +1595,188 @@ class _Flyer extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Combo: cuatro productos y lo que cuesta llevárselos juntos
+/// (`Lote O · P0`).
+class _Combo extends StatelessWidget {
+  const _Combo({required this.productos, required this.tasa});
+
+  final List<Producto> productos;
+  final double? tasa;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibles = productos.take(4).toList();
+    final total = visibles.fold<double>(0, (s, p) => s + p.precio);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (final p in visibles)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: const Color(0x1FFFFFFF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                if (p.fotoUrl != null && p.fotoUrl!.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 38,
+                      height: 38,
+                      child: FotoRed(
+                        p.fotoUrl!,
+                        alError: const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                ],
+                Expanded(
+                  child: Text(
+                    p.nombre,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  MoneyFormatter.usd(p.precio),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0x3DFFFFFF),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            children: [
+              const Text(
+                'LLÉVATELO TODO POR',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                  color: Color(0xB3FFFFFF),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                MoneyFormatter.usd(total),
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.8,
+                  color: Colors.white,
+                ),
+              ),
+              if (tasa != null)
+                Text(
+                  MoneyFormatter.usdComoBs(total, tasa!),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xB3FFFFFF),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Llegó nuevo": avisa mercancía recién entrada, sin precios
+/// (`Lote O · P0`).
+///
+/// A propósito sin precio: el objetivo es que pregunten, y una foto sin cifra
+/// es la que hace que escriban.
+class _LlegoNuevo extends StatelessWidget {
+  const _LlegoNuevo({required this.productos});
+
+  final List<Producto> productos;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibles = productos.take(3).toList();
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2A93C),
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: const Text(
+            'LLEGÓ NUEVO',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: LibretaColors.tarjetaOscura,
+            ),
+          ),
+        ),
+        const SizedBox(height: 22),
+        for (final p in visibles) ...[
+          if (p.fotoUrl != null && p.fotoUrl!.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                width: 150,
+                height: 150,
+                child: FotoRed(p.fotoUrl!, alError: const SizedBox.shrink()),
+              ),
+            ),
+          const SizedBox(height: 10),
+          Text(
+            p.nombre,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 18),
+        ],
+        const Text(
+          'Pregunta por el precio 👇',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xD9FFFFFF),
+          ),
+        ),
+      ],
     );
   }
 }
