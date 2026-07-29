@@ -72,10 +72,9 @@ class _CentroAyudaScreenState extends State<CentroAyudaScreen> {
     ),
     _Pregunta(
       'WhatsApp y pedidos',
-      'Recibir pedidos automáticos',
-      'Con Cuenta Clara Plus, tus clientes te hacen pedidos por WhatsApp y '
-          'la app los registra sola. Actívalo en Planes.',
-      plus: true,
+      'Publicar mis precios en el Estado',
+      'Desde Estado de WhatsApp eliges una plantilla, escoges los productos '
+          'y la app arma la imagen lista para subir a tu Estado.',
     ),
   ];
 
