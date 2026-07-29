@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_links.dart';
+import 'legal_screen.dart';
 import '../../../services/respaldo/respaldo_service.dart';
 import '../../../core/providers/historial_tasa_provider.dart';
 import '../../auth/data/biometria_service.dart';
@@ -106,10 +107,9 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
           .read(respaldoServiceProvider)
           .exportarZip(membresia.negocioId, negocio.nombre);
       if (!mounted) return;
-      await Share.shareXFiles(
-        [XFile(archivo.path)],
-        subject: 'Respaldo de ${negocio.nombre}',
-      );
+      await Share.shareXFiles([
+        XFile(archivo.path),
+      ], subject: 'Respaldo de ${negocio.nombre}');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -291,7 +291,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                       _EntradaSuave(
                         orden: 0,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0x21F2A93C),
                             borderRadius: BorderRadius.circular(14),
@@ -318,9 +321,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                           Center(
                             child: _AvatarEditable(
                               fotoUrl: negocio.fotoUrl,
-                              inicial: negocio.nombre.isEmpty
-                                  ? '?'
-                                  : negocio.nombre[0].toUpperCase(),
+                              inicial:
+                                  negocio.nombre.isEmpty
+                                      ? '?'
+                                      : negocio.nombre[0].toUpperCase(),
                               subiendo: _subiendoFoto,
                               editable: esDueno,
                               onTap: () => _abrirSelectorFoto(negocio.id),
@@ -330,7 +334,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                             const SizedBox(height: 8),
                             Text(
                               'Toca la foto para cambiarla',
-                              style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: context.libreta.textoMuted,
+                              ),
                             ),
                           ],
                         ],
@@ -351,7 +358,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                 children: [
                                   Text(
                                     'Nombre del negocio',
-                                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.libreta.textoMuted,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
                                   TextField(
@@ -377,11 +387,15 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                             ),
                             _Fila(
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Rubro',
-                                    style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: context.libreta.textoMuted,
+                                    ),
                                   ),
                                   Text(
                                     negocio.rubro.etiqueta,
@@ -435,7 +449,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                   Text(
                                     'Para pedir reabastecimiento cuando el '
                                     'stock esté bajo',
-                                    style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: context.libreta.textoMuted,
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
                                   LibretaInput(
@@ -459,7 +476,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                   Text(
                                     'El que ven tus clientes en el catálogo y '
                                     'en el Estado',
-                                    style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: context.libreta.textoMuted,
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
                                   LibretaInput(
@@ -473,11 +493,16 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                   const SizedBox(height: 4),
                                   _FilaInterruptor(
                                     titulo: 'Hago delivery',
-                                    detalle: 'Se anuncia en el Estado y el catálogo',
+                                    detalle:
+                                        'Se anuncia en el Estado y el catálogo',
                                     value: negocio.haceDelivery,
-                                    onChanged: esDueno
-                                        ? (v) => _guardarInterruptor(negocio.id, haceDelivery: v)
-                                        : null,
+                                    onChanged:
+                                        esDueno
+                                            ? (v) => _guardarInterruptor(
+                                              negocio.id,
+                                              haceDelivery: v,
+                                            )
+                                            : null,
                                   ),
                                 ],
                               ),
@@ -502,7 +527,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                       child: Text(
                         'La tasa elegida se usa para convertir el total a '
                         'bolívares al momento de cobrar.',
-                        style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.libreta.textoMuted,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -531,11 +559,16 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                             _Fila(
                               child: _FilaInterruptor(
                                 titulo: 'Incluir IVA en recibos',
-                                detalle: 'Sumamos el 16% automáticamente al total',
+                                detalle:
+                                    'Sumamos el 16% automáticamente al total',
                                 value: negocio.incluirIva,
-                                onChanged: esDueno
-                                    ? (v) => _guardarInterruptor(negocio.id, incluirIva: v)
-                                    : null,
+                                onChanged:
+                                    esDueno
+                                        ? (v) => _guardarInterruptor(
+                                          negocio.id,
+                                          incluirIva: v,
+                                        )
+                                        : null,
                               ),
                             ),
                             _Fila(
@@ -569,7 +602,9 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                       focusedBorder: InputBorder.none,
                                       contentPadding: EdgeInsets.zero,
                                       hintText: 'Gracias por su compra',
-                                      hintStyle: TextStyle(color: context.libreta.textoMuted),
+                                      hintStyle: TextStyle(
+                                        color: context.libreta.textoMuted,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -591,11 +626,16 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                             _Fila(
                               child: _FilaInterruptor(
                                 titulo: 'Avísame si baja el stock',
-                                detalle: 'Te avisamos antes de que se agote algo',
+                                detalle:
+                                    'Te avisamos antes de que se agote algo',
                                 value: negocio.alertaStockActiva,
-                                onChanged: esDueno
-                                    ? (v) => _guardarInterruptor(negocio.id, alertaStock: v)
-                                    : null,
+                                onChanged:
+                                    esDueno
+                                        ? (v) => _guardarInterruptor(
+                                          negocio.id,
+                                          alertaStock: v,
+                                        )
+                                        : null,
                               ),
                             ),
                             _Fila(
@@ -643,29 +683,33 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                 detalle:
                                     'Reduce la fatiga visual con una interfaz '
                                     'más oscura',
-                                value: ref.watch(themeModeProvider) ==
+                                value:
+                                    ref.watch(themeModeProvider) ==
                                     ThemeMode.dark,
-                                onChanged: (v) =>
-                                    ref.read(themeModeProvider.notifier).alternar(),
+                                onChanged:
+                                    (v) =>
+                                        ref
+                                            .read(themeModeProvider.notifier)
+                                            .alternar(),
                               ),
                             ),
                             if (tieneFoto)
                               _Fila(
                                 ultima: true,
                                 child: _FilaInterruptor(
-                                  titulo:
-                                      'Usar tu foto de fondo en el Inicio',
+                                  titulo: 'Usar tu foto de fondo en el Inicio',
                                   detalle:
                                       'Se muestra detrás del dashboard, con '
                                       'un velo para que el texto se siga '
                                       'leyendo',
                                   value: negocio.fotoComoFondo,
-                                  onChanged: esDueno
-                                      ? (v) => _guardarInterruptor(
-                                          negocio.id,
-                                          fotoComoFondo: v,
-                                        )
-                                      : null,
+                                  onChanged:
+                                      esDueno
+                                          ? (v) => _guardarInterruptor(
+                                            negocio.id,
+                                            fotoComoFondo: v,
+                                          )
+                                          : null,
                                 ),
                               ),
                           ],
@@ -682,49 +726,23 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                         child: Column(
                           children: [
                             _Fila(
-                              onTap: () => context.push(Routes.legal),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Privacidad y términos',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: context.libreta.textoFuerte,
-                                      ),
-                                    ),
+                              onTap:
+                                  () => LegalScreen.abrir(
+                                    context,
+                                    DocumentoLegal.privacidad,
                                   ),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 19,
-                                    color: context.libreta.textoMuted,
-                                  ),
-                                ],
+                              child: _FilaLegal(
+                                texto: 'Política de privacidad',
                               ),
                             ),
                             _Fila(
                               ultima: true,
-                              onTap: () => context.push(Routes.eliminarCuenta),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Eliminar cuenta',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: LibretaColors.peligro,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                              onTap:
+                                  () => LegalScreen.abrir(
+                                    context,
+                                    DocumentoLegal.terminos,
                                   ),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    size: 19,
-                                    color: context.libreta.textoMuted,
-                                  ),
-                                ],
-                              ),
+                              child: _FilaLegal(texto: 'Términos de uso'),
                             ),
                           ],
                         ),
@@ -782,9 +800,10 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                             ),
                             _Fila(
                               ultima: true,
-                              onTap: esDueno
-                                  ? () => context.push(Routes.auditoria)
-                                  : null,
+                              onTap:
+                                  esDueno
+                                      ? () => context.push(Routes.auditoria)
+                                      : null,
                               child: _FilaSimple(
                                 icono: Icons.fact_check_outlined,
                                 texto: 'Historial de auditoría',
@@ -814,12 +833,13 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOutCubic,
-                child: (_sucio && esDueno)
-                    ? _BarraGuardar(
-                        guardando: _guardando,
-                        onGuardar: () => _guardarTexto(negocio.id),
-                      )
-                    : const SizedBox(width: double.infinity),
+                child:
+                    (_sucio && esDueno)
+                        ? _BarraGuardar(
+                          guardando: _guardando,
+                          onGuardar: () => _guardarTexto(negocio.id),
+                        )
+                        : const SizedBox(width: double.infinity),
               ),
             ],
           ),
@@ -849,7 +869,8 @@ class _SelectorTasaAjustes extends ConsumerWidget {
           subtitulo: 'Banco Central de Venezuela',
           calificador: 'oficial',
           valor: bcv,
-          onTap: () => ref.read(tasaActivaProvider.notifier).elegir(TipoTasa.bcv),
+          onTap:
+              () => ref.read(tasaActivaProvider.notifier).elegir(TipoTasa.bcv),
         ),
         _FilaTasa(
           seleccionada: tipo == TipoTasa.binance,
@@ -858,7 +879,10 @@ class _SelectorTasaAjustes extends ConsumerWidget {
           calificador: 'paralelo',
           valor: binance,
           ultima: true,
-          onTap: () => ref.read(tasaActivaProvider.notifier).elegir(TipoTasa.binance),
+          onTap:
+              () => ref
+                  .read(tasaActivaProvider.notifier)
+                  .elegir(TipoTasa.binance),
         ),
       ],
     );
@@ -869,13 +893,36 @@ class _SelectorTasaAjustes extends ConsumerWidget {
 ///
 /// Solo aparece si hay al menos dos días guardados: un solo renglón repitiendo
 /// lo que ya dice el selector de arriba no informa nada.
+/// Fila de la sección Legal: solo texto y chevron.
+class _FilaLegal extends StatelessWidget {
+  const _FilaLegal({required this.texto});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: t.textoFuerte,
+            ),
+          ),
+        ),
+        Icon(Icons.chevron_right, size: 18, color: t.textoMuted),
+      ],
+    );
+  }
+}
+
 /// Fila de Ajustes con icono, texto y un valor opcional a la derecha.
 class _FilaSimple extends StatelessWidget {
-  const _FilaSimple({
-    required this.icono,
-    required this.texto,
-    this.valor,
-  });
+  const _FilaSimple({required this.icono, required this.texto, this.valor});
 
   final IconData icono;
   final String texto;
@@ -936,19 +983,21 @@ class _InterruptorBiometriaState extends ConsumerState<_InterruptorBiometria> {
 
     return _FilaInterruptor(
       titulo: 'Pedir huella al abrir',
-      detalle: disponible
-          ? 'Protege tus ventas si alguien agarra tu teléfono'
-          : 'Tu teléfono no tiene huella ni rostro configurados',
+      detalle:
+          disponible
+              ? 'Protege tus ventas si alguien agarra tu teléfono'
+              : 'Tu teléfono no tiene huella ni rostro configurados',
       value: servicio.activa,
-      onChanged: !disponible
-          ? null
-          : (v) async {
-              // Al activarlo se pide una vez: si la huella no funciona, mejor
-              // enterarse ahora que la próxima vez que abra la app.
-              if (v && !await servicio.pedir()) return;
-              await servicio.activar(v);
-              if (mounted) setState(() {});
-            },
+      onChanged:
+          !disponible
+              ? null
+              : (v) async {
+                // Al activarlo se pide una vez: si la huella no funciona, mejor
+                // enterarse ahora que la próxima vez que abra la app.
+                if (v && !await servicio.pedir()) return;
+                await servicio.activar(v);
+                if (mounted) setState(() {});
+              },
     );
   }
 }
@@ -1049,14 +1098,16 @@ class _FilaTasa extends StatelessWidget {
             decoration: BoxDecoration(
               color: seleccionada ? LibretaColors.verde : Colors.transparent,
               shape: BoxShape.circle,
-              border: seleccionada
-                  ? null
-                  : Border.all(color: context.libreta.bordeSuave, width: 2),
+              border:
+                  seleccionada
+                      ? null
+                      : Border.all(color: context.libreta.bordeSuave, width: 2),
             ),
             alignment: Alignment.center,
-            child: seleccionada
-                ? const Icon(Icons.check, size: 13, color: Colors.white)
-                : null,
+            child:
+                seleccionada
+                    ? const Icon(Icons.check, size: 13, color: Colors.white)
+                    : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1085,7 +1136,10 @@ class _FilaTasa extends StatelessWidget {
                 ),
                 Text(
                   subtitulo,
-                  style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.libreta.textoMuted,
+                  ),
                 ),
               ],
             ),
@@ -1182,7 +1236,10 @@ class _FilaInterruptor extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 detalle,
-                style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: context.libreta.textoMuted,
+                ),
               ),
             ],
           ),
@@ -1272,18 +1329,19 @@ class _AvatarEditableState extends State<_AvatarEditable> {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: widget.subiendo
-                  ? const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    )
-                  : tieneFoto
+              child:
+                  widget.subiendo
+                      ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      )
+                      : tieneFoto
                       ? FotoRed(
-                          widget.fotoUrl!,
-                          width: 88,
-                          height: 88,
-                          alError: inicialBlanca,
-                        )
+                        widget.fotoUrl!,
+                        width: 88,
+                        height: 88,
+                        alError: inicialBlanca,
+                      )
                       : inicialBlanca,
             ),
             if (widget.editable)
@@ -1362,9 +1420,10 @@ class _Fila extends StatelessWidget {
     final contenido = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        border: ultima
-            ? null
-            : Border(bottom: BorderSide(color: context.libreta.renglon)),
+        border:
+            ultima
+                ? null
+                : Border(bottom: BorderSide(color: context.libreta.renglon)),
       ),
       child: child,
     );

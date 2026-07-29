@@ -21,11 +21,12 @@ class MiPerfilScreen extends ConsumerWidget {
     final t = context.libreta;
     final usuario = ref.watch(authStateProvider).valueOrNull;
     final membresia = ref.watch(membresiaActivaProvider);
-    final esDueno = ref.watch(esDuenoProvider);
+    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
 
-    final nombre = usuario?.displayName?.trim().isNotEmpty == true
-        ? usuario!.displayName!
-        : (membresia?.nombreVisible ?? 'Sin nombre');
+    final nombre =
+        usuario?.displayName?.trim().isNotEmpty == true
+            ? usuario!.displayName!
+            : (membresia?.nombreVisible ?? 'Sin nombre');
     final contacto = usuario?.email ?? usuario?.phoneNumber ?? '—';
     final inicial = nombre.isEmpty ? '?' : nombre[0].toUpperCase();
 
@@ -38,78 +39,138 @@ class MiPerfilScreen extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  LibretaBackButton(oscuro: true, onTap: () => Navigator.of(context).pop()),
+                  LibretaBackButton(
+                    oscuro: true,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Perfil',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: t.textoFuerte, letterSpacing: -0.4),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: t.textoFuerte,
+                      letterSpacing: -0.4,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
 
               Center(
-                child: Container(
-                  width: 76,
-                  height: 76,
-                  decoration: const BoxDecoration(color: LibretaColors.verde, shape: BoxShape.circle),
-                  alignment: Alignment.center,
-                  child: usuario?.photoURL != null && usuario!.photoURL!.isNotEmpty
-                      ? ClipOval(
-                          child: FotoRed(
-                            usuario.photoURL!,
-                            width: 76,
-                            height: 76,
-                            alError: Text(inicial, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
+                child: SizedBox(
+                  width: 88,
+                  height: 88,
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 88,
+                        height: 88,
+                        clipBehavior: Clip.antiAlias,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: LibretaColors.tarjetaOscura,
+                          shape: BoxShape.circle,
+                        ),
+                        child:
+                            usuario?.photoURL != null &&
+                                    usuario!.photoURL!.isNotEmpty
+                                ? FotoRed(
+                                  usuario.photoURL!,
+                                  width: 88,
+                                  height: 88,
+                                  alError: Text(inicial, style: _estiloInicial),
+                                )
+                                : Text(inicial, style: _estiloInicial),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: LibretaColors.verde,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: t.papel, width: 3),
                           ),
-                        )
-                      : Text(inicial, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Center(
-                child: Text(
-                  nombre,
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: t.textoFuerte),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0x1F0E9F6E), borderRadius: BorderRadius.circular(100)),
-                  child: Text(
-                    esDueno ? 'DUEÑO' : 'VENDEDOR',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: LibretaColors.verde),
+                          child: const Icon(
+                            Icons.edit_outlined,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  nombre,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: t.textoFuerte,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x1F0E9F6E),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    (membresia?.rol.etiqueta ?? '').toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: LibretaColors.verde,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
 
               Container(
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: t.superficie,
-                  border: Border.all(color: t.bordeSuave),
+                  border: Border.all(color: t.renglon),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   children: [
                     _FilaDato(
-                      icono: usuario?.email != null ? Icons.email_outlined : Icons.phone_outlined,
-                      etiqueta: usuario?.email != null ? 'Correo' : 'Teléfono',
-                      valor: contacto,
+                      etiqueta: 'Negocio',
+                      valor: negocio?.nombre ?? '—',
                       divisor: true,
                     ),
                     _FilaDato(
-                      icono: Icons.storefront_outlined,
-                      etiqueta: 'Negocio actual',
-                      valor: membresia == null ? '—' : (esDueno ? 'Dueño' : 'Vendedor'),
+                      etiqueta: usuario?.email != null ? 'Correo' : 'Teléfono',
+                      valor: contacto,
                       divisor: false,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
+              LibretaButton(
+                label: 'Editar perfil',
+                onPressed: () => context.push(Routes.ajustes),
+              ),
+              const SizedBox(height: 12),
+              // Eliminar cuenta vive solo aquí: es una acción de cuenta, no un
+              // documento legal. Estaba también en Ajustes › Legal, donde no
+              // pinta nada.
               LibretaSecondaryButton(
                 label: 'Eliminar cuenta',
                 onPressed: () => context.push(Routes.eliminarCuenta),
@@ -124,13 +185,11 @@ class MiPerfilScreen extends ConsumerWidget {
 
 class _FilaDato extends StatelessWidget {
   const _FilaDato({
-    required this.icono,
     required this.etiqueta,
     required this.valor,
     required this.divisor,
   });
 
-  final IconData icono;
   final String etiqueta;
   final String valor;
   final bool divisor;
@@ -145,14 +204,26 @@ class _FilaDato extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icono, size: 19, color: t.textoMuted),
-          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(etiqueta, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: t.textoMuted)),
-                Text(valor, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: t.textoFuerte)),
+                Text(
+                  etiqueta,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: t.textoMuted,
+                  ),
+                ),
+                Text(
+                  valor,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: t.textoFuerte,
+                  ),
+                ),
               ],
             ),
           ),
@@ -161,3 +232,9 @@ class _FilaDato extends StatelessWidget {
     );
   }
 }
+
+const _estiloInicial = TextStyle(
+  fontSize: 30,
+  fontWeight: FontWeight.w800,
+  color: Colors.white,
+);

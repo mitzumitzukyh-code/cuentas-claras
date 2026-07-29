@@ -2,10 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/presentation/libreta/libreta.dart';
 
-/// Pantalla de información legal (Privacidad y Términos de uso).
-/// Lote E · P5 del diseño.
+/// Cuál de los dos textos legales se está mirando.
+enum DocumentoLegal { privacidad, terminos }
+
+/// Pantalla de información legal (`Lote E`).
+///
+/// Ajustes entra directo a cada documento con [abrir]; el índice con las dos
+/// filas se conserva por si algún día hay más de dos textos, pero hoy no está
+/// en el camino de nadie.
 class LegalScreen extends StatelessWidget {
   const LegalScreen({super.key});
+
+  /// Abre un documento legal sin pasar por el índice.
+  static void abrir(BuildContext context, DocumentoLegal cual) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _DetalleLegal(
+          contenido: cual == DocumentoLegal.privacidad
+              ? _privacidad
+              : _terminos,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
