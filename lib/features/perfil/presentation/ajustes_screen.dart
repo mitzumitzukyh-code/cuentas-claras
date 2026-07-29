@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/providers/historial_tasa_provider.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -413,6 +414,8 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                         style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    const _HistorialTasa(),
                     const SizedBox(height: 18),
 
                     // --- 3. Recibos e impuestos ---
@@ -759,6 +762,73 @@ class _SelectorTasaAjustes extends ConsumerWidget {
           onTap: () => ref.read(tasaActivaProvider.notifier).elegir(TipoTasa.binance),
         ),
       ],
+    );
+  }
+}
+
+/// Últimos días de la tasa activa (Lote E · F5.4).
+///
+/// Solo aparece si hay al menos dos días guardados: un solo renglón repitiendo
+/// lo que ya dice el selector de arriba no informa nada.
+class _HistorialTasa extends ConsumerWidget {
+  const _HistorialTasa();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historial = ref.watch(historialTasaProvider);
+    if (historial.length < 2) return const SizedBox.shrink();
+
+    final t = context.libreta;
+    final dias = historial.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      decoration: BoxDecoration(
+        color: t.superficie,
+        border: Border.all(color: t.renglon),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ÚLTIMOS DÍAS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: t.textoMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < dias.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      dias[i].etiqueta,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w500,
+                        color: i == 0 ? t.textoFuerte : t.textoMuted,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    MoneyFormatter.bs(dias[i].valor),
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: i == 0 ? t.textoFuerte : t.textoMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

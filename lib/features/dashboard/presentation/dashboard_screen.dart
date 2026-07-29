@@ -10,6 +10,8 @@ import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../core/providers/historial_tasa_provider.dart';
+import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../shared/presentation/permiso_requerido.dart';
 import '../../../services/notificaciones/push_service.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -18,6 +20,7 @@ import '../../onboarding/presentation/tutorial_screen.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
+import 'coachmark_primer_uso.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -83,6 +86,7 @@ class DashboardScreen extends ConsumerWidget {
                   const AvisoNotificaciones(),
 
                   const _NotaTasaWidget(),
+                  const _AvisoTasaVencida(),
                   const SizedBox(height: 16),
 
                   if (tieneVentasHoy) ...[
@@ -109,6 +113,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   const _GridAccesosRapidos(),
+                  const CoachmarkPrimerUso(),
                 ],
               ),
             ),
@@ -234,6 +239,178 @@ class _NotaTasaWidget extends ConsumerWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 208),
           child: _NotaTasa(bcv: tasa?.tasa, binance: binance?.precio),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tasa vencida (Lote P · P4)
+// ---------------------------------------------------------------------------
+
+/// Avisa cuando la tasa que se está usando para cobrar tiene días encima.
+///
+/// No es un detalle estético: en Venezuela una tasa de hace dos días puede
+/// dejar cada venta por debajo del costo. Por eso el aviso no se limita a
+/// informar — ofrece las dos salidas reales: escribir la de hoy a mano, o
+/// aceptar la vieja a sabiendas.
+class _AvisoTasaVencida extends ConsumerStatefulWidget {
+  const _AvisoTasaVencida();
+
+  @override
+  ConsumerState<_AvisoTasaVencida> createState() => _AvisoTasaVencidaState();
+}
+
+class _AvisoTasaVencidaState extends ConsumerState<_AvisoTasaVencida> {
+  /// "Usar esa": el dueño ya decidió, no se le insiste en esta sesión.
+  bool _aceptada = false;
+
+  Future<void> _escribirTasa() async {
+    final ctrl = TextEditingController();
+    final valor = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Escribir la tasa de hoy'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Se usará para cobrar hasta que llegue la automática. Mañana '
+              'se descarta sola.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(prefixText: 'Bs '),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(
+              double.tryParse(ctrl.text.replaceAll('.', '').replaceAll(',', '.')),
+            ),
+            child: const Text('Usar esta'),
+          ),
+        ],
+      ),
+    );
+    if (valor != null && valor > 0) {
+      ref.read(tasaManualProvider.notifier).escribir(valor);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_aceptada) return const SizedBox.shrink();
+    // Escrita a mano hoy: ya está resuelto, no hay nada que avisar.
+    if (ref.watch(tasaManualProvider) != null) return const SizedBox.shrink();
+
+    final dias = ref.watch(diasDesdeTasaProvider);
+    if (dias == null || dias < 2) return const SizedBox.shrink();
+
+    final t = context.libreta;
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 90),
+      child: Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: const Color(0x1FF2A93C),
+          border: Border.all(color: const Color(0x59F2A93C)),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.schedule_rounded,
+                  size: 16,
+                  color: LibretaColors.aviso,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'La tasa tiene $dias días · puedes perder plata',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: t.textoFuerte,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _BotonAviso(
+                    label: 'Escribir la tasa',
+                    principal: true,
+                    onTap: _escribirTasa,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BotonAviso(
+                    label: 'Usar esa',
+                    principal: false,
+                    onTap: () => setState(() => _aceptada = true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BotonAviso extends StatelessWidget {
+  const _BotonAviso({
+    required this.label,
+    required this.principal,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool principal;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: principal ? const Color(0xFFF2A93C) : Colors.transparent,
+          border: Border.all(color: const Color(0x8CF2A93C)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: principal ? LibretaColors.tarjetaOscura : t.textoFuerte,
+          ),
         ),
       ),
     );
