@@ -24,30 +24,18 @@ class SelectorBancoScreen extends ConsumerStatefulWidget {
 }
 
 class _SelectorBancoScreenState extends ConsumerState<SelectorBancoScreen> {
-  final _buscador = TextEditingController();
   final _telefono = TextEditingController();
   final _cedula = TextEditingController();
 
-  String _filtro = '';
   bool _sembrado = false;
   bool _guardando = false;
   bool _sucio = false;
 
   @override
   void dispose() {
-    _buscador.dispose();
     _telefono.dispose();
     _cedula.dispose();
     super.dispose();
-  }
-
-  List<BancoVenezuela> get _lista {
-    final q = _filtro.trim().toLowerCase();
-    if (q.isEmpty) return BancoVenezuela.todos;
-    return BancoVenezuela.todos
-        .where((b) =>
-            b.nombre.toLowerCase().contains(q) || b.codigo.contains(q))
-        .toList();
   }
 
   Future<void> _elegirBanco(BancoVenezuela banco) async {
@@ -58,6 +46,26 @@ class _SelectorBancoScreenState extends ConsumerState<SelectorBancoScreen> {
           bancoCodigo: banco.codigo,
           bancoNombre: banco.nombre,
         );
+  }
+
+  /// Abre la lista de bancos en una hoja inferior.
+  ///
+  /// La lista no vive en la pantalla: 25 bancos obligarían a desplazar mucho
+  /// antes de llegar al teléfono y la cédula, y el banco se elige una vez en
+  /// la vida.
+  Future<void> _abrirLista() async {
+    final elegido = await showModalBottomSheet<BancoVenezuela>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.libreta.papel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _HojaBancos(
+        seleccionado: ref.read(negocioActivoProvider).valueOrNull?.bancoCodigo,
+      ),
+    );
+    if (elegido != null) await _elegirBanco(elegido);
   }
 
   /// Guarda teléfono y cédula dentro de `metodosPago.pagomovil.datos`, que es
@@ -155,48 +163,14 @@ class _SelectorBancoScreenState extends ConsumerState<SelectorBancoScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                   children: [
                     _Rotulo('Banco'),
-                    LibretaInput(
-                      controller: _buscador,
-                      hint: 'Buscar banco…',
-                      height: 44,
-                      leading: Icon(Icons.search, size: 17, color: t.textoMuted),
-                      onChanged: (v) => setState(() => _filtro = v),
+                    _CampoBanco(
+                      banco: BancoVenezuela.porCodigo(seleccionado),
+                      onTap: _abrirLista,
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        color: t.superficie,
-                        border: Border.all(color: t.renglon),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < _lista.length; i++)
-                            _FilaBanco(
-                              banco: _lista[i],
-                              activo: _lista[i].codigo == seleccionado,
-                              ultima: i == _lista.length - 1,
-                              onTap: () => _elegirBanco(_lista[i]),
-                            ),
-                          if (_lista.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 22),
-                              child: Text(
-                                'Ningún banco coincide.',
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  color: t.textoMuted,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Text(
-                      'Selecciona el banco de la lista — el código se completa '
-                      'solo, sin que tengas que escribirlo.',
+                      'Elige el banco de la lista — el código se completa solo, '
+                      'sin que tengas que escribirlo.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.5,
@@ -258,6 +232,168 @@ class _Rotulo extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
           color: context.libreta.textoMuted,
+        ),
+      ),
+    );
+  }
+}
+
+/// Campo que muestra el banco elegido y abre la lista al tocarlo.
+class _CampoBanco extends StatelessWidget {
+  const _CampoBanco({required this.banco, required this.onTap});
+
+  final BancoVenezuela? banco;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final vacio = banco == null;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: t.superficie,
+          border: Border.all(color: t.bordeSuave, width: 1.5),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                vacio ? 'Toca para elegir tu banco' : banco!.etiqueta,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: vacio ? FontWeight.w500 : FontWeight.w700,
+                  color: vacio ? t.textoMuted : t.textoFuerte,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: t.textoMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Hoja inferior con el buscador y los 25 bancos.
+class _HojaBancos extends StatefulWidget {
+  const _HojaBancos({required this.seleccionado});
+
+  final String? seleccionado;
+
+  @override
+  State<_HojaBancos> createState() => _HojaBancosState();
+}
+
+class _HojaBancosState extends State<_HojaBancos> {
+  final _buscador = TextEditingController();
+  String _filtro = '';
+
+  @override
+  void dispose() {
+    _buscador.dispose();
+    super.dispose();
+  }
+
+  List<BancoVenezuela> get _lista {
+    final q = _filtro.trim().toLowerCase();
+    if (q.isEmpty) return BancoVenezuela.todos;
+    return BancoVenezuela.todos
+        .where((b) =>
+            b.nombre.toLowerCase().contains(q) || b.codigo.contains(q))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final lista = _lista;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: FractionallySizedBox(
+        heightFactor: 0.85,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Column(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: t.bordeSuave,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Elige tu banco',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: t.textoFuerte,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: t.textoMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LibretaInput(
+                    controller: _buscador,
+                    hint: 'Buscar banco…',
+                    height: 44,
+                    leading: Icon(
+                      Icons.search,
+                      size: 17,
+                      color: t.textoMuted,
+                    ),
+                    onChanged: (v) => setState(() => _filtro = v),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: lista.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Ningún banco coincide.',
+                        style: TextStyle(fontSize: 13.5, color: t.textoMuted),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      itemCount: lista.length,
+                      itemBuilder: (_, i) => _FilaBanco(
+                        banco: lista[i],
+                        activo: lista[i].codigo == widget.seleccionado,
+                        ultima: i == lista.length - 1,
+                        onTap: () => Navigator.of(context).pop(lista[i]),
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );

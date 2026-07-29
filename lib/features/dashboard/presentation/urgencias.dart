@@ -10,6 +10,7 @@ import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../cierre/data/cierre_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
+import '../../gastos/data/gasto_repository.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../proveedores/data/proveedor_repository.dart';
 import '../../ventas/data/venta_repository.dart';
@@ -147,7 +148,32 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
     ));
   }
 
-  // 5 · Ventas sin subir.
+  // 5 · Gastos sin anotar (Lote P · P1, "Mientras esperas").
+  //
+  // Con un par de días sin registrar nada, la ganancia del mes queda inflada:
+  // se vio lo que entró y no lo que salió. Es la única forma de llegar a
+  // Gastos desde Inicio, y es la que el diseño eligió.
+  final gastos = ref.watch(gastosDelMesProvider).valueOrNull ?? const [];
+  final ahoraG = DateTime.now();
+  final ultimoGasto = gastos.isEmpty
+      ? null
+      : gastos.map((g) => g.fecha).reduce((a, b) => a.isAfter(b) ? a : b);
+  final diasSinGastos =
+      ultimoGasto == null ? null : ahoraG.difference(ultimoGasto).inDays;
+  if (diasSinGastos == null || diasSinGastos >= 2) {
+    lista.add(Urgencia(
+      clave: 'gastos',
+      titulo: 'Anota lo que compraste',
+      detalle: diasSinGastos == null
+          ? 'todavía no registras gastos este mes'
+          : 'llevas $diasSinGastos días sin registrar ninguno',
+      icono: Icons.edit_outlined,
+      ruta: Routes.gastos,
+      prioridad: 7,
+    ));
+  }
+
+  // 6 · Ventas sin subir.
   final pendientes = ref.watch(ventasPendientesProvider);
   if (pendientes.isNotEmpty) {
     lista.add(Urgencia(
@@ -158,7 +184,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
       detalle: 'se suben solas al volver el internet',
       icono: Icons.cloud_upload_outlined,
       ruta: Routes.ventasPendientes,
-      prioridad: 6,
+      prioridad: 8,
     ));
   }
 

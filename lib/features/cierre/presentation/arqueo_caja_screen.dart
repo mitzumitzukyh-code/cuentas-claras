@@ -100,8 +100,13 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                   .toList();
               final fiados = fiadosAsync.valueOrNull ?? const [];
 
+              // Una venta fiada NO entra en lo esperado por método: esa plata
+              // todavía no llegó a la caja. Si se sumara, el dueño contaría el
+              // efectivo, le faltaría justo lo que fió y pensaría que se lo
+              // robaron. Ya está contada en `fiadoOtorgado`, que sale del libro
+              // mayor del cliente.
               final metodos = <String, double>{};
-              for (final v in ventas) {
+              for (final v in ventas.where((v) => !v.esFiada)) {
                 metodos[v.metodoPago.id] = (metodos[v.metodoPago.id] ?? 0) + v.totalUSD;
               }
               final ventasTotal = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
