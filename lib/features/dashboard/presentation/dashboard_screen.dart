@@ -3,25 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/providers/conectividad_provider.dart';
+import '../../../core/providers/historial_tasa_provider.dart';
+import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
-import '../../../services/bcv/bcv_rate_service.dart';
-import '../../../services/binance/binance_p2p_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
-import '../../../core/providers/historial_tasa_provider.dart';
-import '../../../core/providers/tasa_activa_provider.dart';
-import '../../../shared/presentation/permiso_requerido.dart';
+import '../../../services/bcv/bcv_rate_service.dart';
+import '../../../services/binance/binance_p2p_service.dart';
 import '../../../services/notificaciones/push_service.dart';
 import '../../negocio/data/negocio_repository.dart';
-import '../../notificaciones/presentation/aviso_notificaciones.dart';
 import '../../onboarding/presentation/tutorial_screen.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
 import 'coachmark_primer_uso.dart';
+import 'urgencias.dart';
 
+/// Inicio (`Lote P`).
+///
+/// La pantalla **propone acciones, no reporta números**: el protagonista es el
+/// botón de Cobrar, y lo que lo rodea cambia según el estado del día — normal,
+/// sin ventas, con urgencias o con la tasa vencida.
+///
+/// Scrollea (el diseño la define con `overflow:auto`); la barra inferior queda
+/// fija fuera del scroll.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -37,19 +45,25 @@ class DashboardScreen extends ConsumerWidget {
       });
     });
 
-    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final t = context.libreta;
+    final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+    final conectado = ref.watch(hayConexionProvider).valueOrNull ?? true;
+    final pendientes = ref.watch(ventasPendientesProvider);
 
-    final falloDatos =
-        ref.watch(negocioActivoProvider).hasError ||
+    final falloDatos = ref.watch(negocioActivoProvider).hasError ||
         ref.watch(ventasDelDiaProvider).hasError ||
         ref.watch(productosProvider).hasError;
 
-    final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const [];
-    final tieneVentasHoy = ventas.isNotEmpty;
+    final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final hayVentas = ventas.isNotEmpty;
 
-    final tieneFondo =
-        (negocio?.fotoComoFondo ?? false) &&
+    // La urgencia manda sobre todo lo demás: si hay una, ocupa el lugar del
+    // héroe y el botón de Cobrar se degrada a su variante compacta.
+    final urgencia = ref.watch(urgenciaPrincipalProvider);
+    final tasaVieja = (ref.watch(diasDesdeTasaProvider) ?? 0) >= 2 &&
+        ref.watch(tasaManualProvider) == null;
+
+    final tieneFondo = (negocio?.fotoComoFondo ?? false) &&
         (negocio?.fotoUrl?.isNotEmpty ?? false);
 
     return Scaffold(
@@ -64,59 +78,79 @@ class DashboardScreen extends ConsumerWidget {
                 alError: Container(color: t.papel),
               ),
             ),
-          SafeArea(
-            bottom: false,
-            child: RefreshIndicator(
-              color: LibretaColors.verde,
-              onRefresh: () async {
-                ref.invalidate(bcvRateProvider);
-                ref.invalidate(binanceP2PRateProvider);
-              },
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                children: [
-                  if (falloDatos) ...[
-                    const _BannerSinPermiso(),
-                    const SizedBox(height: 16),
-                  ],
+          Column(
+            children: [
+              // Barra de sin conexión: pegada arriba del todo, fuera del
+              // scroll, para que no se pierda al bajar.
+              if (!conectado) _BarraSinConexion(pendientes: pendientes.length),
+              Expanded(
+                child: SafeArea(
+                  top: conectado,
+                  bottom: false,
+                  child: RefreshIndicator(
+                    color: LibretaColors.verde,
+                    onRefresh: () async {
+                      ref.invalidate(bcvRateProvider);
+                      ref.invalidate(binanceP2PRateProvider);
+                    },
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(20, conectado ? 26 : 16, 20, 18),
+                      children: [
+                        if (falloDatos) ...[
+                          const _BannerSinPermiso(),
+                          const SizedBox(height: 16),
+                        ],
 
-                  const _SeccionSaludo(),
-                  const SizedBox(height: 12),
+                        const _Encabezado(),
 
-                  const AvisoNotificaciones(),
+                        if (hayVentas && urgencia == null && !tasaVieja) ...[
+                          const SizedBox(height: 10),
+                          const _PastillaRacha(),
+                        ],
 
-                  const _NotaTasaWidget(),
-                  const _AvisoTasaVencida(),
-                  const SizedBox(height: 16),
+                        if (tasaVieja) ...[
+                          const SizedBox(height: 13),
+                          const TarjetaTasaVencida(),
+                        ] else if (urgencia != null) ...[
+                          const SizedBox(height: 14),
+                          TarjetaUrgencia(urgencia: urgencia),
+                        ] else ...[
+                          const SizedBox(height: 12),
+                          const _FilaTasaDeHoy(),
+                        ],
 
-                  if (tieneVentasHoy) ...[
-                    const _TarjetaVentasWidget(),
-                    const SizedBox(height: 12),
+                        SizedBox(height: urgencia != null ? 12 : 16),
+                        _BotonCobrarHero(
+                          compacto: urgencia != null,
+                          hayVentas: hayVentas,
+                          sinInternet: !conectado || tasaVieja,
+                        ),
 
-                    const _FilaGananciaTicket(),
-                    const SizedBox(height: 12),
+                        const CoachmarkPrimerUso(),
 
-                    const _ComparativoWidget(),
-                    const SizedBox(height: 12),
+                        if (hayVentas) ...[
+                          const SizedBox(height: 16),
+                          const _TarjetaVentasDeHoy(),
+                        ] else ...[
+                          const SizedBox(height: 16),
+                          const _HojaEnBlanco(),
+                        ],
 
-                    const _RachaWidget(),
-                  ] else ...[
-                    const _DiaSinVentasWidget(),
-                  ],
-
-                  const _BloqueUrgencias(),
-
-                  const SizedBox(height: 16),
-                  EntradaAnimada(
-                    retardo: const Duration(milliseconds: 270),
-                    child: _TituloAccesos(),
+                        const SizedBox(height: 20),
+                        ListaPendientes(
+                          titulo: urgencia != null
+                              ? 'También pendiente'
+                              : hayVentas
+                                  ? 'Pendientes'
+                                  : 'Mientras esperas',
+                          excluir: urgencia?.clave,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  const _GridAccesosRapidos(),
-                  const CoachmarkPrimerUso(),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -125,10 +159,56 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Saludo + nombre + avatar
+// Barra de sin conexión
 // ---------------------------------------------------------------------------
-class _SeccionSaludo extends ConsumerWidget {
-  const _SeccionSaludo();
+
+/// Franja navy de 34px pegada al borde superior (`Lote P · P3`).
+class _BarraSinConexion extends StatelessWidget {
+  const _BarraSinConexion({required this.pendientes});
+
+  final int pendientes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: LibretaColors.tarjetaOscura,
+      padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+      child: SizedBox(
+        height: 34,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 14,
+              color: Color(0xFFF2A93C),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              pendientes == 0
+                  ? 'Sin internet · sigues vendiendo'
+                  : 'Sin internet · $pendientes '
+                      '${pendientes == 1 ? "movimiento" : "movimientos"} '
+                      'sin sincronizar',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Encabezado: saludo, nombre, campana y avatar
+// ---------------------------------------------------------------------------
+class _Encabezado extends ConsumerWidget {
+  const _Encabezado();
 
   String _saludo() {
     final h = DateTime.now().hour;
@@ -161,37 +241,38 @@ class _SeccionSaludo extends ConsumerWidget {
     final t = context.libreta;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final nombre = negocio?.nombre ?? 'Mi negocio';
+    final urgencias = ref.watch(urgenciasProvider).length;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      _saludo(),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: t.textoMuted,
+          child: GestureDetector(
+            onTap: () => context.push(Routes.misNegocios),
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _saludo(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: t.textoMuted,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(_iconoSaludo(), size: 16, color: t.textoMuted),
-                ],
-              ),
-              const SizedBox(height: 2),
-              GestureDetector(
-                onTap: () => context.push(Routes.misNegocios),
-                behavior: HitTestBehavior.opaque,
-                child: Row(
+                    const SizedBox(width: 6),
+                    Icon(_iconoSaludo(), size: 15, color: LibretaColors.aviso),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Row(
                   children: [
                     Flexible(
                       child: Text(
@@ -199,26 +280,30 @@ class _SeccionSaludo extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 23,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,
+                          height: 1.15,
                           color: t.textoFuerte,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
                     Icon(Icons.keyboard_arrow_down,
                         size: 20, color: t.textoMuted),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 12),
+        _CampanaNotificaciones(hayNoLeidas: urgencias > 0),
+        const SizedBox(width: 10),
         _AvatarNegocio(
           fotoUrl: negocio?.fotoUrl,
           iniciales: _iniciales(nombre),
+          insignia: urgencias,
           onTap: () => context.go(Routes.perfil),
         ),
       ],
@@ -226,326 +311,50 @@ class _SeccionSaludo extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Tasa del día (BCV + Binance)
-// ---------------------------------------------------------------------------
-class _NotaTasaWidget extends ConsumerWidget {
-  const _NotaTasaWidget();
+class _CampanaNotificaciones extends StatelessWidget {
+  const _CampanaNotificaciones({required this.hayNoLeidas});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasa = ref.watch(bcvRateProvider).valueOrNull;
-    final binance = ref.watch(binanceP2PRateProvider).valueOrNull;
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 60),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 208),
-          child: _NotaTasa(bcv: tasa?.tasa, binance: binance?.precio),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tasa vencida (Lote P · P4)
-// ---------------------------------------------------------------------------
-
-/// Avisa cuando la tasa que se está usando para cobrar tiene días encima.
-///
-/// No es un detalle estético: en Venezuela una tasa de hace dos días puede
-/// dejar cada venta por debajo del costo. Por eso el aviso no se limita a
-/// informar — ofrece las dos salidas reales: escribir la de hoy a mano, o
-/// aceptar la vieja a sabiendas.
-class _AvisoTasaVencida extends ConsumerStatefulWidget {
-  const _AvisoTasaVencida();
-
-  @override
-  ConsumerState<_AvisoTasaVencida> createState() => _AvisoTasaVencidaState();
-}
-
-class _AvisoTasaVencidaState extends ConsumerState<_AvisoTasaVencida> {
-  /// "Usar esa": el dueño ya decidió, no se le insiste en esta sesión.
-  bool _aceptada = false;
-
-  Future<void> _escribirTasa() async {
-    final ctrl = TextEditingController();
-    final valor = await showDialog<double>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Escribir la tasa de hoy'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Se usará para cobrar hasta que llegue la automática. Mañana '
-              'se descarta sola.',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(prefixText: 'Bs '),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(
-              double.tryParse(ctrl.text.replaceAll('.', '').replaceAll(',', '.')),
-            ),
-            child: const Text('Usar esta'),
-          ),
-        ],
-      ),
-    );
-    if (valor != null && valor > 0) {
-      ref.read(tasaManualProvider.notifier).escribir(valor);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_aceptada) return const SizedBox.shrink();
-    // Escrita a mano hoy: ya está resuelto, no hay nada que avisar.
-    if (ref.watch(tasaManualProvider) != null) return const SizedBox.shrink();
-
-    final dias = ref.watch(diasDesdeTasaProvider);
-    if (dias == null || dias < 2) return const SizedBox.shrink();
-
-    final t = context.libreta;
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 90),
-      child: Container(
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        decoration: BoxDecoration(
-          color: const Color(0x1FF2A93C),
-          border: Border.all(color: const Color(0x59F2A93C)),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.schedule_rounded,
-                  size: 16,
-                  color: LibretaColors.aviso,
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    'La tasa tiene $dias días · puedes perder plata',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: t.textoFuerte,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _BotonAviso(
-                    label: 'Escribir la tasa',
-                    principal: true,
-                    onTap: _escribirTasa,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _BotonAviso(
-                    label: 'Usar esa',
-                    principal: false,
-                    onTap: () => setState(() => _aceptada = true),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BotonAviso extends StatelessWidget {
-  const _BotonAviso({
-    required this.label,
-    required this.principal,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool principal;
-  final VoidCallback onTap;
+  final bool hayNoLeidas;
 
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: principal ? const Color(0xFFF2A93C) : Colors.transparent,
-          border: Border.all(color: const Color(0x8CF2A93C)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: principal ? LibretaColors.tarjetaOscura : t.textoFuerte,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tarjeta de ventas del día
-// ---------------------------------------------------------------------------
-class _TarjetaVentasWidget extends ConsumerWidget {
-  const _TarjetaVentasWidget();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ventas =
-        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
-    final tasa = ref.watch(bcvRateProvider).valueOrNull;
-    final totalUsd = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 130),
-      child: _TarjetaVentas(
-        totalUsd: totalUsd,
-        tasa: tasa?.tasa,
-        ventas: ventas.length,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Ganancia / Ticket promedio
-// ---------------------------------------------------------------------------
-class _FilaGananciaTicket extends ConsumerWidget {
-  const _FilaGananciaTicket();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ventas =
-        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
-    final itemsHoy = ventas.fold<int>(0, (s, v) => s + v.items.length);
-    final itemsSinCosto = ventas.fold<int>(0, (s, v) => s + v.itemsSinCosto);
-    final totalUsdHoy = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
-    final gananciaHoy = ventas.fold<double>(0, (s, v) => s + v.gananciaUSD);
-
-    final hayGanancia = itemsHoy > 0 && itemsSinCosto < itemsHoy;
-    final gananciaParcial = itemsSinCosto > 0;
-    final ticketProm = ventas.isEmpty ? null : totalUsdHoy / ventas.length;
-
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 200),
-      child: Row(
-        children: [
-          Expanded(
-            child: _TarjetaMini(
-              etiqueta: 'Ganancia',
-              valor: hayGanancia
-                  ? '${gananciaParcial ? "≈" : ""}'
-                      '${MoneyFormatter.usd(gananciaHoy)}'
-                  : '—',
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _TarjetaMini(
-              etiqueta: 'Ticket prom.',
-              valor: ticketProm == null ? '—' : MoneyFormatter.usd(ticketProm),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Día sin ventas — "hoja en blanco" + sugerencias (Lote P · P2)
-// ---------------------------------------------------------------------------
-class _DiaSinVentasWidget extends StatelessWidget {
-  const _DiaSinVentasWidget();
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.libreta;
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 130),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-        decoration: BoxDecoration(
-          color: t.superficie,
-          border: Border.all(color: t.bordeSuave),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
+      onTap: () => context.push(Routes.notificaciones),
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Stack(
           children: [
-            Icon(Icons.auto_stories_outlined, size: 40, color: t.textoMuted),
-            const SizedBox(height: 12),
-            Text(
-              'Hoja en blanco',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: t.superficie,
+                shape: BoxShape.circle,
+                border: Border.all(color: t.renglon),
+              ),
+              child: Icon(
+                Icons.notifications_none_rounded,
+                size: 20,
                 color: t.textoFuerte,
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Todavía no registras ventas hoy',
-              style: TextStyle(fontSize: 13.5, color: t.textoMuted),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _AccesoRapido(
-                    etiqueta: 'Cobrar',
-                    icono: Icons.shopping_cart_outlined,
-                    color: LibretaColors.verde,
-                    onTap: () => context.go(Routes.cobrar),
+            if (hayNoLeidas)
+              Positioned(
+                top: 6,
+                right: 7,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC1503A),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: t.papel, width: 1.5),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _AccesoRapido(
-                    etiqueta: 'Productos',
-                    icono: Icons.inventory_2_outlined,
-                    color: t.textoFuerte,
-                    onTap: () => context.go(Routes.productos),
-                  ),
-                ),
-              ],
-            ),
+              ),
           ],
         ),
       ),
@@ -554,64 +363,109 @@ class _DiaSinVentasWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Comparativo vs ayer (Lote P · P1)
+// Racha y tasa
 // ---------------------------------------------------------------------------
-class _ComparativoWidget extends ConsumerWidget {
-  const _ComparativoWidget();
+
+/// Pastilla verde "Racha de N días al día" (`Lote P · P0`).
+class _PastillaRacha extends ConsumerWidget {
+  const _PastillaRacha();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ventasHoy =
-        ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
-    final ayerAsync = ref.watch(ventasDeAyerProvider);
+    final racha = ref.watch(rachaDiasProvider).valueOrNull ?? 0;
+    // Con hoy incluido: la racha del provider cuenta hasta ayer.
+    final dias = racha + 1;
+    if (dias < 2) return const SizedBox.shrink();
 
-    final totalHoy = ventasHoy.fold<double>(0, (s, v) => s + v.totalUSD);
-    final totalAyer =
-        ayerAsync.valueOrNull?.fold<double>(0, (s, v) => s + v.totalUSD) ?? 0;
-
-    if (totalAyer == 0) return const SizedBox.shrink();
-
-    final diff = totalHoy - totalAyer;
-    final pct = (diff / totalAyer) * 100;
-    final esMejor = diff >= 0;
-    final t = context.libreta;
-
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 200),
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(8, 6, 13, 6),
+        decoration: BoxDecoration(
+          color: const Color(0x1A0E9F6E),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: LibretaColors.verde,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.local_fire_department_rounded,
+                size: 12,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              'Racha de $dias días al día',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: LibretaColors.verde,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Renglón blanco "Tasa de hoy · Bs X" con punto verde (`Lote P · P0`).
+class _FilaTasaDeHoy extends ConsumerWidget {
+  const _FilaTasaDeHoy();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.libreta;
+    final tipo = ref.watch(tasaActivaProvider);
+    final valor = ref.watch(tasaActivaValorProvider);
+
+    return GestureDetector(
+      onTap: () => context.push(Routes.ajustes),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
           color: t.superficie,
-          border: Border.all(color: t.bordeSuave),
-          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: t.renglon),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            Icon(
-              esMejor ? Icons.trending_up : Icons.trending_down,
-              size: 20,
-              color: esMejor ? LibretaColors.verde : LibretaColors.peligro,
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: valor == null ? t.textoMuted : LibretaColors.verde,
+                shape: BoxShape.circle,
+              ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
-              child: Text.rich(
-                TextSpan(
-                  text: esMejor ? 'Superaste ayer por ' : 'Debajo de ayer por ',
-                  style: TextStyle(fontSize: 13, color: t.textoFuerte),
-                  children: [
-                    TextSpan(
-                      text: MoneyFormatter.usd(diff.abs()),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: esMejor ? LibretaColors.verde : LibretaColors.peligro,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ' (${pct.toStringAsFixed(0)}%)',
-                      style: TextStyle(fontSize: 12, color: t.textoMuted),
-                    ),
-                  ],
+              child: Text(
+                valor == null
+                    ? 'Tasa no disponible'
+                    : 'Tasa de hoy · ${MoneyFormatter.bs(valor)}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: t.textoFuerte,
                 ),
+              ),
+            ),
+            Text(
+              tipo == TipoTasa.bcv ? 'BCV' : 'Paralelo',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: t.textoMuted,
               ),
             ),
           ],
@@ -622,51 +476,166 @@ class _ComparativoWidget extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Racha de días consecutivos con ventas (Lote P · P1)
+// Botón Cobrar — el protagonista
 // ---------------------------------------------------------------------------
-class _RachaWidget extends ConsumerWidget {
-  const _RachaWidget();
+
+/// Botón de Cobrar (`Lote P`). Cambia de jerarquía según el día:
+///
+/// - **Completo** (104px, verde, sombra): es la acción del día.
+/// - **Compacto** (76px, blanco con borde verde): hay algo más urgente que
+///   atender primero, y el botón cede el puesto sin desaparecer.
+class _BotonCobrarHero extends ConsumerWidget {
+  const _BotonCobrarHero({
+    required this.compacto,
+    required this.hayVentas,
+    required this.sinInternet,
+  });
+
+  final bool compacto;
+  final bool hayVentas;
+  final bool sinInternet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rachaAsync = ref.watch(rachaDiasProvider);
-    final racha = rachaAsync.valueOrNull ?? 0;
-    if (racha < 2) return const SizedBox.shrink();
-
     final t = context.libreta;
-    return EntradaAnimada(
-      retardo: const Duration(milliseconds: 200),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0x1F0E9F6E),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            const Text('🔥', style: TextStyle(fontSize: 18)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  text: '$racha día${racha == 1 ? '' : 's'} ',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: LibretaColors.verde,
-                  ),
+    final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
+
+    if (compacto) {
+      return GestureDetector(
+        onTap: () => context.go(Routes.cobrar),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: t.superficie,
+            border: Border.all(color: const Color(0x590E9F6E), width: 1.5),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0x210E9F6E),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 24,
+                  color: LibretaColors.verde,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextSpan(
-                      text: 'consecutivos con ventas',
+                    Text(
+                      'Cobrar',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                         color: t.textoFuerte,
                       ),
                     ),
+                    Text(
+                      hayVentas
+                          ? 'hoy: ${MoneyFormatter.usd(total)} · '
+                              '${ventas.length} ${ventas.length == 1 ? "venta" : "ventas"}'
+                          : 'anota la primera de hoy',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: t.textoMuted,
+                      ),
+                    ),
                   ],
                 ),
               ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 22,
+                color: LibretaColors.verde,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => context.go(Routes.cobrar),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 104),
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        decoration: BoxDecoration(
+          color: LibretaColors.verde,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x520E9F6E),
+              offset: Offset(0, 16),
+              blurRadius: 32,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0x2EFFFFFF),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.shopping_cart_outlined,
+                size: 30,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Cobrar',
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      height: 1.1,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sinInternet
+                        ? 'funciona sin internet'
+                        : hayVentas
+                            ? 'anotar una venta'
+                            : 'anota la primera de hoy',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xD9FFFFFF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 24,
+              color: Colors.white,
             ),
           ],
         ),
@@ -676,58 +645,130 @@ class _RachaWidget extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Bloque de urgencias (Lote P · P3)
+// Ventas de hoy / hoja en blanco
 // ---------------------------------------------------------------------------
-class _BloqueUrgencias extends ConsumerWidget {
-  const _BloqueUrgencias();
+
+/// Tarjeta blanca con el total del día y el comparativo (`Lote P · P0`).
+class _TarjetaVentasDeHoy extends ConsumerWidget {
+  const _TarjetaVentasDeHoy();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productos =
-        ref.watch(productosConAlertaProvider).valueOrNull ?? const [];
-    final stockBajo = productos.where((p) => p.stockBajo).length;
-    final pendientes = ref.watch(ventasPendientesProvider);
+    final t = context.libreta;
+    final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
+    final tasa = ref.watch(tasaActivaValorProvider);
+    final pendientes = ref.watch(ventasPendientesProvider).length;
+    final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
 
-    final items = <Widget>[];
-    if (stockBajo > 0) {
-      items.add(__UrgenciaItem(
-        icono: Icons.inventory_2_outlined,
-        texto: stockBajo == 1
-            ? '1 producto con stock bajo'
-            : '$stockBajo productos con stock bajo',
-        onTap: () => context.go(Routes.productos),
-      ));
-    }
-    if (pendientes.isNotEmpty) {
-      items.add(__UrgenciaItem(
-        icono: Icons.cloud_upload_outlined,
-        texto: pendientes.length == 1
-            ? '1 venta sin subir'
-            : '${pendientes.length} ventas sin subir',
-        onTap: () => context.push(Routes.ventasPendientes),
-      ));
-    }
+    final ayer = ref.watch(ventasDeAyerProvider).valueOrNull ?? const <Venta>[];
+    final ahora = DateTime.now();
+    final ayerHastaAhora = ayer
+        .where((v) =>
+            v.fecha.hour < ahora.hour ||
+            (v.fecha.hour == ahora.hour && v.fecha.minute <= ahora.minute))
+        .fold<double>(0, (s, v) => s + v.totalUSD);
 
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: EntradaAnimada(
-        retardo: const Duration(milliseconds: 260),
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 130),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        decoration: BoxDecoration(
+          color: t.superficie,
+          border: Border.all(color: t.renglon),
+          borderRadius: BorderRadius.circular(18),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'ANTES DE CERRAR',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: context.libreta.textoMuted,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: Text(
+                    'VENTAS DE HOY',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: t.textoMuted,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${ventas.length} ${ventas.length == 1 ? "venta" : "ventas"}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: LibretaColors.verde,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                MoneyFormatter.usd(total),
+                style: TextStyle(
+                  fontSize: 38,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.2,
+                  height: 1.05,
+                  color: t.textoFuerte,
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            ...items,
+            if (tasa != null)
+              Text(
+                MoneyFormatter.usdComoBs(total, tasa),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: t.textoMuted,
+                ),
+              ),
+            if (ayerHastaAhora > 0 || pendientes > 0) ...[
+              const SizedBox(height: 11),
+              Container(
+                padding: const EdgeInsets.only(top: 11),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: t.renglon)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      pendientes > 0
+                          ? Icons.schedule_rounded
+                          : total >= ayerHastaAhora
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded,
+                      size: 15,
+                      color: pendientes > 0
+                          ? t.textoMuted
+                          : total >= ayerHastaAhora
+                              ? LibretaColors.verde
+                              : LibretaColors.aviso,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        pendientes > 0
+                            ? '$pendientes ${pendientes == 1 ? "venta esperando" : "ventas esperando"} subir'
+                            : 'Ayer a esta hora ibas por '
+                                '${MoneyFormatter.usd(ayerHastaAhora)}',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: pendientes > 0 ? t.textoMuted : t.textoFuerte,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -735,146 +776,127 @@ class _BloqueUrgencias extends ConsumerWidget {
   }
 }
 
-class __UrgenciaItem extends StatelessWidget {
-  const __UrgenciaItem({
-    required this.icono,
-    required this.texto,
-    required this.onTap,
-  });
+/// "La hoja de hoy está en blanco" (`Lote P · P1`) — tarjeta punteada con la
+/// libreta dibujada, el tagline en cursiva y el contexto histórico.
+class _HojaEnBlanco extends ConsumerWidget {
+  const _HojaEnBlanco();
 
-  final IconData icono;
-  final String texto;
-  final VoidCallback onTap;
+  static const _dias = [
+    'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo',
+  ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: t.superficie,
-            border: Border.all(color: t.bordeSuave),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
+    final ayer = ref.watch(ventasDeAyerProvider).valueOrNull ?? const <Venta>[];
+    final totalAyer = ayer.fold<double>(0, (s, v) => s + v.totalUSD);
+    final hoy = _dias[DateTime.now().weekday - 1];
+
+    return EntradaAnimada(
+      retardo: const Duration(milliseconds: 130),
+      child: DottedBorderBox(
+        radius: 18,
+        color: t.textoMuted.withValues(alpha: 0.4),
+        fondo: t.superficie,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+          child: Column(
             children: [
-              Icon(icono, size: 18, color: LibretaColors.aviso),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  texto,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: t.textoFuerte,
+              SizedBox(
+                width: 46,
+                height: 46,
+                child: CustomPaint(
+                  painter: _LibretaPainter(
+                    trazo: t.textoFuerte.withValues(alpha: 0.28),
+                    renglon: t.textoFuerte.withValues(alpha: 0.16),
+                    papel: t.papel,
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right, size: 18, color: t.textoMuted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Accesos rápidos
-// ---------------------------------------------------------------------------
-class _TituloAccesos extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Text(
-      'ACCESOS RÁPIDOS',
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.6,
-        color: context.libreta.textoMuted,
-      ),
-    );
-  }
-}
-
-class _GridAccesosRapidos extends ConsumerWidget {
-  const _GridAccesosRapidos();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.libreta;
-    // Los accesos que el vendedor no puede abrir no se pintan: la segunda
-    // fila se arma con lo que quede, y si no queda nada desaparece entera.
-    final verGastos = ref.watch(puedeProvider(Permisos.registrarGastos));
-    final verReportes = ref.watch(puedeProvider(Permisos.verReportes));
-    final segundaFila = <Widget>[
-      if (verGastos)
-        _AccesoRapido(
-          etiqueta: 'Gastos',
-          icono: Icons.payments_outlined,
-          color: t.textoFuerte,
-          onTap: () => context.push(Routes.gastos),
-        ),
-      if (verReportes)
-        _AccesoRapido(
-          etiqueta: 'Reportes',
-          icono: Icons.show_chart,
-          color: const Color(0xFFF2A93B),
-          onTap: () => context.go(Routes.reportes),
-        ),
-    ];
-    return Column(
-      children: [
-        EntradaAnimada(
-          retardo: const Duration(milliseconds: 330),
-          child: Row(
-            children: [
-              Expanded(
-                child: _AccesoRapido(
-                  etiqueta: 'Cobrar',
-                  icono: Icons.shopping_cart_outlined,
-                  color: LibretaColors.verde,
-                  onTap: () => context.go(Routes.cobrar),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AccesoRapido(
-                  etiqueta: 'Productos',
-                  icono: Icons.inventory_2_outlined,
+              const SizedBox(height: 12),
+              Text(
+                'La hoja de hoy está en blanco',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                   color: t.textoFuerte,
-                  onTap: () => context.go(Routes.productos),
                 ),
               ),
+              const SizedBox(height: 2),
+              const Text(
+                'todavía es temprano',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  fontStyle: FontStyle.italic,
+                  color: LibretaColors.verde,
+                ),
+              ),
+              if (totalAyer > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Los $hoy normalmente arrancas más tarde. '
+                  'Ayer cerraste con ${MoneyFormatter.usd(totalAyer)}.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                    color: t.textoMuted,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
-        if (segundaFila.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          EntradaAnimada(
-            retardo: const Duration(milliseconds: 390),
-            child: Row(
-              children: [
-                for (var i = 0; i < segundaFila.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 12),
-                  Expanded(child: segundaFila[i]),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
 
+/// La libretita del estado vacío: hoja con tres renglones.
+class _LibretaPainter extends CustomPainter {
+  const _LibretaPainter({
+    required this.trazo,
+    required this.renglon,
+    required this.papel,
+  });
+
+  final Color trazo, renglon, papel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final k = size.width / 64;
+    final hoja = RRect.fromRectAndRadius(
+      Rect.fromLTWH(12 * k, 10 * k, 40 * k, 46 * k),
+      Radius.circular(6 * k),
+    );
+    canvas.drawRRect(hoja, Paint()..color = papel);
+    canvas.drawRRect(
+      hoja,
+      Paint()
+        ..color = trazo
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5 * k,
+    );
+
+    final linea = Paint()
+      ..color = renglon
+      ..strokeWidth = 2.5 * k
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(21 * k, 26 * k), Offset(43 * k, 26 * k), linea);
+    canvas.drawLine(Offset(21 * k, 34 * k), Offset(43 * k, 34 * k), linea);
+    canvas.drawLine(Offset(21 * k, 42 * k), Offset(34 * k, 42 * k), linea);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LibretaPainter old) =>
+      old.trazo != trazo || old.renglon != renglon || old.papel != papel;
+}
+
 // ---------------------------------------------------------------------------
-// Widgets auxiliares (sin providers)
+// Auxiliares
 // ---------------------------------------------------------------------------
 
 class _BannerSinPermiso extends StatelessWidget {
@@ -882,289 +904,30 @@ class _BannerSinPermiso extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.libreta;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0x21F2A93C),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Row(
-        children: [
-          Text('⚠️', style: TextStyle(fontSize: 16)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'No pudimos leer los datos de tu negocio. Revisa que las reglas '
-              'de Firestore estén publicadas.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: LibretaColors.aviso,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotaTasa extends StatelessWidget {
-  const _NotaTasa({required this.bcv, required this.binance});
-
-  final double? bcv;
-  final double? binance;
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: -0.026,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFCEFB4),
-          borderRadius: BorderRadius.circular(3),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x2A1E2A38),
-              offset: Offset(2, 5),
-              blurRadius: 12,
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'TASA DEL DÍA · POR \$',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
-                color: Color(0xFF9A7B1A),
-              ),
-            ),
-            const SizedBox(height: 4),
-            _LineaTasa(etiqueta: 'BCV', valor: bcv),
-            Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(vertical: 5),
-              color: const Color(0x4D9A7B1A),
-            ),
-            _LineaTasa(etiqueta: 'Paralelo', valor: binance, estrella: true),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LineaTasa extends StatelessWidget {
-  const _LineaTasa({
-    required this.etiqueta,
-    required this.valor,
-    this.estrella = false,
-  });
-
-  final String etiqueta;
-  final double? valor;
-  final bool estrella;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Text(
-              etiqueta,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF9A7B1A),
-              ),
-            ),
-            if (estrella) ...[
-              const SizedBox(width: 3),
-              const Text(
-                '*',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF9A7B1A),
-                ),
-              ),
-            ],
-          ],
-        ),
-        Text(
-          valor == null ? '—' : MoneyFormatter.bs(valor!),
-          style: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF9A7B1A),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TarjetaVentas extends StatelessWidget {
-  const _TarjetaVentas({
-    required this.totalUsd,
-    required this.tasa,
-    required this.ventas,
-  });
-
-  final double totalUsd;
-  final double? tasa;
-  final int ventas;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: LibretaColors.verde,
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0x1FF2A93C),
+        border: Border.all(color: const Color(0x59F2A93C)),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
+          const Icon(Icons.cloud_off_rounded,
+              size: 17, color: LibretaColors.aviso),
+          const SizedBox(width: 9),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  MoneyFormatter.usd(totalUsd),
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  tasa == null
-                      ? 'calculando…'
-                      : MoneyFormatter.usdComoBs(totalUsd, tasa!),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xB3FFFFFF),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0x21FFFFFF),
-              borderRadius: BorderRadius.circular(30),
-            ),
             child: Text(
-              '$ventas ${ventas == 1 ? 'venta' : 'ventas'}',
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TarjetaMini extends StatelessWidget {
-  const _TarjetaMini({required this.etiqueta, required this.valor});
-
-  final String etiqueta;
-  final String valor;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.libreta;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: t.superficie,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: t.bordeSuave),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            etiqueta,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: t.textoMuted,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            valor,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: t.textoFuerte,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccesoRapido extends StatelessWidget {
-  const _AccesoRapido({
-    required this.etiqueta,
-    required this.icono,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String etiqueta;
-  final IconData icono;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.libreta;
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: t.superficie,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: t.bordeSuave),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icono, size: 28, color: color),
-            const SizedBox(height: 8),
-            Text(
-              etiqueta,
+              'No pudimos cargar algunos datos. Revisa tu conexión.',
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
                 color: t.textoFuerte,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1175,50 +938,83 @@ class _AvatarNegocio extends StatelessWidget {
     required this.fotoUrl,
     required this.iniciales,
     required this.onTap,
+    this.insignia = 0,
   });
 
   final String? fotoUrl;
   final String iniciales;
   final VoidCallback onTap;
 
+  /// Cuántas urgencias hay; `0` = sin insignia.
+  final int insignia;
+
   @override
   Widget build(BuildContext context) {
-    final tieneFoto = fotoUrl != null && fotoUrl!.isNotEmpty;
-    return InkWell(
-      borderRadius: BorderRadius.circular(30),
+    final t = context.libreta;
+    return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: LibretaColors.verde,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        alignment: Alignment.center,
-        child: tieneFoto
-            ? FotoRed(
-                fotoUrl!,
-                width: 44,
-                height: 44,
-                fit: BoxFit.cover,
-                alError: Text(
-                  iniciales,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              clipBehavior: Clip.antiAlias,
+              decoration: const BoxDecoration(
+                color: LibretaColors.tarjetaOscura,
+                shape: BoxShape.circle,
+              ),
+              child: fotoUrl != null && fotoUrl!.isNotEmpty
+                  ? FotoRed(
+                      fotoUrl!,
+                      alError: Text(
+                        iniciales,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      iniciales,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+            ),
+            if (insignia > 0)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 19),
+                  height: 19,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2A93C),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: t.papel, width: 2),
+                  ),
+                  child: Text(
+                    '$insignia',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: LibretaColors.tarjetaOscura,
+                    ),
                   ),
                 ),
-              )
-            : Text(
-                iniciales,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
               ),
+          ],
+        ),
       ),
     );
   }

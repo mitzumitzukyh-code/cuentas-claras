@@ -229,67 +229,78 @@ class _RecordatorioVencido extends ConsumerWidget {
       await abrirWhatsApp(texto: texto, telefono: c.telefono);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: const Color(0x1FF2A93C),
-        border: Border.all(color: const Color(0x59F2A93C)),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.notifications_active_outlined,
-                size: 16,
-                color: LibretaColors.aviso,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  '${c.nombre} lleva $dias días sin abonar',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: t.textoFuerte,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Recordatorio listo para enviar · ${MoneyFormatter.usd(c.saldoUSD)}',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w500,
-              color: t.textoMuted,
-            ),
-          ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: enviar,
-            child: Container(
-              height: 38,
+    // Verde, no ámbar: el diseño lo trata como una oportunidad de cobrar, no
+    // como una alarma. El ámbar queda para lo que ya salió mal.
+    return GestureDetector(
+      onTap: enviar,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          color: const Color(0x140E9F6E),
+          border: Border.all(color: const Color(0x4D0E9F6E), width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0xFFF2A93C),
+                color: LibretaColors.verde,
                 borderRadius: BorderRadius.circular(10),
               ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${c.nombre} lleva $dias días vencida',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                      color: t.textoFuerte,
+                    ),
+                  ),
+                  const Text(
+                    'Recordatorio automático listo para enviar',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: LibretaColors.verde,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: LibretaColors.verde,
+                borderRadius: BorderRadius.circular(100),
+              ),
               child: const Text(
-                'Enviar recordatorio',
+                'Enviar',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: LibretaColors.tarjetaOscura,
+                  color: Colors.white,
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -350,18 +361,22 @@ class _FilaCliente extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Solo el vencido lleva el avatar navy: en una lista de seis, el
+            // que hay que atender primero se reconoce sin leer las fechas.
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: LibretaColors.tarjetaOscura,
+                color: vieja
+                    ? LibretaColors.tarjetaOscura
+                    : context.libreta.textoFuerte.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
               child: Text(
                 cliente.iniciales,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: vieja ? Colors.white : context.libreta.textoFuerte,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
@@ -387,7 +402,9 @@ class _FilaCliente extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: vieja ? LibretaColors.aviso : context.libreta.textoMuted,
+                      color: vieja
+                          ? const Color(0xFFF2A93C)
+                          : context.libreta.textoMuted,
                     ),
                   ),
                 ],
