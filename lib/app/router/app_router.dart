@@ -15,6 +15,7 @@ import '../../features/gastos/presentation/gastos_screen.dart';
 import '../../features/negocio/domain/membresia.dart';
 import '../../features/negocio/presentation/detalle_empleado_screen.dart';
 import '../../features/negocio/presentation/empleados_screen.dart';
+import '../../features/negocio/presentation/mis_negocios_screen.dart';
 import '../../features/negocio/presentation/impresora_screen.dart';
 import '../../features/negocio/presentation/metodos_pago_screen.dart';
 import '../../features/negocio/presentation/selector_banco_screen.dart';
@@ -116,6 +117,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.productos,
         pageBuilder: (_, s) => _pagina(s, const ProductosScreen()),
+      ),
+      GoRoute(
+        path: Routes.misNegocios,
+        pageBuilder: (_, s) => _pagina(s, const MisNegociosScreen()),
       ),
       GoRoute(
         path: Routes.arqueoInventario,

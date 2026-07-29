@@ -188,25 +188,29 @@ class _SeccionSaludo extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 2),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      nombre,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: t.textoFuerte,
+              GestureDetector(
+                onTap: () => context.push(Routes.misNegocios),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        nombre,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          color: t.textoFuerte,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down,
-                      size: 20, color: t.textoMuted),
-                ],
+                    const SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down,
+                        size: 20, color: t.textoMuted),
+                  ],
+                ),
               ),
             ],
           ),

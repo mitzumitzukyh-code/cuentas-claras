@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/firestore_paths.dart';
 import '../../../core/providers/firebase_providers.dart';
@@ -274,7 +275,35 @@ final misMembresiasProvider = StreamProvider<List<Membresia>>((ref) {
 
 /// Negocio seleccionado manualmente (multi-negocio, Fase 3). `null` = usar el
 /// primero disponible.
-final negocioSeleccionadoProvider = StateProvider<String?>((ref) => null);
+///
+/// Se persiste: sin esto, quien administra dos sucursales volvía a la primera
+/// cada vez que abría la app y podía cobrar en el negocio equivocado sin
+/// darse cuenta.
+class NegocioSeleccionadoNotifier extends StateNotifier<String?> {
+  NegocioSeleccionadoNotifier(this._prefs)
+      : super(_prefs.getString(_clave));
+
+  static const _clave = 'negocio_seleccionado';
+  final SharedPreferences _prefs;
+
+  @override
+  set state(String? valor) {
+    super.state = valor;
+    if (valor == null) {
+      _prefs.remove(_clave);
+    } else {
+      _prefs.setString(_clave, valor);
+    }
+  }
+
+  @override
+  String? get state => super.state;
+}
+
+final negocioSeleccionadoProvider =
+    StateNotifierProvider<NegocioSeleccionadoNotifier, String?>((ref) {
+  return NegocioSeleccionadoNotifier(ref.watch(sharedPreferencesProvider));
+});
 
 /// Membresía activa (define el negocio y el rol actuales).
 final membresiaActivaProvider = Provider<Membresia?>((ref) {
