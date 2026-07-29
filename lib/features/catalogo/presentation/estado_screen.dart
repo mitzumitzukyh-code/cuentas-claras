@@ -180,41 +180,101 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
                     onTap: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    'Publicar en Estado',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: context.libreta.textoFuerte,
-                      letterSpacing: -0.4,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Publicar en Estado',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: context.libreta.textoFuerte,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const Text(
+                          '¿qué quieres mostrar hoy?',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            fontStyle: FontStyle.italic,
+                            color: LibretaColors.verde,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
+              // Lo que más frena al dueño es creer que su cliente tiene que
+              // instalar algo. Se responde antes de que lo pregunte.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 13, 6),
+                  decoration: BoxDecoration(
+                    color: LibretaColors.tarjetaOscura,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 19,
+                        height: 19,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: LibretaColors.verde,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check_rounded,
+                            size: 12, color: Colors.white),
+                      ),
+                      const SizedBox(width: 7),
+                      const Flexible(
+                        child: Text(
+                          'Tu cliente no instala nada — lo ve en tu Estado',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const Align(
                 alignment: Alignment.centerLeft,
                 child: LibretaAvisoOfflineCompacto(
-                  copy: 'Necesitas internet para publicar en Estado',
+                  copy: 'Sin conexión — necesitas internet para publicar',
                 ),
               ),
               const SizedBox(height: 18),
 
-              // --- Formato ---
+              // --- Plantilla ---
               Row(
                 children: [
                   Expanded(
-                    child: _Pestana(
-                      texto: 'Grilla',
+                    child: _TarjetaPlantilla(
+                      titulo: 'Lista de precios',
+                      detalle: 'hasta 6 productos',
                       activa: _formato == FormatoEstado.grilla,
+                      vista: const _VistaLista(),
                       onTap: () =>
                           setState(() => _formato = FormatoEstado.grilla),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: _Pestana(
-                      texto: 'Flyer destacado',
+                    child: _TarjetaPlantilla(
+                      titulo: 'Oferta del día',
+                      detalle: '1 producto grande',
                       activa: _formato == FormatoEstado.flyer,
+                      vista: const _VistaOferta(),
                       onTap: () =>
                           setState(() => _formato = FormatoEstado.flyer),
                     ),
@@ -457,6 +517,195 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   }
 }
 
+/// Tarjeta de plantilla con vista previa (`Lote O · P0`).
+///
+/// La miniatura vale más que el nombre: "grilla" y "flyer" no le dicen nada a
+/// quien nunca publicó un Estado; el dibujito sí.
+class _TarjetaPlantilla extends StatelessWidget {
+  const _TarjetaPlantilla({
+    required this.titulo,
+    required this.detalle,
+    required this.activa,
+    required this.vista,
+    required this.onTap,
+  });
+
+  final String titulo;
+  final String detalle;
+  final bool activa;
+  final Widget vista;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: t.superficie,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: activa ? LibretaColors.verde : t.renglon,
+            width: activa ? 2 : 1.5,
+          ),
+          boxShadow: activa
+              ? const [
+                  BoxShadow(
+                    color: Color(0x240E9F6E),
+                    offset: Offset(0, 8),
+                    blurRadius: 18,
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: 96, child: vista),
+            Container(
+              padding: const EdgeInsets.fromLTRB(11, 9, 11, 11),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: t.renglon)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: t.textoFuerte,
+                    ),
+                  ),
+                  Text(
+                    detalle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: t.textoMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Miniatura de la lista de precios: renglones con su precio verde.
+class _VistaLista extends StatelessWidget {
+  const _VistaLista();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Container(
+      color: t.papel,
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 7,
+            width: 52,
+            decoration: BoxDecoration(
+              color: LibretaColors.tarjetaOscura,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(height: 5),
+          for (var i = 0; i < 4; i++) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: t.textoFuerte.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  height: 8,
+                  width: 22,
+                  decoration: BoxDecoration(
+                    color: LibretaColors.verde,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
+            if (i < 3) const SizedBox(height: 5),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Miniatura de la oferta: una pastilla ámbar y un precio grande.
+class _VistaOferta extends StatelessWidget {
+  const _VistaOferta();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFF4EFE4), Color(0xFFE3D0C2)],
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 9,
+            width: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2A93C),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          const SizedBox(height: 5),
+          FractionallySizedBox(
+            widthFactor: 0.74,
+            child: Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: LibretaColors.tarjetaOscura,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          FractionallySizedBox(
+            widthFactor: 0.46,
+            child: Container(
+              height: 16,
+              decoration: BoxDecoration(
+                color: LibretaColors.verde,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Chip de filtro de la mercancía que entra en la imagen.
 class _ChipFiltro extends StatelessWidget {
   const _ChipFiltro({
@@ -549,44 +798,6 @@ class _ToggleEstado extends StatelessWidget {
   }
 }
 
-class _Pestana extends StatelessWidget {
-  const _Pestana({
-    required this.texto,
-    required this.activa,
-    required this.onTap,
-  });
-
-  final String texto;
-  final bool activa;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: activa ? LibretaColors.verde : context.libreta.superficie,
-          border: activa ? null : Border.all(color: context.libreta.bordeSuave),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          texto,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-            color: activa ? Colors.white : context.libreta.textoFuerte,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// La imagen 9:16 que se sube al Estado.
 class _LienzoEstado extends StatelessWidget {
   const _LienzoEstado({
     required this.formato,
