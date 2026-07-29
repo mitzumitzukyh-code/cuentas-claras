@@ -13,4 +13,9 @@ abstract final class AppLinks {
   /// Correo de soporte (CLAUDE.md §8). No hay número de WhatsApp de soporte
   /// configurado todavía, así que el Centro de ayuda usa este canal.
   static const String correoSoporte = 'soporte.cuentaclara@gmail.com';
+
+  /// Versión que se muestra al pie de Ajustes (`Lote E · P3`). Se mantiene a
+  /// mano junto a `pubspec.yaml`; no vale la pena arrastrar package_info_plus
+  /// solo para pintar un renglón.
+  static const String version = '1.0.0';
 }

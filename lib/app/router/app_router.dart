@@ -14,6 +14,7 @@ import '../../features/fiados/presentation/fiados_screen.dart';
 import '../../features/gastos/presentation/gastos_screen.dart';
 import '../../features/negocio/domain/membresia.dart';
 import '../../features/negocio/presentation/detalle_empleado_screen.dart';
+import '../../features/negocio/presentation/auditoria_screen.dart';
 import '../../features/negocio/presentation/empleados_screen.dart';
 import '../../features/negocio/presentation/mis_negocios_screen.dart';
 import '../../features/negocio/presentation/impresora_screen.dart';
@@ -117,6 +118,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.productos,
         pageBuilder: (_, s) => _pagina(s, const ProductosScreen()),
+      ),
+      GoRoute(
+        path: Routes.auditoria,
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.gestionarEmpleados,
+          titulo: 'La auditoría es del dueño',
+          child: AuditoriaScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.misNegocios,

@@ -7,6 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/app_links.dart';
+import '../../../services/respaldo/respaldo_service.dart';
 import '../../../core/providers/historial_tasa_provider.dart';
 import '../../auth/data/biometria_service.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
@@ -70,6 +75,52 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
 
   void _marcarSucio() {
     if (!_sucio) setState(() => _sucio = true);
+  }
+
+  bool _exportando = false;
+
+  /// Abre el correo de soporte con el asunto ya puesto.
+  Future<void> _escribirSoporte() async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: AppLinks.correoSoporte,
+      queryParameters: {'subject': 'Ayuda con Cuenta Clara'},
+    );
+    await launchUrl(uri);
+  }
+
+  /// Exporta ventas, gastos, productos y fiados a un .zip de CSV y lo comparte
+  /// (`Lote E · P3`).
+  ///
+  /// CSV y no un formato propio: el dueño se lo manda al contador, que lo abre
+  /// en Excel sin instalar nada. Un respaldo que solo esta app puede leer no
+  /// es un respaldo.
+  Future<void> _exportarNegocio() async {
+    final membresia = ref.read(membresiaActivaProvider);
+    final negocio = ref.read(negocioActivoProvider).valueOrNull;
+    if (membresia == null || negocio == null || _exportando) return;
+
+    setState(() => _exportando = true);
+    try {
+      final archivo = await ref
+          .read(respaldoServiceProvider)
+          .exportarZip(membresia.negocioId, negocio.nombre);
+      if (!mounted) return;
+      await Share.shareXFiles(
+        [XFile(archivo.path)],
+        subject: 'Respaldo de ${negocio.nombre}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo exportar: $e'),
+          backgroundColor: AppColors.peligro,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
 
   Future<void> _guardarTexto(String negocioId) async {
@@ -735,28 +786,73 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                       orden: 10,
                       child: _Seccion(
                         titulo: 'Ayuda',
-                        child: _Fila(
-                          ultima: true,
-                          onTap: () => context.push(Routes.ayuda),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Centro de ayuda',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: context.libreta.textoFuerte,
-                                  ),
-                                ),
+                        child: Column(
+                          children: [
+                            _Fila(
+                              onTap: () => context.push(Routes.ayuda),
+                              child: _FilaSimple(
+                                icono: Icons.help_outline_rounded,
+                                texto: 'Centro de ayuda',
                               ),
-                              Icon(
-                                Icons.chevron_right,
-                                size: 19,
-                                color: context.libreta.textoMuted,
+                            ),
+                            // El diseño dice "Escríbenos por WhatsApp", pero
+                            // no hay número de soporte configurado: se manda
+                            // por correo, que es el canal que sí existe
+                            // (CLAUDE.md §8). Cambiar la etiqueta el día que
+                            // haya número.
+                            _Fila(
+                              ultima: true,
+                              onTap: _escribirSoporte,
+                              child: _FilaSimple(
+                                icono: Icons.mail_outline_rounded,
+                                texto: 'Escríbenos a soporte',
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // --- 9. Respaldo y datos ---
+                    _EntradaSuave(
+                      orden: 11,
+                      child: _Seccion(
+                        titulo: 'Respaldo y datos',
+                        child: Column(
+                          children: [
+                            _Fila(
+                              onTap: esDueno ? _exportarNegocio : null,
+                              child: _FilaSimple(
+                                icono: Icons.file_download_outlined,
+                                texto: 'Exportar todo mi negocio',
+                                valor: _exportando ? 'generando…' : '.zip',
+                              ),
+                            ),
+                            _Fila(
+                              ultima: true,
+                              onTap: esDueno
+                                  ? () => context.push(Routes.auditoria)
+                                  : null,
+                              child: _FilaSimple(
+                                icono: Icons.fact_check_outlined,
+                                texto: 'Historial de auditoría',
+                                valor: 'quién hizo qué',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+
+                    Center(
+                      child: Text(
+                        'Cuenta Clara · v${AppLinks.version}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: context.libreta.textoMuted,
                         ),
                       ),
                     ),
@@ -822,6 +918,52 @@ class _SelectorTasaAjustes extends ConsumerWidget {
 ///
 /// Solo aparece si hay al menos dos días guardados: un solo renglón repitiendo
 /// lo que ya dice el selector de arriba no informa nada.
+/// Fila de Ajustes con icono, texto y un valor opcional a la derecha.
+class _FilaSimple extends StatelessWidget {
+  const _FilaSimple({
+    required this.icono,
+    required this.texto,
+    this.valor,
+  });
+
+  final IconData icono;
+  final String texto;
+  final String? valor;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Row(
+      children: [
+        Icon(icono, size: 20, color: t.textoFuerte),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: t.textoFuerte,
+            ),
+          ),
+        ),
+        if (valor != null) ...[
+          Text(
+            valor!,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: t.textoMuted,
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        Icon(Icons.chevron_right, size: 18, color: t.textoMuted),
+      ],
+    );
+  }
+}
+
 /// Activar el candado de huella/rostro (Lote A · F7).
 ///
 /// Solo se ofrece si el teléfono tiene biometría configurada: un interruptor

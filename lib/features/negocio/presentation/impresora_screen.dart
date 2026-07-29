@@ -506,6 +506,22 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                _FilaFormato(
+                  titulo: 'Imprimir logo',
+                  detalle: 'Encabeza el ticket con el logo del negocio',
+                  valor: _config.imprimirLogo,
+                  onChanged: (v) =>
+                      _guardar(_config.copyWith(imprimirLogo: v)),
+                ),
+                const SizedBox(height: 10),
+                _FilaFormato(
+                  titulo: 'Imprimir automático al cobrar',
+                  detalle: 'Saca el ticket solo, sin que tengas que pedirlo',
+                  valor: _config.imprimirAlCobrar,
+                  onChanged: (v) =>
+                      _guardar(_config.copyWith(imprimirAlCobrar: v)),
+                ),
                 const SizedBox(height: 18),
                 LibretaButton(
                   label: 'Imprimir ticket de prueba',
@@ -526,6 +542,60 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Una fila del bloque "Formato del ticket" (`Lote E · P2`).
+class _FilaFormato extends StatelessWidget {
+  const _FilaFormato({
+    required this.titulo,
+    required this.detalle,
+    required this.valor,
+    required this.onChanged,
+  });
+
+  final String titulo;
+  final String detalle;
+  final bool valor;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: t.superficie,
+        border: Border.all(color: t.renglon),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  titulo,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: t.textoFuerte,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detalle,
+                  style: TextStyle(fontSize: 11.5, color: t.textoMuted),
+                ),
+              ],
+            ),
+          ),
+          LibretaToggle(value: valor, onChanged: onChanged),
+        ],
       ),
     );
   }

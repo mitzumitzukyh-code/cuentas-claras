@@ -11,6 +11,7 @@ import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../negocio/data/auditoria_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/venta_repository.dart';
 import '../domain/venta.dart';
@@ -171,6 +172,16 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
       await ref
           .read(ventaRepositoryProvider)
           .anularVenta(membresia.negocioId, venta);
+      // Anular es lo que más discusiones genera entre dueño y empleados:
+      // queda anotado con nombre y hora (Lote E · P3).
+      ref.read(auditoriaRepositoryProvider).anotar(
+            membresia.negocioId,
+            accion: 'anuló una venta',
+            detalle: '${MoneyFormatter.usd(venta.totalUSD)} · '
+                '${venta.items.length} '
+                '${venta.items.length == 1 ? "producto" : "productos"}',
+            autorNombre: membresia.nombreVisible,
+          );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Venta anulada y stock restituido')),

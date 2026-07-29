@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../app/router/routes.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/negocio_repository.dart';
 import '../domain/metodo_pago_config.dart';
@@ -266,6 +268,34 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
         MetodoPago.puntoDeVenta => Icons.point_of_sale,
       };
 
+  /// El pago móvil tiene pantalla propia (`Lote E · P7`): banco, teléfono y
+  /// cédula se dictan de corrido, así que el diseño los junta ahí en vez de
+  /// dejarlos sueltos dentro de esta tarjeta.
+  bool get _tieneDetalle => widget.config.metodo == MetodoPago.pagoMovil;
+
+  /// Lo que el diseño muestra bajo el nombre del método.
+  String? get _subtitulo {
+    final d = widget.config.datos;
+    switch (widget.config.metodo) {
+      case MetodoPago.efectivo:
+        return 'Bs y USD';
+      case MetodoPago.puntoDeVenta:
+        return 'Débito y crédito';
+      case MetodoPago.pagoMovil:
+        final banco = d['banco'];
+        final cedula = d['cedula'];
+        if (banco == null || banco.isEmpty) return 'Toca para configurarlo';
+        final codigo = d['codigoBanco'];
+        final izq = codigo == null || codigo.isEmpty
+            ? banco
+            : '$banco ($codigo)';
+        return cedula == null || cedula.isEmpty ? izq : '$izq · $cedula';
+      default:
+        final resumen = d.values.where((v) => v.trim().isNotEmpty).join(' · ');
+        return resumen.isEmpty ? null : resumen;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final campos = MetodoPagoConfig.camposDe(widget.config.metodo);
@@ -294,15 +324,50 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  _sinEmoji(widget.config.metodo.etiqueta),
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    color: context.libreta.textoFuerte,
+                child: GestureDetector(
+                  onTap: _tieneDetalle
+                      ? () => context.push(Routes.selectorBanco)
+                      : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _sinEmoji(widget.config.metodo.etiqueta),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: context.libreta.textoFuerte,
+                        ),
+                      ),
+                      if (_subtitulo != null)
+                        Text(
+                          _subtitulo!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: context.libreta.textoMuted,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
+              if (_tieneDetalle)
+                GestureDetector(
+                  onTap: () => context.push(Routes.selectorBanco),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: context.libreta.textoMuted,
+                    ),
+                  ),
+                ),
               LibretaToggle(
                 value: widget.config.activo,
                 onChanged: widget.editable ? widget.onAlternar : (_) {},
@@ -310,7 +375,7 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
             ],
           ),
 
-          if (widget.config.activo && campos.isNotEmpty) ...[
+          if (widget.config.activo && campos.isNotEmpty && !_tieneDetalle) ...[
             const SizedBox(height: 12),
             for (final campo in campos)
               Padding(

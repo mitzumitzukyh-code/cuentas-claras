@@ -18,6 +18,7 @@ abstract final class Routes {
   static const String arqueo = '/arqueo';
   static const String arqueoInventario = '/productos/contar';
   static const String misNegocios = '/mis-negocios';
+  static const String auditoria = '/perfil/auditoria';
   static const String proveedores = '/proveedores';
   static const String empleados = '/perfil/empleados';
   static const String metodosPago = '/perfil/metodos-pago';

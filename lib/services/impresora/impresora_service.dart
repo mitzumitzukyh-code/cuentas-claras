@@ -47,6 +47,8 @@ class ImpresoraConfig {
     this.macBluetooth = '',
     this.nombreBluetooth = '',
     this.papel80mm = false,
+    this.imprimirLogo = true,
+    this.imprimirAlCobrar = false,
   });
 
   final TipoImpresora tipo;
@@ -57,6 +59,14 @@ class ImpresoraConfig {
 
   /// `false` = rollo de 58 mm, el más común en las térmicas económicas.
   final bool papel80mm;
+
+  /// Encabezar el ticket con el logo del negocio.
+  final bool imprimirLogo;
+
+  /// Sacar el ticket solo, en cuanto se registra la venta. Apagado por
+  /// defecto: en una bodega la mayoría de los clientes no lo pide, y gastar
+  /// rollo en cada venta es plata.
+  final bool imprimirAlCobrar;
 
   PaperSize get tamanoPapel => papel80mm ? PaperSize.mm80 : PaperSize.mm58;
 
@@ -73,6 +83,8 @@ class ImpresoraConfig {
     String? macBluetooth,
     String? nombreBluetooth,
     bool? papel80mm,
+    bool? imprimirLogo,
+    bool? imprimirAlCobrar,
   }) {
     return ImpresoraConfig(
       tipo: tipo ?? this.tipo,
@@ -81,6 +93,8 @@ class ImpresoraConfig {
       macBluetooth: macBluetooth ?? this.macBluetooth,
       nombreBluetooth: nombreBluetooth ?? this.nombreBluetooth,
       papel80mm: papel80mm ?? this.papel80mm,
+      imprimirLogo: imprimirLogo ?? this.imprimirLogo,
+      imprimirAlCobrar: imprimirAlCobrar ?? this.imprimirAlCobrar,
     );
   }
 }
@@ -105,6 +119,8 @@ class ImpresoraService {
   static const _kMac = 'impresora_mac';
   static const _kNombre = 'impresora_nombre';
   static const _kPapel = 'impresora_papel80';
+  static const _kLogo = 'impresora_logo';
+  static const _kAuto = 'impresora_auto';
 
   Future<ImpresoraConfig> cargar() async {
     final p = await SharedPreferences.getInstance();
@@ -115,6 +131,8 @@ class ImpresoraService {
       macBluetooth: p.getString(_kMac) ?? '',
       nombreBluetooth: p.getString(_kNombre) ?? '',
       papel80mm: p.getBool(_kPapel) ?? false,
+      imprimirLogo: p.getBool(_kLogo) ?? true,
+      imprimirAlCobrar: p.getBool(_kAuto) ?? false,
     );
   }
 
@@ -126,6 +144,8 @@ class ImpresoraService {
     await p.setString(_kMac, config.macBluetooth);
     await p.setString(_kNombre, config.nombreBluetooth);
     await p.setBool(_kPapel, config.papel80mm);
+    await p.setBool(_kLogo, config.imprimirLogo);
+    await p.setBool(_kAuto, config.imprimirAlCobrar);
   }
 
   /// Impresoras Bluetooth ya emparejadas en los ajustes del teléfono.

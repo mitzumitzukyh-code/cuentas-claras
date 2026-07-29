@@ -20,6 +20,9 @@ abstract final class FirestorePaths {
   /// Subcolección de un cliente o proveedor.
   static const String movimientos = 'movimientos';
 
+  /// Registro de quién hizo qué (Lote E · P3).
+  static const String auditoria = 'auditoria';
+
   /// ID de membresía: `usuarioId_negocioId` (debe coincidir con las reglas).
   static String membresiaId(String usuarioId, String negocioId) =>
       '${usuarioId}_$negocioId';
