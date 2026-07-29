@@ -19,7 +19,6 @@ import '../../features/negocio/presentation/empleados_screen.dart';
 import '../../features/negocio/presentation/mis_negocios_screen.dart';
 import '../../features/negocio/presentation/impresora_screen.dart';
 import '../../features/negocio/presentation/metodos_pago_screen.dart';
-import '../../features/negocio/presentation/selector_banco_screen.dart';
 import '../../features/perfil/presentation/legal_screen.dart';
 import '../../features/onboarding/presentation/rubro_selection_screen.dart';
 import '../../features/perfil/presentation/ajustes_screen.dart';
@@ -311,10 +310,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.legal,
         pageBuilder: (_, s) => _pagina(s, const LegalScreen()),
-      ),
-      GoRoute(
-        path: Routes.selectorBanco,
-        pageBuilder: (_, s) => _pagina(s, const SelectorBancoScreen()),
       ),
       GoRoute(
         path: Routes.detalleEmpleado,

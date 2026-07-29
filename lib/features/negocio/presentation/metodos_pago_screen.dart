@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../shared/presentation/libreta/libreta.dart';
-import '../../../app/router/routes.dart';
+import 'hoja_bancos.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/negocio_repository.dart';
 import '../domain/metodo_pago_config.dart';
@@ -131,13 +130,19 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
                   children: [
                     Text(
                       'Elige qué formas de pago aparecen al cobrar.',
-                      style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.libreta.textoMuted,
+                      ),
                     ),
 
                     if (!esDueno) ...[
                       const SizedBox(height: 14),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0x21F2A93C),
                           borderRadius: BorderRadius.circular(14),
@@ -172,7 +177,10 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
                     Text(
                       'Los datos que escribas aquí son los que verá tu cliente al '
                       'pagar y los que se incluirán en el recibo.',
-                      style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.libreta.textoMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -260,18 +268,13 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
   }
 
   IconData get _icono => switch (widget.config.metodo) {
-        MetodoPago.efectivo => Icons.payments_outlined,
-        MetodoPago.pagoMovil => Icons.smartphone,
-        MetodoPago.transferencia => Icons.account_balance_outlined,
-        MetodoPago.zelle => Icons.attach_money,
-        MetodoPago.biopago => Icons.fingerprint,
-        MetodoPago.puntoDeVenta => Icons.point_of_sale,
-      };
-
-  /// El pago móvil tiene pantalla propia (`Lote E · P7`): banco, teléfono y
-  /// cédula se dictan de corrido, así que el diseño los junta ahí en vez de
-  /// dejarlos sueltos dentro de esta tarjeta.
-  bool get _tieneDetalle => widget.config.metodo == MetodoPago.pagoMovil;
+    MetodoPago.efectivo => Icons.payments_outlined,
+    MetodoPago.pagoMovil => Icons.smartphone,
+    MetodoPago.transferencia => Icons.account_balance_outlined,
+    MetodoPago.zelle => Icons.attach_money,
+    MetodoPago.biopago => Icons.fingerprint,
+    MetodoPago.puntoDeVenta => Icons.point_of_sale,
+  };
 
   /// Lo que el diseño muestra bajo el nombre del método.
   String? get _subtitulo {
@@ -284,11 +287,10 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
       case MetodoPago.pagoMovil:
         final banco = d['banco'];
         final cedula = d['cedula'];
-        if (banco == null || banco.isEmpty) return 'Toca para configurarlo';
+        if (banco == null || banco.isEmpty) return 'Sin configurar';
         final codigo = d['codigoBanco'];
-        final izq = codigo == null || codigo.isEmpty
-            ? banco
-            : '$banco ($codigo)';
+        final izq =
+            codigo == null || codigo.isEmpty ? banco : '$banco ($codigo)';
         return cedula == null || cedula.isEmpty ? izq : '$izq · $cedula';
       default:
         final resumen = d.values.where((v) => v.trim().isNotEmpty).join(' · ');
@@ -324,50 +326,32 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: GestureDetector(
-                  onTap: _tieneDetalle
-                      ? () => context.push(Routes.selectorBanco)
-                      : null,
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _sinEmoji(widget.config.metodo.etiqueta),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: context.libreta.textoFuerte,
+                      ),
+                    ),
+                    if (_subtitulo != null)
                       Text(
-                        _sinEmoji(widget.config.metodo.etiqueta),
+                        _subtitulo!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: context.libreta.textoFuerte,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: context.libreta.textoMuted,
                         ),
                       ),
-                      if (_subtitulo != null)
-                        Text(
-                          _subtitulo!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: context.libreta.textoMuted,
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-              if (_tieneDetalle)
-                GestureDetector(
-                  onTap: () => context.push(Routes.selectorBanco),
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: context.libreta.textoMuted,
-                    ),
-                  ),
-                ),
               LibretaToggle(
                 value: widget.config.activo,
                 onChanged: widget.editable ? widget.onAlternar : (_) {},
@@ -375,19 +359,32 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
             ],
           ),
 
-          if (widget.config.activo && campos.isNotEmpty && !_tieneDetalle) ...[
+          if (widget.config.activo && campos.isNotEmpty) ...[
             const SizedBox(height: 12),
             for (final campo in campos)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: LibretaInput(
-                  controller: _controles[campo.clave],
-                  label: campo.etiqueta,
-                  hint: campo.ejemplo,
-                  height: 42,
-                  enabled: widget.editable,
-                  onChanged: (v) => widget.onCampo(campo.clave, v),
-                ),
+                // El banco no se escribe: se elige de la hoja y el código
+                // SUDEBAN entra solo, que es donde más se equivoca la gente.
+                child:
+                    campo.clave == 'banco'
+                        ? CampoBanco(
+                          valor: widget.config.datos['banco'] ?? '',
+                          habilitado: widget.editable,
+                          onElegir: (b) {
+                            _controles['banco']?.text = b.nombre;
+                            widget.onCampo('banco', b.nombre);
+                            widget.onCampo('codigoBanco', b.codigo);
+                          },
+                        )
+                        : LibretaInput(
+                          controller: _controles[campo.clave],
+                          label: campo.etiqueta,
+                          hint: campo.ejemplo,
+                          height: 42,
+                          enabled: widget.editable,
+                          onChanged: (v) => widget.onCampo(campo.clave, v),
+                        ),
               ),
           ],
         ],

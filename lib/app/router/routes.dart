@@ -41,7 +41,6 @@ abstract final class Routes {
   static const String proveedorDetalle = '/proveedores/:proveedorId';
   static const String proveedorMovimiento = '/proveedores/:proveedorId/movimiento';
   static const String legal = '/perfil/legal';
-  static const String selectorBanco = '/perfil/selector-banco';
   static const String detalleEmpleado = '/perfil/empleados/:membresiaId';
   static const String eliminarCuenta = '/perfil/eliminar-cuenta';
   static const String estadoWhatsApp = '/catalogo/estado';
