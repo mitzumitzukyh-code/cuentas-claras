@@ -183,6 +183,10 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                       letterSpacing: -0.4,
                     ),
                   ),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: LibretaAvisoOfflineCompacto(),
+                  ),
                   const SizedBox(height: 14),
 
                   Container(

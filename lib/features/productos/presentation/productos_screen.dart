@@ -11,6 +11,7 @@ import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/presentation/permiso_requerido.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/producto_repository.dart';
 import '../domain/producto.dart';
@@ -92,13 +93,15 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
   @override
   Widget build(BuildContext context) {
     final productosAsync = ref.watch(productosProvider);
-    final esDueno = ref.watch(esDuenoProvider);
+    // Permiso, no rol: un vendedor con «editar inventario» activado también
+    // puede cargar mercancía. El dueño lo cumple siempre.
+    final puedeEditar = ref.watch(puedeProvider(Permisos.editarInventario));
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
       bottomNavigationBar: const AppBottomNav(activa: NavTab.productos),
-      floatingActionButton: esDueno
+      floatingActionButton: puedeEditar
           ? FloatingActionButton(
               backgroundColor: LibretaColors.verde,
               shape: const CircleBorder(),
@@ -165,10 +168,14 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                                 color: context.libreta.textoMuted,
                               ),
                             ),
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: LibretaAvisoOfflineCompacto(),
+                            ),
                           ],
                         ),
                       ),
-                      if (esDueno) ...[
+                      if (puedeEditar) ...[
                         LibretaIconButton(
                           icon: Icons.file_download_outlined,
                           onTap: () => context.push(Routes.importarInventario),
@@ -259,7 +266,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                       detalle: 'Agrega tus productos con foto, precio y '
                           'stock para empezar a cobrar rápido.',
                       tagline: 'empieza a llenar tu cuaderno',
-                      boton: esDueno
+                      boton: puedeEditar
                           ? LibretaButton(
                               label: 'Agregar producto',
                               icon: const Icon(Icons.add, size: 19, color: Colors.white),
@@ -285,7 +292,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                         child: _TarjetaProducto(
                           producto: p,
                           tasa: tasa,
-                          onTap: esDueno
+                          onTap: puedeEditar
                               ? () => Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (_) =>

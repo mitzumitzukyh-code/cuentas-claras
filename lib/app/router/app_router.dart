@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/session/sesion_provider.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/cierre/presentation/arqueo_caja_screen.dart';
+import '../../shared/presentation/permiso_requerido.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/fiados/presentation/fiados_screen.dart';
 import '../../features/gastos/presentation/gastos_screen.dart';
@@ -117,7 +118,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.nuevoProducto,
-        pageBuilder: (_, s) => _pagina(s, const NuevoProductoScreen()),
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.editarInventario,
+          titulo: 'Solo el dueño agrega productos',
+          child: NuevoProductoScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.cobrar,
@@ -125,7 +130,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.reportes,
-        pageBuilder: (_, s) => _pagina(s, const ReportesScreen()),
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.verReportes,
+          titulo: 'Los reportes son del dueño',
+          detalle: 'Aquí se ven las ganancias y los costos del negocio. '
+              'Pídele al dueño que te active «Ver reportes» si necesitas '
+              'entrar.',
+          child: ReportesScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.perfil,
@@ -137,7 +149,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.gastos,
-        pageBuilder: (_, s) => _pagina(s, const GastosScreen()),
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.registrarGastos,
+          titulo: 'Los gastos son del dueño',
+          child: GastosScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.fiados,
@@ -145,7 +161,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.arqueo,
-        pageBuilder: (_, s) => _pagina(s, const ArqueoCajaScreen()),
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.cerrarCaja,
+          titulo: 'Cerrar la caja es del dueño',
+          child: ArqueoCajaScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.proveedores,
@@ -153,7 +173,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.empleados,
-        pageBuilder: (_, s) => _pagina(s, const EmpleadosScreen()),
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.gestionarEmpleados,
+          titulo: 'El equipo lo maneja el dueño',
+          child: EmpleadosScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.metodosPago,
@@ -193,7 +217,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.nuevoGasto,
-        pageBuilder: (_, s) => _pagina(s, const RegistrarGastoScreen()),
+        pageBuilder: (_, s) => _pagina(s, const PermisoRequerido(
+          permiso: Permisos.registrarGastos,
+          titulo: 'Los gastos son del dueño',
+          child: RegistrarGastoScreen(),
+        )),
       ),
       GoRoute(
         path: Routes.fiadoDetalle,

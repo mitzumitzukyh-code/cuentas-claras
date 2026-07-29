@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/routes.dart';
 import 'libreta/libreta.dart';
+import 'permiso_requerido.dart';
 
 /// Pestañas de la barra inferior (réplica visual de `P0 · APP SHELL`,
 /// `Lote K · Navegación`): Inicio, Ventas, Mercancía, Reportes y Más.
@@ -12,7 +14,7 @@ enum NavTab { inicio, cobrar, productos, reportes, perfil }
 ///
 /// Solo cambia de color el icono y la etiqueta al activarse — sin píldora de
 /// fondo, tal como lo muestra el mockup.
-class AppBottomNav extends StatelessWidget {
+class AppBottomNav extends ConsumerWidget {
   const AppBottomNav({super.key, required this.activa});
 
   final NavTab activa;
@@ -36,8 +38,12 @@ class AppBottomNav extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
+    // Un vendedor sin permiso de reportes no ve la pestaña: la pantalla lo
+    // rebotaría igual, y una puerta que siempre da a un muro se siente como
+    // un error de la app, no como una decisión de su jefe.
+    final verReportes = ref.watch(puedeProvider(Permisos.verReportes));
     // La barra de gestos del sistema va *debajo* de las pestañas: si se
     // descuenta de los 64 px la columna de cada pestaña no cabe y desborda.
     final insetInferior = MediaQuery.paddingOf(context).bottom;
@@ -69,12 +75,13 @@ class AppBottomNav extends StatelessWidget {
             activa: activa == NavTab.productos,
             onTap: () => _ir(context, NavTab.productos),
           ),
-          _Tab(
-            icono: Icons.show_chart_rounded,
-            etiqueta: 'Reportes',
-            activa: activa == NavTab.reportes,
-            onTap: () => _ir(context, NavTab.reportes),
-          ),
+          if (verReportes)
+            _Tab(
+              icono: Icons.show_chart_rounded,
+              etiqueta: 'Reportes',
+              activa: activa == NavTab.reportes,
+              onTap: () => _ir(context, NavTab.reportes),
+            ),
           _Tab(
             icono: Icons.more_horiz_rounded,
             etiqueta: 'Más',

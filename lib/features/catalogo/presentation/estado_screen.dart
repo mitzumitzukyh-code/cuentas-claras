@@ -141,6 +141,12 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
                   ),
                 ],
               ),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: LibretaAvisoOfflineCompacto(
+                  copy: 'Necesitas internet para publicar en Estado',
+                ),
+              ),
               const SizedBox(height: 18),
 
               // --- Formato ---

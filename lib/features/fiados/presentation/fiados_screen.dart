@@ -73,6 +73,10 @@ class FiadosScreen extends ConsumerWidget {
                           letterSpacing: -0.4,
                         ),
                       ),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: LibretaAvisoOfflineCompacto(),
+                      ),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),

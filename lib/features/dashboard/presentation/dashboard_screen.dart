@@ -10,6 +10,7 @@ import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/presentation/permiso_requerido.dart';
 import '../../../services/notificaciones/push_service.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../notificaciones/presentation/aviso_notificaciones.dart';
@@ -620,12 +621,32 @@ class _TituloAccesos extends ConsumerWidget {
   }
 }
 
-class _GridAccesosRapidos extends StatelessWidget {
+class _GridAccesosRapidos extends ConsumerWidget {
   const _GridAccesosRapidos();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
+    // Los accesos que el vendedor no puede abrir no se pintan: la segunda
+    // fila se arma con lo que quede, y si no queda nada desaparece entera.
+    final verGastos = ref.watch(puedeProvider(Permisos.registrarGastos));
+    final verReportes = ref.watch(puedeProvider(Permisos.verReportes));
+    final segundaFila = <Widget>[
+      if (verGastos)
+        _AccesoRapido(
+          etiqueta: 'Gastos',
+          icono: Icons.payments_outlined,
+          color: t.textoFuerte,
+          onTap: () => context.push(Routes.gastos),
+        ),
+      if (verReportes)
+        _AccesoRapido(
+          etiqueta: 'Reportes',
+          icono: Icons.show_chart,
+          color: const Color(0xFFF2A93B),
+          onTap: () => context.go(Routes.reportes),
+        ),
+    ];
     return Column(
       children: [
         EntradaAnimada(
@@ -652,31 +673,20 @@ class _GridAccesosRapidos extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        EntradaAnimada(
-          retardo: const Duration(milliseconds: 390),
-          child: Row(
-            children: [
-              Expanded(
-                child: _AccesoRapido(
-                  etiqueta: 'Gastos',
-                  icono: Icons.payments_outlined,
-                  color: t.textoFuerte,
-                  onTap: () => context.push(Routes.gastos),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AccesoRapido(
-                  etiqueta: 'Reportes',
-                  icono: Icons.show_chart,
-                  color: const Color(0xFFF2A93B),
-                  onTap: () => context.go(Routes.reportes),
-                ),
-              ),
-            ],
+        if (segundaFila.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          EntradaAnimada(
+            retardo: const Duration(milliseconds: 390),
+            child: Row(
+              children: [
+                for (var i = 0; i < segundaFila.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(child: segundaFila[i]),
+                ],
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

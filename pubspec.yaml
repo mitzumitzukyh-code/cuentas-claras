@@ -42,6 +42,7 @@ dependencies:
   image_picker: ^1.1.2           # fotos de producto
   share_plus: ^10.1.4            # compartir catalogo/estado
   flutter_local_notifications: ^18.0.1  # recordatorios locales
+  timezone: ^0.9.4               # zona horaria de los recordatorios programados
   # Nota: el brief listaba `open_mail_app` para abrir la bandeja de correo, pero
   # esa libreria esta sin mantenimiento y rompe el build con AGP 8 (no declara
   # `namespace`). Se usa url_launcher con esquema `mailto:` en su lugar.

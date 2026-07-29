@@ -11,6 +11,7 @@ import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
+import '../../../shared/presentation/permiso_requerido.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/membresia.dart';
 import '../../proveedores/data/proveedor_repository.dart';
@@ -149,11 +150,12 @@ class PerfilScreen extends ConsumerWidget {
               _Grupo(
                 titulo: 'Negocio',
                 filas: [
-                  _Fila(
-                    icono: Icons.groups_2_outlined,
-                    etiqueta: 'Empleados',
-                    onTap: () => context.push(Routes.empleados),
-                  ),
+                  if (ref.watch(puedeProvider(Permisos.gestionarEmpleados)))
+                    _Fila(
+                      icono: Icons.groups_2_outlined,
+                      etiqueta: 'Empleados',
+                      onTap: () => context.push(Routes.empleados),
+                    ),
                   _Fila(
                     icono: Icons.credit_card_outlined,
                     etiqueta: 'Métodos de pago',
