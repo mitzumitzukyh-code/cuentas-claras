@@ -75,6 +75,15 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
 
   @override
   Widget build(BuildContext context) {
+    // `authStateProvider` puede tardar en emitir su primer valor incluso con
+    // sesión ya guardada (Firebase recarga las credenciales de forma
+    // asíncrona). Si el primer frame corre antes de eso, `_evaluar` —llamado
+    // una sola vez desde `initState`— ve "sin sesión" y nunca vuelve a
+    // intentarlo: la app abría de una, sin pedir huella, en un arranque en
+    // frío. Esto reintenta en cuanto la sesión de verdad aparece.
+    ref.listen(authStateProvider, (_, actual) {
+      if (actual.valueOrNull != null) _evaluar();
+    });
     return Stack(
       children: [
         widget.child,

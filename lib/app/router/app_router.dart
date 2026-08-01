@@ -24,6 +24,7 @@ import '../../features/negocio/presentation/impresora_screen.dart';
 import '../../features/negocio/presentation/metodos_pago_screen.dart';
 import '../../features/perfil/presentation/legal_screen.dart';
 import '../../features/onboarding/presentation/rubro_selection_screen.dart';
+import '../../features/onboarding/presentation/unirse_codigo_screen.dart';
 import '../../features/perfil/presentation/ajustes_screen.dart';
 import '../../features/perfil/presentation/centro_ayuda_screen.dart';
 import '../../features/perfil/presentation/mi_perfil_screen.dart';
@@ -330,6 +331,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.legal,
         pageBuilder: (_, s) => _pagina(s, const LegalScreen()),
+      ),
+      GoRoute(
+        path: Routes.unirseCodigo,
+        pageBuilder: (_, s) => _pagina(s, const UnirseCodigoScreen()),
       ),
       GoRoute(
         path: Routes.detalleEmpleado,

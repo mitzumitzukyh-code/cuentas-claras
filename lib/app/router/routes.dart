@@ -47,4 +47,5 @@ abstract final class Routes {
   static const String eliminarCuenta = '/perfil/eliminar-cuenta';
   static const String estadoWhatsApp = '/catalogo/estado';
   static const String sesionError = '/sesion-error';
+  static const String unirseCodigo = '/perfil/unirse-codigo';
 }
