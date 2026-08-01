@@ -23,7 +23,7 @@ import {
 import { paginaEliminarCuenta, paginaPrivacidad, paginaTerminos } from './legal.js';
 import { construirAvisoStock } from './stock.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
-import { mensajeResumenVentas } from './ventas.js';
+import { huellaDeEnvio, mensajeResumenVentas } from './ventas.js';
 
 /** Una foto de celular comprimida no debería pasar de esto. Corta abusos. */
 const MAX_BYTES_IMAGEN = 6 * 1024 * 1024;
@@ -109,6 +109,11 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
   const desde = inicioDiaVenezuela(ahora);
   let enviados = 0;
 
+  // Textos ya mandados a cada teléfono en esta corrida (ver `huellaDeEnvio`).
+  // El dedup de KV es por negocio y no puede ver esto: un mismo dispositivo
+  // figura como dueño en varios negocios y todos le mandan la misma frase.
+  const yaEnviado = new Set();
+
   for (const { negocioId, pushToken } of duenos) {
     // Evita mandarlo dos veces si el cron llegara a dispararse más de una
     // vez en la misma hora — no debería pasar, pero es barato cubrirlo.
@@ -124,7 +129,15 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
         desde,
       });
       const mensaje = mensajeResumenVentas({ total, cobros });
-      if (mensaje) {
+      const huella =
+        mensaje &&
+        huellaDeEnvio({
+          destino: pushToken,
+          titulo: mensaje.titulo,
+          cuerpo: mensaje.cuerpo,
+        });
+      if (mensaje && !yaEnviado.has(huella)) {
+        yaEnviado.add(huella);
         await enviarAToken({
           cuenta,
           token: tokenOAuth,
@@ -133,6 +146,9 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
           cuerpo: mensaje.cuerpo,
           datos: mensaje.datos,
           canal: 'resumen_ventas',
+          // Etiqueta estable: si FCM reintenta la entrega, Android reemplaza
+          // el aviso en vez de apilar otro igual.
+          etiqueta: `resumen_ventas:${negocioId}`,
         });
         enviados++;
       }

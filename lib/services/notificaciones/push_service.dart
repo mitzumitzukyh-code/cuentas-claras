@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/router/app_router.dart';
+import '../../app/router/routes.dart';
 import '../../core/providers/firebase_providers.dart';
 import '../../features/negocio/data/negocio_repository.dart';
 import '../../features/notificaciones/domain/preferencias_tasa.dart';
+import 'ids_notificacion.dart';
 
 /// Canal de Android para los avisos de tasa.
 ///
@@ -75,11 +80,42 @@ class PushSyncException implements Exception {
 /// El reparto va por topics (ver [PreferenciasTasa]), así que este servicio
 /// nunca envía un token a ningún servidor.
 class PushService {
-  PushService(this._messaging, this._locales, this._prefs);
+  PushService(this._messaging, this._locales, this._prefs, this._router);
 
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _locales;
   final SharedPreferences _prefs;
+  final GoRouter _router;
+
+  /// A dónde ir si tocar una notificación fue lo que abrió la app desde cero.
+  ///
+  /// `getInitialMessage()` solo se puede preguntar una vez de forma útil, así
+  /// que se cachea aquí hasta que el Dashboard la consuma en su primer frame
+  /// —navegar antes de eso no serviría de nada: el redirect de sesión todavía
+  /// está mandando a Splash.
+  String? _rutaPendiente;
+
+  /// A qué pantalla lleva cada tipo de aviso, o `null` si no aplica ninguna.
+  static String? _rutaDe(Object? tipo) => switch (tipo) {
+    'subida' || 'bajada' || 'ritmo' || 'resumen' => Routes.dashboard,
+    'stock' => Routes.productos,
+    'resumen_ventas' || 'recordatorio_ventas' => Routes.reportes,
+    _ => null,
+  };
+
+  /// Navega ya mismo — para cuando la app está corriendo (en segundo plano o
+  /// en primer plano) y el router ya está montado.
+  void _navegarPorToque(Map<String, dynamic> datos) {
+    final ruta = _rutaDe(datos['tipo']);
+    if (ruta != null) _router.push(ruta);
+  }
+
+  /// Lee y limpia la ruta pendiente de un toque en frío. `null` casi siempre.
+  String? consumirRutaPendiente() {
+    final ruta = _rutaPendiente;
+    _rutaPendiente = null;
+    return ruta;
+  }
 
   static const _claveUmbral = 'aviso_tasa_umbral';
   static const _clavePermiso = 'aviso_tasa_permiso';
@@ -134,11 +170,44 @@ class PushService {
       const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/ic_notificacion'),
       ),
+      // Toque sobre una notificación pintada a mano (app en primer plano):
+      // el payload es el mismo `data` del push, guardado como JSON al
+      // mostrarla.
+      onDidReceiveNotificationResponse: (respuesta) {
+        final payload = respuesta.payload;
+        if (payload == null) return;
+        try {
+          _navegarPorToque(jsonDecode(payload) as Map<String, dynamic>);
+        } catch (_) {
+          // Payload corrupto o de una versión vieja de la app: no navegar,
+          // no crashear.
+        }
+      },
     );
 
     // Con la app abierta, Android no muestra el push por su cuenta: hay que
     // pintarlo a mano o el usuario no ve nada mientras usa la app.
     FirebaseMessaging.onMessage.listen(mostrarEnPrimerPlano);
+
+    // Toque sobre el push nativo con la app en segundo plano (no cerrada).
+    FirebaseMessaging.onMessageOpenedApp.listen(
+      (mensaje) => _navegarPorToque(mensaje.data),
+    );
+
+    // Toque sobre el push nativo con la app cerrada del todo: esto la abrió.
+    // No se navega ya mismo —el router recién está mandando a Splash— se
+    // guarda para que el Dashboard la use en cuanto la sesión esté lista.
+    final inicial = await _messaging.getInitialMessage();
+    if (inicial != null) _rutaPendiente = _rutaDe(inicial.data['tipo']);
+
+    // Repara en cada arranque las suscripciones que hayan quedado
+    // desincronizadas — en ROMs con Play Services dañado (visto en el ZTE de
+    // pruebas) una baja de topic puede fallar en silencio y dejar el
+    // dispositivo escuchando un umbral viejo además del actual, repitiendo el
+    // mismo aviso varias veces. Sin bloquear el arranque de la app.
+    if (permisoConcedido) {
+      unawaited(_repararUmbralesViejos(leerPreferencias()));
+    }
 
     // Solo en depuración: sin el token no hay forma de comprobar desde fuera a
     // qué topics está suscrito el dispositivo, y "no me llega nada" es
@@ -149,6 +218,10 @@ class PushService {
     // respuesta que nunca llega. Sin esto, ese cuelgue es invisible — no hay
     // excepción, no hay log, solo silencio.
     if (kDebugMode) {
+      // Deja el inventario de ids en logcat al arrancar. Es la forma rápida de
+      // ver si un aviso está saliendo con id dinámico: si el mismo texto
+      // aparece con varios ids, algo lo está apilando en vez de reemplazarlo.
+      unawaited(diagnosticoNotificaciones());
       try {
         final token = await _messaging.getToken().timeout(
           const Duration(seconds: 10),
@@ -167,6 +240,20 @@ class PushService {
     }
   }
 
+  /// Canal e id que le tocan a cada tipo de aviso.
+  ///
+  /// El id es FIJO por tipo a propósito: un aviso de tasa nuevo debe
+  /// reemplazar al anterior (es el mismo dato, actualizado), no acumularse.
+  /// Antes se usaba `mensaje.hashCode`, que cambia con cada push y por eso
+  /// dejaba una tarjeta nueva por cada aviso recibido.
+  static (AndroidNotificationChannel, int) _destinoDe(Object? tipo) =>
+      switch (tipo) {
+        'stock' => (canalStock, IdsNotificacion.stock),
+        'resumen_ventas' ||
+        'recordatorio_ventas' => (canalVentas, IdsNotificacion.resumenVentas),
+        _ => (canalTasa, IdsNotificacion.tasa),
+      };
+
   /// Pinta un aviso recibido mientras la app está en pantalla.
   ///
   /// Con la app abierta, Android no muestra el push por su cuenta; hay que
@@ -176,14 +263,10 @@ class PushService {
     final aviso = mensaje.notification;
     if (aviso == null) return;
 
-    final canal = switch (mensaje.data['tipo']) {
-      'stock' => canalStock,
-      'resumen_ventas' || 'recordatorio_ventas' => canalVentas,
-      _ => canalTasa,
-    };
+    final (canal, id) = _destinoDe(mensaje.data['tipo']);
 
     await _locales.show(
-      mensaje.hashCode,
+      id,
       aviso.title,
       aviso.body,
       NotificationDetails(
@@ -196,10 +279,73 @@ class PushService {
           priority: Priority.high,
           // El cuerpo lleva cifras y puede pasar de una línea.
           styleInformation: BigTextStyleInformation(aviso.body ?? ''),
+          groupKey: IdsNotificacion.grupo,
         ),
       ),
       payload: jsonEncode(mensaje.data),
     );
+    await _publicarResumenDeGrupo();
+  }
+
+  /// Cabecera del grupo: el renglón que Android pliega arriba cuando hay
+  /// varios avisos de la app desplegados.
+  ///
+  /// Se republica después de cada aviso porque el sistema la descarta cuando
+  /// el grupo se queda vacío. Va en el canal de tasa por ser el de más
+  /// importancia de los tres: la cabecera hereda el canal que se le dé, y
+  /// ponerla en uno silenciado escondería el grupo entero.
+  Future<void> _publicarResumenDeGrupo() async {
+    await _locales.show(
+      IdsNotificacion.resumenGrupo,
+      'Cuenta Clara',
+      null,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          canalTasa.id,
+          canalTasa.name,
+          channelDescription: canalTasa.description,
+          icon: '@drawable/ic_notificacion',
+          importance: Importance.high,
+          priority: Priority.high,
+          groupKey: IdsNotificacion.grupo,
+          setAsGroupSummary: true,
+          // La cabecera no debe sonar ni vibrar: el aviso que la acompaña ya
+          // lo hizo, y si no, cada notificación sonaría dos veces.
+          onlyAlertOnce: true,
+          playSound: false,
+          enableVibration: false,
+        ),
+      ),
+    );
+  }
+
+  /// Qué notificaciones hay programadas y cuáles siguen en pantalla.
+  ///
+  /// Para auditar duplicados sin adivinar: si un mismo aviso aparece con
+  /// varios ids distintos, es que algo lo está mostrando con id dinámico. Se
+  /// llama desde Ajustes → Diagnóstico y también se puede leer con
+  /// `adb logcat -s flutter`.
+  Future<String> diagnosticoNotificaciones() async {
+    final pendientes = await _locales.pendingNotificationRequests();
+    final activas = await _locales
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.getActiveNotifications();
+
+    final buffer = StringBuffer()
+      ..writeln('--- Notificaciones programadas (${pendientes.length}) ---');
+    for (final p in pendientes..sort((a, b) => a.id.compareTo(b.id))) {
+      buffer.writeln('  #${p.id}  ${p.title}');
+    }
+    buffer.writeln('--- En pantalla ahora (${activas?.length ?? 0}) ---');
+    for (final a in activas ?? const []) {
+      buffer.writeln('  #${a.id}  ${a.title}  [grupo: ${a.groupKey}]');
+    }
+
+    final texto = buffer.toString();
+    debugPrint('[push] $texto');
+    return texto;
   }
 
   /// Pide el permiso de notificaciones (Android 13+ e iOS lo exigen).
@@ -260,6 +406,20 @@ class PushService {
   Set<String> get _topicsSuscritos =>
       (_prefs.getStringList(_claveTopics) ?? const []).toSet();
 
+  /// Todos los topics de umbral posibles para subida y bajada, sin importar
+  /// cuál esté elegido hoy.
+  ///
+  /// Se usa para dar de baja a la fuerza cualquier umbral viejo al
+  /// sincronizar, en vez de confiar solo en [_topicsSuscritos]: si una baja
+  /// falló en silencio en el pasado (Play Services dañado), el registro local
+  /// puede seguir creyendo que ya no está suscrito a un topic que el
+  /// dispositivo, de hecho, nunca dejó de escuchar — y entonces un mismo
+  /// cambio de tasa llega repetido, uno por cada umbral que el Worker cruza.
+  Set<String> get _todosLosTopicsDeUmbral => {
+    for (final u in UmbralTasa.values) TipoAvisoTasa.subida.topic(u),
+    for (final u in UmbralTasa.values) TipoAvisoTasa.bajada.topic(u),
+  };
+
   /// Cuánto se espera a `subscribeToTopic`/`unsubscribeFromTopic` antes de
   /// darlas por colgadas.
   ///
@@ -315,6 +475,27 @@ class PushService {
       throw PushSyncException(fallidos);
     }
   }
+
+  /// Limpieza preventiva en segundo plano: da de baja cualquier umbral de
+  /// subida/bajada que hoy no toque, sin importar si [_topicsSuscritos] sabe
+  /// de él o no.
+  ///
+  /// Separado de [sincronizarTopics] a propósito: en un dispositivo con Play
+  /// Services dañado (visto en el ZTE de pruebas), cada baja de más puede
+  /// tardar hasta [_timeoutTopic] en agotarse, y aquí se intentan hasta ocho
+  /// de una vez — mezclarlo con el guardado interactivo de Ajustes dejaría el
+  /// botón "Guardando…" colgado casi un minuto. Se llama sola al arrancar y
+  /// nadie espera su resultado.
+  Future<void> _repararUmbralesViejos(PreferenciasTasa prefs) async {
+    if (!prefs.permisoConcedido) return;
+    for (final topic in _todosLosTopicsDeUmbral.difference(prefs.topicsDeseados)) {
+      try {
+        await _messaging.unsubscribeFromTopic(topic).timeout(_timeoutTopic);
+      } catch (_) {
+        // Best-effort: si falla, se reintenta en el próximo arranque.
+      }
+    }
+  }
 }
 
 // --- Providers ---
@@ -332,7 +513,16 @@ final pushServiceProvider = Provider<PushService>((ref) {
     ref.watch(firebaseMessagingProvider),
     ref.watch(notificacionesLocalesProvider),
     ref.watch(sharedPreferencesProvider),
+    ref.watch(goRouterProvider),
   );
+});
+
+/// Efecto de una sola vez: si tocar una notificación con la app cerrada fue
+/// lo que la abrió, entrega la ruta pendiente para que el Dashboard navegue
+/// en su primer frame. Como todo `FutureProvider` normal, Riverpod solo
+/// corre esto una vez en la vida del contenedor.
+final rutaPendienteDeNotifProvider = FutureProvider<String?>((ref) {
+  return ref.watch(pushServiceProvider).consumirRutaPendiente();
 });
 
 /// Estado real del permiso de notificaciones del sistema. Lo observa el

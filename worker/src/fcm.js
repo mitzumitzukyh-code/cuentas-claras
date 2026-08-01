@@ -161,6 +161,7 @@ export async function enviarAToken({
   cuerpo,
   datos = {},
   canal = 'tasa_bcv',
+  etiqueta,
 }) {
   const resp = await fetch(
     `https://fcm.googleapis.com/v1/projects/${cuenta.project_id}/messages:send`,
@@ -185,6 +186,10 @@ export async function enviarAToken({
               channel_id: canal,
               icon: 'ic_notificacion',
               color: '#0F9D82',
+              // `tag` es el equivalente del id de notificación en Android:
+              // dos avisos con la misma etiqueta se reemplazan en vez de
+              // apilarse. Sin ella, cada reintento de FCM deja otra copia.
+              ...(etiqueta ? { tag: etiqueta } : {}),
             },
           },
         },

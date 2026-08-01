@@ -14,6 +14,29 @@ function usd(valor) {
 }
 
 /**
+ * Huella de un mensaje ya enviado a un dispositivo en esta corrida.
+ *
+ * El resumen sale UNO POR NEGOCIO (un dueño de tres bodegas quiere las tres
+ * cuentas), pero el destinatario es un token de dispositivo, y el mismo
+ * teléfono puede figurar como dueño en varios negocios: cada uno que visita
+ * le graba su token en la membresía y ninguno se lo quita. Con varios
+ * negocios sin ventas, los textos salen IDÉNTICOS —"👋 ¿Cómo va tu día?"— y
+ * el teléfono recibe la misma frase repetida, que es lo que se vio: cinco
+ * copias iguales en la misma tanda.
+ *
+ * El dedup de KV no lo tapa porque su clave es por negocio
+ * (`resumenVentas:<negocioId>`): cinco negocios son cinco claves distintas y
+ * las cinco pasan.
+ *
+ * Así que se deduplica por lo único que el usuario percibe: mismo destino +
+ * mismo texto = un solo aviso. Dos negocios con cifras distintas siguen
+ * mandando sus dos resúmenes, que es lo correcto.
+ */
+export function huellaDeEnvio({ destino, titulo, cuerpo }) {
+  return `${destino}|${titulo}|${cuerpo}`;
+}
+
+/**
  * Arma el resumen de ventas del día — con cobros, cuánto vendiste; sin
  * ellos, una invitación amigable a usar la app en vez de quedarse callado.
  * Nunca "vendiste $0 hoy": eso no le sirve a nadie y solo entrena al dueño a

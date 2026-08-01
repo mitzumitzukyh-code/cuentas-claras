@@ -5,6 +5,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../core/providers/firebase_providers.dart';
+import 'ids_notificacion.dart';
 
 /// Canal de los empujones para usar la app. Va aparte de los avisos de tasa,
 /// ventas y stock: esos son información que el dueño pidió, esto son
@@ -41,8 +42,10 @@ class RecordatoriosService {
   static const _claveActivos = 'recordatorios_uso_activos';
 
   /// IDs reservados para estas notificaciones. Fijos, para poder
-  /// reprogramarlas y cancelarlas sin tocar las demás.
-  static const _idBase = 9100;
+  /// reprogramarlas y cancelarlas sin tocar las demás. Viven en
+  /// [IdsNotificacion] junto con los de los avisos del Worker, para que se vea
+  /// de un golpe que ningún tipo pisa el id de otro.
+  static const _idBase = IdsNotificacion.recordatorioBase;
 
   /// Las cuatro franjas del día de un negocio.
   static const _horas = [9, 13, 17, 20];
@@ -159,6 +162,7 @@ class RecordatoriosService {
             channelDescription: canalRecordatorios.description,
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
+            groupKey: IdsNotificacion.grupo,
           ),
         ),
         // `inexact` a propósito: la alarma exacta necesita un permiso especial
