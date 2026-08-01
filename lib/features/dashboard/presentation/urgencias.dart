@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/routes.dart';
 import '../../../core/providers/historial_tasa_provider.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -38,7 +39,7 @@ class Urgencia {
 
   final String titulo;
   final String detalle;
-  final IconData icono;
+  final String icono;
   final String ruta;
 
   /// Menor = más urgente.
@@ -68,7 +69,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
       clave: 'caja',
       titulo: 'Te falta cerrar la caja de hoy',
       detalle: 'Llevas ${MoneyFormatter.usd(total)} sin cuadrar.',
-      icono: Icons.warning_amber_rounded,
+      icono: AppAssets.accAlerta,
       ruta: Routes.arqueo,
       accion: 'Cerrar caja ahora',
       prioridad: 1,
@@ -94,7 +95,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
           : '${vencidos.length} fiados vencidos',
       detalle: '${MoneyFormatter.usd(deuda)} por cobrar · '
           'el más viejo, $masViejo días',
-      icono: Icons.schedule_rounded,
+      icono: AppAssets.accCalendario,
       ruta: Routes.fiados,
       accion: 'Ver fiados',
       prioridad: 2,
@@ -114,7 +115,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
           : 'Se acabaron ${enCero.length} productos',
       detalle: enCero.take(2).map((p) => p.nombre).join(' y ') +
           (enCero.length > 2 ? ' y otros' : ' en cero'),
-      icono: Icons.inventory_2_outlined,
+      icono: AppAssets.navProductos,
       ruta: Routes.productos,
       accion: 'Ver mercancía',
       prioridad: 3,
@@ -126,7 +127,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
       clave: 'bajo',
       titulo: 'Se está acabando ${p.nombre}',
       detalle: 'quedan ${p.cantidadLabel}',
-      icono: Icons.inventory_2_outlined,
+      icono: AppAssets.navProductos,
       ruta: Routes.productos,
       prioridad: 5,
     ));
@@ -142,7 +143,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
       clave: 'proveedor',
       titulo: 'Le debes a ${p.nombre}',
       detalle: MoneyFormatter.usd(p.saldoUSD),
-      icono: Icons.local_shipping_outlined,
+      icono: AppAssets.catServicios,
       ruta: Routes.proveedores,
       prioridad: 4,
     ));
@@ -167,7 +168,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
       detalle: diasSinGastos == null
           ? 'todavía no registras gastos este mes'
           : 'llevas $diasSinGastos días sin registrar ninguno',
-      icono: Icons.edit_outlined,
+      icono: AppAssets.accEditar,
       ruta: Routes.gastos,
       prioridad: 7,
     ));
@@ -182,7 +183,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
           ? '1 venta sin subir'
           : '${pendientes.length} ventas sin subir',
       detalle: 'se suben solas al volver el internet',
-      icono: Icons.cloud_upload_outlined,
+      icono: AppAssets.accPendiente,
       ruta: Routes.ventasPendientes,
       prioridad: 8,
     ));
@@ -229,7 +230,8 @@ class TarjetaUrgencia extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(urgencia.icono, size: 18, color: const Color(0xFFF2A93C)),
+                LibretaIcono(urgencia.icono,
+                    size: 18, color: const Color(0xFFF2A93C)),
                 const SizedBox(width: 9),
                 const Text(
                   'ANTES DE CERRAR',
@@ -391,8 +393,8 @@ class _TarjetaTasaVencidaState extends ConsumerState<TarjetaTasaVencida> {
                     color: const Color(0x2EF2A93C),
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
+                  child: const LibretaIcono(
+                    AppAssets.accAlerta,
                     size: 18,
                     color: LibretaColors.aviso,
                   ),
@@ -591,7 +593,7 @@ class _FilaPendiente extends StatelessWidget {
                       : t.textoFuerte.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(
+                child: LibretaIcono(
                   urgencia.icono,
                   size: 19,
                   color: grave ? LibretaColors.aviso : t.textoFuerte,

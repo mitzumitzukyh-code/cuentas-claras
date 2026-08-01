@@ -1,84 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-/// Logo de marca del sistema "libreta": cuaderno con anillos, lomo coral y
-/// check verde. Réplica del SVG `viewBox="0 0 64 64"` del prototipo.
+import '../../../core/theme/app_assets.dart';
+
+/// Isotipo de marca: la libreta con el margen coral, la línea de tendencia
+/// verde y el punto ámbar en la cima.
+///
+/// Es el SVG del paquete de identidad, no un `CustomPainter`: el logo es el
+/// único dibujo de la app que también sale en la tienda, en el ícono y en el
+/// gráfico de portada, y tenerlo repintado a mano garantizaba que tarde o
+/// temprano se separaran.
+///
+/// La portada (`SplashScreen`) sigue con su propio painter porque ahí el
+/// check se dibuja trazo a trazo, y eso un SVG estático no lo hace.
 class LibretaLogo extends StatelessWidget {
-  const LibretaLogo({super.key, this.size = 52});
+  const LibretaLogo({super.key, this.size = 52, this.sobreOscuro = false});
 
   final double size;
 
+  /// Sobre fondo oscuro el trazo del cuaderno va en crema y no en azul noche,
+  /// que ahí se pierde contra el fondo.
+  final bool sobreOscuro;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return SvgPicture.asset(
+      sobreOscuro ? AppAssets.isotipoReverse : AppAssets.isotipo,
       width: size,
       height: size,
-      child: CustomPaint(painter: _LibretaLogoPainter()),
     );
   }
-}
-
-class _LibretaLogoPainter extends CustomPainter {
-  const _LibretaLogoPainter();
-
-  static const double _vb = 64;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width / _vb;
-    canvas.save();
-    canvas.scale(s, s);
-
-    final tapa = Paint()..color = const Color(0xFFFAF8F3);
-    final trazo = Paint()
-      ..color = const Color(0xFF1E2A38)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final rect = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(12, 8, 42, 48),
-      const Radius.circular(6),
-    );
-    canvas.drawRRect(rect, tapa);
-    canvas.drawRRect(rect, trazo);
-
-    canvas.drawLine(
-      const Offset(20, 10),
-      const Offset(20, 54),
-      Paint()
-        ..color = const Color(0x99C1503A)
-        ..strokeWidth = 2,
-    );
-
-    final anillo = Paint()
-      ..color = const Color(0xFFFAF8F3)
-      ..style = PaintingStyle.fill;
-    final anilloTrazo = Paint()
-      ..color = const Color(0xFF1E2A38)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    for (final cx in [20.0, 29.0, 38.0, 47.0]) {
-      canvas.drawCircle(Offset(cx, 8), 2.6, anillo);
-      canvas.drawCircle(Offset(cx, 8), 2.6, anilloTrazo);
-    }
-
-    final check = Path()
-      ..moveTo(23, 35)
-      ..lineTo(31, 43)
-      ..lineTo(47, 23);
-    canvas.drawPath(
-      check,
-      Paint()
-        ..color = const Color(0xFF0E9F6E)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5.5
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _LibretaLogoPainter oldDelegate) => false;
 }

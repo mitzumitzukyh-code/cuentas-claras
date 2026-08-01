@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
@@ -300,7 +301,7 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                     child: LibretaButton(
                       label: 'Cerrar caja del día',
                       loading: _cerrando,
-                      icon: const Icon(Icons.inventory_2_outlined, size: 19, color: Colors.white),
+                      icon: const LibretaIcono(AppAssets.navProductos, size: 19, color: Colors.white),
                       onPressed: contado == null || _cerrando
                           ? null
                           : () => _cerrar(metodos, efectivoEsperado, gastosTotal, fiadoOtorgado, abonos, ventasTotal),

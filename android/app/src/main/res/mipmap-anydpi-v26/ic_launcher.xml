@@ -3,9 +3,14 @@
   Icono adaptativo (Android 8+). El sistema recorta el primer plano con la
   forma que use el launcher (circulo, squircle, gota), asi que el logo va en
   un lienzo de 108dp ocupando solo la zona segura central.
+
+  El fondo es un bitmap, no un color plano: el icono de marca lleva un
+  degradado azul noche (#24506A -> #1B3A4B) que un <color> no puede dar.
+  El monocromo es su propia silueta (Android 13+ tinta el icono con el color
+  del tema); antes reusaba el primer plano a color y salia como una mancha.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-    <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

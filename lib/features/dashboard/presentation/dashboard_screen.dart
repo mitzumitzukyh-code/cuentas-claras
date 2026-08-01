@@ -7,6 +7,7 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/conectividad_provider.dart';
 import '../../../core/providers/historial_tasa_provider.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/entrada_animada.dart';
@@ -43,6 +44,17 @@ class DashboardScreen extends ConsumerWidget {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         context.push(Routes.tutorial);
+      });
+    });
+    // Si tocar una notificación con la app cerrada fue lo que la abrió, el
+    // redirect de sesión ya terminó de traernos hasta aquí — ahora sí toca
+    // seguir a donde apuntaba. El Dashboard mismo se ignora: ya estamos en él.
+    ref.listen(rutaPendienteDeNotifProvider, (_, estado) {
+      final ruta = estado.valueOrNull;
+      if (ruta == null || ruta == Routes.dashboard) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        context.push(ruta);
       });
     });
 
@@ -312,7 +324,6 @@ class _Encabezado extends ConsumerWidget {
         _AvatarNegocio(
           fotoUrl: negocio?.fotoUrl,
           iniciales: _iniciales(nombre),
-          insignia: urgencias,
           onTap: () => context.go(Routes.perfil),
         ),
       ],
@@ -531,8 +542,8 @@ class _BotonCobrarHero extends ConsumerWidget {
                   color: const Color(0x210E9F6E),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Icon(
-                  Icons.shopping_cart_outlined,
+                child: const LibretaIcono(
+                  AppAssets.navVentas,
                   size: 24,
                   color: LibretaColors.verde,
                 ),
@@ -603,8 +614,8 @@ class _BotonCobrarHero extends ConsumerWidget {
                 color: const Color(0x2EFFFFFF),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
+              child: const LibretaIcono(
+                AppAssets.navVentas,
                 size: 30,
                 color: Colors.white,
               ),
@@ -946,19 +957,14 @@ class _AvatarNegocio extends StatelessWidget {
     required this.fotoUrl,
     required this.iniciales,
     required this.onTap,
-    this.insignia = 0,
   });
 
   final String? fotoUrl;
   final String iniciales;
   final VoidCallback onTap;
 
-  /// Cuántas urgencias hay; `0` = sin insignia.
-  final int insignia;
-
   @override
   Widget build(BuildContext context) {
-    final t = context.libreta;
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
@@ -997,30 +1003,6 @@ class _AvatarNegocio extends StatelessWidget {
                       ),
                     ),
             ),
-            if (insignia > 0)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 19),
-                  height: 19,
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF2A93C),
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(color: t.papel, width: 2),
-                  ),
-                  child: Text(
-                    '$insignia',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: LibretaColors.tarjetaOscura,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),

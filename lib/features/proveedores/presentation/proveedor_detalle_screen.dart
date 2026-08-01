@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/whatsapp.dart';
@@ -208,8 +209,7 @@ class _BotonPedido extends ConsumerWidget {
           ? 'Nada en stock bajo'
           : 'Pedir reabastecimiento (${bajos.length})',
       onPressed: bajos.isEmpty ? null : enviar,
-      icon: const Icon(
-        Icons.local_shipping_outlined,
+      icon: const LibretaIcono(AppAssets.catServicios,
         size: 18,
         color: LibretaColors.verde,
       ),

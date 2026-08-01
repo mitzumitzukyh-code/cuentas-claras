@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -114,7 +115,7 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.group_add_outlined, size: 30, color: LibretaColors.verde),
+                child: const LibretaIcono(AppAssets.navClientes, size: 30, color: LibretaColors.verde),
               ),
               const SizedBox(height: 16),
               Text(
@@ -184,8 +185,7 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.storefront_outlined,
+                        child: const LibretaIcono(AppAssets.catBodega,
                           size: 28,
                           color: LibretaColors.verde,
                         ),

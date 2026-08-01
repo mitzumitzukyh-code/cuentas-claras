@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/whatsapp.dart';
@@ -150,7 +151,7 @@ class ResumenDiaScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, size: 18, color: LibretaColors.aviso),
+                      const LibretaIcono(AppAssets.accAlerta, size: 18, color: LibretaColors.aviso),
                       const SizedBox(width: 11),
                       Expanded(
                         child: Text(
@@ -175,7 +176,7 @@ class ResumenDiaScreen extends ConsumerWidget {
               const SizedBox(height: 14),
               LibretaSecondaryButton(
                 label: 'Enviar resumen por WhatsApp',
-                icon: const Icon(Icons.chat_outlined, size: 18, color: LibretaColors.verde),
+                icon: const LibretaIcono(AppAssets.accMensaje, size: 18, color: LibretaColors.verde),
                 onPressed: () => _compartir(negocio?.nombre ?? 'mi negocio'),
               ),
             ],

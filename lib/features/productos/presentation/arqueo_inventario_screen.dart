@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -174,8 +175,7 @@ class _ArqueoInventarioScreenState
                       style: TextStyle(fontSize: 14, color: t.textoFuerte),
                       decoration: InputDecoration(
                         hintText: 'Buscar producto…',
-                        prefixIcon: Icon(
-                          Icons.search,
+                        prefixIcon: LibretaIcono(AppAssets.accBuscar,
                           size: 19,
                           color: t.textoMuted,
                         ),

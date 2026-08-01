@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/auth_repository.dart';
 
@@ -135,8 +136,7 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                const Icon(
-                                  Icons.edit_outlined,
+                                const LibretaIcono(AppAssets.accEditar,
                                   size: 16,
                                   color: LibretaColors.verde,
                                 ),
@@ -212,8 +212,7 @@ class _Enviado extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(
-            Icons.check_rounded,
+          child: const LibretaIcono(AppAssets.accConfirmar,
             size: 34,
             color: LibretaColors.verde,
           ),

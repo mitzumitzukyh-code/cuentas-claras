@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_links.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/captura_widget.dart';
@@ -226,6 +227,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
             child: const Padding(
               padding: EdgeInsets.fromLTRB(24, 100, 24, 0),
               child: LibretaEstadoVacio(
+                ilustracion: Ilustracion.sinProductos,
                 titulo: 'Todavía no tienes mercancía',
                 detalle: 'Carga tus productos y arma con ellos la imagen '
                     'para tu Estado de WhatsApp.',
@@ -376,7 +378,7 @@ class _PasoPlantilla extends StatelessWidget {
                           color: LibretaColors.verde,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.check_rounded,
+                        child: const LibretaIcono(AppAssets.accConfirmar,
                             size: 12, color: Colors.white),
                       ),
                       const SizedBox(width: 7),
@@ -591,7 +593,7 @@ class _PasoProductos extends StatelessWidget {
               LibretaInput(
                 hint: 'Buscar en mi mercancía…',
                 height: 44,
-                leading: Icon(Icons.search, size: 17, color: t.textoMuted),
+                leading: LibretaIcono(AppAssets.accBuscar, size: 17, color: t.textoMuted),
                 onChanged: onBuscar,
               ),
             ],
@@ -711,7 +713,7 @@ class _FilaEscoger extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: elegido
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? const LibretaIcono(AppAssets.accConfirmar, size: 14, color: Colors.white)
                     : null,
               ),
               const SizedBox(width: 12),
@@ -809,7 +811,7 @@ class _ChipAnuncio extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (activo) ...[
-              const Icon(Icons.check, size: 13, color: LibretaColors.verde),
+              const LibretaIcono(AppAssets.accConfirmar, size: 13, color: LibretaColors.verde),
               const SizedBox(width: 7),
             ],
             Text(
@@ -938,7 +940,7 @@ class _Prevista extends StatelessWidget {
                     child: LibretaButton(
                       label: generando ? 'Generando…' : 'Compartir en Estado',
                       loading: generando,
-                      icon: const Icon(Icons.ios_share_rounded,
+                      icon: const LibretaIcono(AppAssets.accCompartir,
                           size: 18, color: Colors.white),
                       onPressed: generando ? null : onCompartir,
                     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/conectividad_provider.dart';
+import '../../core/theme/app_assets.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/negocio/data/negocio_repository.dart';
 import 'conexion_error_screen.dart';
@@ -52,8 +53,7 @@ class SesionErrorScreen extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
+                  child: const LibretaIcono(AppAssets.accAlerta,
                     size: 32,
                     color: LibretaColors.aviso,
                   ),

@@ -1,8 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/constants/app_links.dart';
+import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
@@ -83,14 +86,24 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     }
     texto
       ..writeln()
-      ..writeln('📲 Hecho con Cuenta Clara — ${AppLinks.descargar}');
+      ..writeln('Hecho con Cuenta Clara');
 
     await Share.share(texto.toString(), subject: 'Catálogo ${negocio.nombre}');
   }
 
-  Future<void> _compartirImagen(String nombreNegocio) async {
+  Future<void> _compartirImagen(String nombreNegocio, List<Producto> elegidos) async {
     setState(() => _generando = true);
     try {
+      // Sin esto, si una foto todavía no había terminado de descargarse
+      // cuando se tocó "Compartir", la captura la congelaba a medio cargar
+      // (el ícono genérico en vez de la foto real).
+      await Future.wait([
+        for (final p in elegidos)
+          if (p.fotoUrl != null && p.fotoUrl!.isNotEmpty)
+            precacheImage(CachedNetworkImageProvider(p.fotoUrl!), context),
+      ]);
+      if (!mounted) return;
+
       final archivo = await CapturaWidget.aPng(
         _lienzo,
         escala: 2.5,
@@ -98,8 +111,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
       );
       await Share.shareXFiles(
         [XFile(archivo.path)],
-        text: 'Catálogo de $nombreNegocio\n'
-            '📲 Hecho con Cuenta Clara — ${AppLinks.descargar}',
+        text: 'Catálogo de $nombreNegocio\nHecho con Cuenta Clara',
       );
     } catch (e) {
       _mostrar('No se pudo generar la imagen: $e');
@@ -269,16 +281,24 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 Divider(height: 1, color: context.libreta.renglon),
                 Expanded(
                   child: productos.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Text(
-                              'Agrega productos para poder compartirlos',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: context.libreta.textoMuted,
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+                          child: LibretaEstadoVacio(
+                            ilustracion: Ilustracion.sinProductos,
+                            titulo: 'Todavía no hay nada que mostrar',
+                            detalle:
+                                'Agrega productos a tu inventario para armar '
+                                'un catálogo y compartirlo.',
+                            tagline: 'tu vitrina está esperando',
+                            boton: LibretaButton(
+                              label: 'Agregar producto',
+                              icon: const Icon(
+                                Icons.add,
+                                size: 19,
+                                color: Colors.white,
                               ),
+                              onPressed: () =>
+                                  context.push(Routes.nuevoProducto),
                             ),
                           ),
                         )
@@ -331,7 +351,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               : null,
                           onPressed: elegidos.isEmpty || _generando
                               ? null
-                              : () => _compartirImagen(negocio.nombre),
+                              : () => _compartirImagen(
+                                    negocio.nombre,
+                                    elegidos,
+                                  ),
                         ),
 
                       ],
@@ -404,8 +427,7 @@ class _TarjetaCatalogo extends StatelessWidget {
                     child: producto.fotoUrl != null && producto.fotoUrl!.isNotEmpty
                         ? FotoRed(
                             producto.fotoUrl!,
-                            alError: const Icon(
-                              Icons.inventory_2_outlined,
+                            alError: const LibretaIcono(AppAssets.navProductos,
                               color: Color(0x66000000),
                             ),
                           )
@@ -418,8 +440,7 @@ class _TarjetaCatalogo extends StatelessWidget {
                               ),
                             ),
                             alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.inventory_2_outlined,
+                            child: const LibretaIcono(AppAssets.navProductos,
                               size: 30,
                               color: Color(0x66000000),
                             ),
@@ -442,7 +463,7 @@ class _TarjetaCatalogo extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: marcado
-                          ? const Icon(Icons.check, size: 15, color: Colors.white)
+                          ? const LibretaIcono(AppAssets.accConfirmar, size: 15, color: Colors.white)
                           : null,
                     ),
                   ),
@@ -584,11 +605,21 @@ class _LienzoCatalogo extends StatelessWidget {
                           child: Container(
                             color: const Color(0xFFF0EAD9),
                             alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.inventory_2_outlined,
-                              size: 22,
-                              color: Color(0x66000000),
-                            ),
+                            child: p.fotoUrl != null && p.fotoUrl!.isNotEmpty
+                                ? FotoRed(
+                                    p.fotoUrl!,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    fit: BoxFit.cover,
+                                    alError: const LibretaIcono(AppAssets.navProductos,
+                                      size: 22,
+                                      color: Color(0x66000000),
+                                    ),
+                                  )
+                                : const LibretaIcono(AppAssets.navProductos,
+                                    size: 22,
+                                    color: Color(0x66000000),
+                                  ),
                           ),
                         ),
                         Padding(
@@ -707,15 +738,28 @@ class _LienzoCatalogo extends StatelessWidget {
           Container(
             color: const Color(0xFF1E2A38),
             padding: const EdgeInsets.symmetric(vertical: 9),
-            alignment: Alignment.center,
-            child: const Text(
-              'HECHO CON CUENTA CLARA',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: Color(0xEBFFFFFF),
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Isotipo monocromo en PNG, no el SVG: esta fila se pinta
+                // dentro de un RepaintBoundary que se captura a imagen para
+                // compartir, y un SVG a medio decodificar saldría en blanco.
+                Image.asset(
+                  AppAssets.isotipoMonoBlancoPng,
+                  width: 16,
+                  height: 16,
+                ),
+                const SizedBox(width: 7),
+                const Text(
+                  'HECHO CON CUENTA CLARA',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: Color(0xEBFFFFFF),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

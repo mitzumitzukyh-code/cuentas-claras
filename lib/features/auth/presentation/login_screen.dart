@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/auth_repository.dart';
 import 'recuperar_screen.dart';
@@ -181,7 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 padding: EdgeInsets.fromLTRB(26, 24, 26, 20),
                 child: Column(
                   children: [
-                    LibretaLogo(size: 52),
+                    LibretaLogo(size: 52, sobreOscuro: true),
                     SizedBox(height: 10),
                     Text(
                       'Bienvenido de vuelta',
@@ -356,7 +357,7 @@ class _Recordarme extends StatelessWidget {
                   : Border.all(color: LibretaColors.bordeSuave, width: 1.5),
             ),
             child: valor
-                ? const Icon(Icons.check, size: 13, color: Colors.white)
+                ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
                 : null,
           ),
           const SizedBox(width: 8),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -482,8 +483,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                     child: LibretaSecondaryButton(
                       label: 'Compartir',
                       onPressed: () => _compartir(venta),
-                      icon: const Icon(
-                        Icons.ios_share_rounded,
+                      icon: const LibretaIcono(AppAssets.accCompartir,
                         size: 17,
                         color: LibretaColors.verde,
                       ),
@@ -585,14 +585,12 @@ class _FotoItem extends StatelessWidget {
                 url!,
                 width: 42,
                 height: 42,
-                alError: Icon(
-                  Icons.inventory_2_outlined,
+                alError: LibretaIcono(AppAssets.navProductos,
                   size: 18,
                   color: context.libreta.textoMuted,
                 ),
               )
-              : Icon(
-                Icons.inventory_2_outlined,
+              : LibretaIcono(AppAssets.navProductos,
                 size: 18,
                 color: context.libreta.textoMuted,
               ),

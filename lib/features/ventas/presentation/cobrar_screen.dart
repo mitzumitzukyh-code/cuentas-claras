@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../productos/domain/variante.dart';
 
+import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -14,6 +17,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
 import '../../fiados/domain/cliente_fiado.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../negocio/domain/metodo_pago_config.dart';
 import '../../negocio/domain/negocio.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
@@ -102,10 +106,6 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   int _piezasDe(List<ItemCarrito> carrito) =>
       carrito.fold<int>(0, (s, i) => s + i.cantidad) + (_montoLibre > 0 ? 1 : 0);
 
-  /// El cliente hace falta para fiar y para cotizar: ambos son una promesa a
-  /// nombre de alguien.
-  bool get _requiereCliente => _fiado || _modo == _Modo.cotizacion;
-
   void _aviso(String texto, {bool error = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -150,6 +150,11 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
       return;
     }
     await _agregar(producto);
+    if (!mounted) return;
+    _aviso(
+      '${producto.nombre} · ${MoneyFormatter.usd(producto.precio)}',
+      error: false,
+    );
   }
 
   Future<void> _agregar(Producto p) async {
@@ -308,11 +313,104 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     if (monto != null && mounted) setState(() => _montoLibre = monto);
   }
 
+  /// Hoja de "Carrito": lo que antes vivía siempre visible bajo el total
+  /// ahora solo aparece al pedirlo, para que la grilla de productos sea lo
+  /// primero que ve un cajero nuevo y no una lista de líneas que todavía no
+  /// tiene.
+  Future<void> _abrirCarrito() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.libreta.papel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Consumer(
+          builder: (ctx, ref, _) {
+            final t = ctx.libreta;
+            final carrito = ref.watch(carritoProvider);
+            final vacio = carrito.isEmpty && _montoLibre <= 0;
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Carrito',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: t.textoFuerte,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      vacio
+                          ? 'Todavía no agregaste nada.'
+                          : 'Toca una línea para quitarla.',
+                      style: TextStyle(fontSize: 12.5, color: t.textoMuted),
+                    ),
+                    const SizedBox(height: 12),
+                    if (!vacio)
+                      Flexible(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            for (var i = 0; i < carrito.length; i++)
+                              _FilaCarrito(
+                                nombre: carrito[i].cantidad > 1
+                                    ? '${carrito[i].nombre} ×${carrito[i].cantidad}'
+                                    : carrito[i].nombre,
+                                monto: carrito[i].subtotal,
+                                onQuitar: () => ref
+                                    .read(carritoProvider.notifier)
+                                    .quitar(i),
+                              ),
+                            if (_montoLibre > 0)
+                              _FilaCarrito(
+                                nombre: 'Monto libre',
+                                monto: _montoLibre,
+                                onQuitar: () => setModalState(
+                                  () => setState(() => _montoLibre = 0),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 6),
+                    LibretaSecondaryButton(
+                      label: 'Agregar monto libre',
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _abrirMontoLibre();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   // ── Cliente ─────────────────────────────────────────────────────────────
 
   Future<void> _elegirCliente() async {
+    final elegido = await _abrirSelectorCliente();
+    if (elegido != null && mounted) setState(() => _cliente = elegido);
+  }
+
+  /// Selector puro: no toca el estado de la pantalla, solo devuelve lo
+  /// elegido. Lo reutiliza tanto la cotización (que fija el cliente al
+  /// vuelo) como la hoja de confirmar cobro (que decide recién al cerrar).
+  Future<ClienteFiado?> _abrirSelectorCliente() async {
     final clientes = ref.read(clientesFiadoProvider).valueOrNull ?? const [];
-    final elegido = await showModalBottomSheet<ClienteFiado>(
+    return showModalBottomSheet<ClienteFiado>(
       context: context,
       backgroundColor: context.libreta.papel,
       shape: const RoundedRectangleBorder(
@@ -339,10 +437,28 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                 if (clientes.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    child: Text(
-                      'Todavía no tienes clientes con cuenta. Créalos desde '
-                      'Fiados.',
-                      style: TextStyle(fontSize: 13.5, color: t.textoMuted),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Todavía no tienes clientes con cuenta. Créalos '
+                          'desde Fiados.',
+                          style:
+                              TextStyle(fontSize: 13.5, color: t.textoMuted),
+                        ),
+                        const SizedBox(height: 10),
+                        LibretaSecondaryButton(
+                          label: 'Ir a Fiados',
+                          icon: const LibretaIcono(AppAssets.navClientes,
+                            size: 16,
+                            color: LibretaColors.verde,
+                          ),
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            context.push(Routes.fiados);
+                          },
+                        ),
+                      ],
                     ),
                   )
                 else
@@ -382,7 +498,6 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
         );
       },
     );
-    if (elegido != null && mounted) setState(() => _cliente = elegido);
   }
 
   // ── Cobrar ──────────────────────────────────────────────────────────────
@@ -409,6 +524,41 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
           .join(' + ');
     }
     return '${carrito.length} productos';
+  }
+
+  /// Hoja "¿Cómo te pagó?": el método de pago (y a quién se le fía) se
+  /// decide al confirmar, no mientras se arma el carrito — con clientes
+  /// esperando, elegir entre 6 chips antes de saber cuánto es no ayuda.
+  Future<void> _abrirConfirmarCobro(
+    double tasa,
+    Negocio negocio,
+    double total,
+    int piezas,
+  ) async {
+    final resultado = await showModalBottomSheet<_PagoElegido>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.libreta.papel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _HojaConfirmarPago(
+        total: total,
+        piezas: piezas,
+        activos: negocio.metodosActivos,
+        metodoInicial: _metodo,
+        fiadoInicial: _fiado,
+        clienteInicial: _cliente,
+        onElegirCliente: _abrirSelectorCliente,
+      ),
+    );
+    if (resultado == null || !mounted) return;
+    setState(() {
+      _metodo = resultado.metodo;
+      _fiado = resultado.fiado;
+      _cliente = resultado.cliente;
+    });
+    await _cobrar(tasa, negocio);
   }
 
   Future<void> _cobrar(double tasa, Negocio negocio) async {
@@ -566,11 +716,6 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final piezas = _piezasDe(carrito);
     final esCotizacion = _modo == _Modo.cotizacion;
 
-    // Solo los métodos que el negocio realmente acepta (Ajustes › Métodos de
-    // pago). "Fiado" va siempre al final y no se configura: no es una forma
-    // de pago, es una deuda.
-    final activos = negocio?.metodosActivos ?? const [];
-
     final listo = total > 0 && tasa != null && negocio != null && !_cobrando;
 
     return Scaffold(
@@ -623,37 +768,16 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                             if (m == _Modo.cotizacion) _fiado = false;
                           }),
                         ),
-                        if (!esCotizacion) ...[
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final c in activos)
-                                _PastillaMetodo(
-                                  label: c.metodo.etiquetaCorta,
-                                  activa: !_fiado && _metodo == c.metodo,
-                                  onTap: () => setState(() {
-                                    _metodo = c.metodo;
-                                    _fiado = false;
-                                  }),
-                                ),
-                              _PastillaMetodo(
-                                label: 'Fiado',
-                                activa: _fiado,
-                                esFiado: true,
-                                onTap: () => setState(() => _fiado = !_fiado),
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (_requiereCliente) ...[
+                        // El método de pago (y a quién se le fía) se elige al
+                        // confirmar el cobro, no aquí — ver
+                        // `_abrirConfirmarCobro`. La cotización sí necesita el
+                        // cliente desde ya: la promesa es para alguien en
+                        // concreto desde el primer producto que se agrega.
+                        if (esCotizacion) ...[
                           const SizedBox(height: 10),
                           _TarjetaCliente(
                             cliente: _cliente,
-                            sufijo: esCotizacion
-                                ? 'recibe la cotización'
-                                : 'se anota a su cuenta',
+                            sufijo: 'recibe la cotización',
                             onCambiar: _elegirCliente,
                           ),
                         ],
@@ -684,19 +808,8 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                                 : '${MoneyFormatter.usdComoBs(total, tasa)}'
                                     ' · ${tipoTasa.etiqueta}',
                             piezas: piezas,
-                            onTapPie: _abrirMontoLibre,
+                            onTapPie: _abrirCarrito,
                           ),
-                          if (carrito.isNotEmpty || _montoLibre > 0) ...[
-                            const SizedBox(height: 8),
-                            _ListaCarrito(
-                              carrito: carrito,
-                              montoLibre: _montoLibre,
-                              onQuitar: (i) =>
-                                  ref.read(carritoProvider.notifier).quitar(i),
-                              onQuitarMontoLibre: () =>
-                                  setState(() => _montoLibre = 0),
-                            ),
-                          ],
                           const SizedBox(height: 10),
                           if (_termino.isEmpty && frecuencia.isNotEmpty)
                             Padding(
@@ -732,20 +845,21 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                           _BotonCobrar(
                             label: esCotizacion
                                 ? 'Enviar cotización ${MoneyFormatter.usd(total)}'
-                                : _fiado
-                                    ? 'Anotar fiado ${MoneyFormatter.usd(total)}'
-                                    : 'Cobrar ${MoneyFormatter.usd(total)}',
+                                : 'Cobrar ${MoneyFormatter.usd(total)}',
                             icono: esCotizacion
                                 ? Icons.chat_bubble
-                                : _fiado
-                                    ? Icons.description_outlined
-                                    : Icons.check_rounded,
+                                : Icons.check_rounded,
                             cargando: _cobrando,
                             onPressed: !listo
                                 ? null
                                 : esCotizacion
                                     ? () => _enviarCotizacion(tasa, negocio)
-                                    : () => _cobrar(tasa, negocio),
+                                    : () => _abrirConfirmarCobro(
+                                          tasa,
+                                          negocio,
+                                          total,
+                                          piezas,
+                                        ),
                           ),
                         ],
                       ),
@@ -1029,6 +1143,138 @@ class _TarjetaCliente extends StatelessWidget {
   }
 }
 
+/// Lo que se decidió en la hoja "¿Cómo te pagó?".
+class _PagoElegido {
+  const _PagoElegido({required this.metodo, required this.fiado, this.cliente});
+
+  final MetodoPago metodo;
+  final bool fiado;
+  final ClienteFiado? cliente;
+}
+
+/// Hoja de confirmación al tocar "Cobrar": elegir método de pago (o fiar) y,
+/// si es fiado, a quién. Vive aparte de la pantalla principal para que
+/// armar el carrito no obligue a mirar 6 chips de pago antes de saber
+/// cuánto es.
+class _HojaConfirmarPago extends StatefulWidget {
+  const _HojaConfirmarPago({
+    required this.total,
+    required this.piezas,
+    required this.activos,
+    required this.metodoInicial,
+    required this.fiadoInicial,
+    required this.clienteInicial,
+    required this.onElegirCliente,
+  });
+
+  final double total;
+  final int piezas;
+  final List<MetodoPagoConfig> activos;
+  final MetodoPago metodoInicial;
+  final bool fiadoInicial;
+  final ClienteFiado? clienteInicial;
+  final Future<ClienteFiado?> Function() onElegirCliente;
+
+  @override
+  State<_HojaConfirmarPago> createState() => _HojaConfirmarPagoState();
+}
+
+class _HojaConfirmarPagoState extends State<_HojaConfirmarPago> {
+  late MetodoPago _metodo = widget.metodoInicial;
+  late bool _fiado = widget.fiadoInicial;
+  late ClienteFiado? _cliente = widget.clienteInicial;
+
+  Future<void> _elegirCliente() async {
+    final elegido = await widget.onElegirCliente();
+    if (elegido != null && mounted) setState(() => _cliente = elegido);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final puedeConfirmar = !_fiado || _cliente != null;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          18,
+          20,
+          MediaQuery.viewInsetsOf(context).bottom + 18,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '¿Cómo te pagó?',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: t.textoFuerte,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${MoneyFormatter.usd(widget.total)} · ${widget.piezas} '
+              '${widget.piezas == 1 ? "producto" : "productos"}',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: t.textoMuted,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final c in widget.activos)
+                  _PastillaMetodo(
+                    label: c.metodo.etiquetaCorta,
+                    activa: !_fiado && _metodo == c.metodo,
+                    onTap: () => setState(() {
+                      _metodo = c.metodo;
+                      _fiado = false;
+                    }),
+                  ),
+                _PastillaMetodo(
+                  label: 'Fiado',
+                  activa: _fiado,
+                  esFiado: true,
+                  onTap: () => setState(() => _fiado = !_fiado),
+                ),
+              ],
+            ),
+            if (_fiado) ...[
+              const SizedBox(height: 12),
+              _TarjetaCliente(
+                cliente: _cliente,
+                sufijo: 'se anota a su cuenta',
+                onCambiar: _elegirCliente,
+              ),
+            ],
+            const SizedBox(height: 18),
+            LibretaButton(
+              label: _fiado
+                  ? 'Anotar fiado ${MoneyFormatter.usd(widget.total)}'
+                  : 'Confirmar cobro ${MoneyFormatter.usd(widget.total)}',
+              onPressed: !puedeConfirmar
+                  ? null
+                  : () => Navigator.of(context).pop(
+                        _PagoElegido(
+                          metodo: _metodo,
+                          fiado: _fiado,
+                          cliente: _cliente,
+                        ),
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Círculo navy con las iniciales del cliente.
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.nombre});
@@ -1167,55 +1413,6 @@ class _TarjetaTotal extends StatelessWidget {
   }
 }
 
-/// Las líneas ya agregadas. Tocar una la quita (una unidad a la vez).
-class _ListaCarrito extends StatelessWidget {
-  const _ListaCarrito({
-    required this.carrito,
-    required this.montoLibre,
-    required this.onQuitar,
-    required this.onQuitarMontoLibre,
-  });
-
-  final List<ItemCarrito> carrito;
-  final double montoLibre;
-  final ValueChanged<int> onQuitar;
-  final VoidCallback onQuitarMontoLibre;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.libreta;
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 68),
-      decoration: BoxDecoration(
-        color: t.superficie,
-        border: Border.all(color: t.renglon),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        shrinkWrap: true,
-        children: [
-          for (var i = 0; i < carrito.length; i++)
-            _FilaCarrito(
-              nombre: carrito[i].cantidad > 1
-                  ? '${carrito[i].nombre} ×${carrito[i].cantidad}'
-                  : carrito[i].nombre,
-              monto: carrito[i].subtotal,
-              onQuitar: () => onQuitar(i),
-            ),
-          if (montoLibre > 0)
-            _FilaCarrito(
-              nombre: 'Monto libre',
-              monto: montoLibre,
-              onQuitar: onQuitarMontoLibre,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FilaCarrito extends StatelessWidget {
   const _FilaCarrito({
     required this.nombre,
@@ -1260,7 +1457,7 @@ class _FilaCarrito extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.close_rounded, size: 14, color: t.textoMuted),
+            LibretaIcono(AppAssets.accCerrar, size: 14, color: t.textoMuted),
           ],
         ),
       ),
@@ -1300,7 +1497,7 @@ class _BuscadorProductos extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.search_rounded, size: 18, color: t.textoMuted),
+                LibretaIcono(AppAssets.accBuscar, size: 18, color: t.textoMuted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -1332,8 +1529,7 @@ class _BuscadorProductos extends StatelessWidget {
                       controller.clear();
                       onChanged('');
                     },
-                    child: Icon(
-                      Icons.close_rounded,
+                    child: LibretaIcono(AppAssets.accCerrar,
                       size: 16,
                       color: t.textoMuted,
                     ),
@@ -1352,8 +1548,7 @@ class _BuscadorProductos extends StatelessWidget {
               color: LibretaColors.tarjetaOscura,
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(
-              Icons.qr_code_scanner_rounded,
+            child: const LibretaIcono(AppAssets.accEscanear,
               color: Colors.white,
               size: 20,
             ),

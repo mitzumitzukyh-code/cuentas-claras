@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -240,7 +241,7 @@ class _HojaFuente extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.photo_camera_outlined, color: t.textoFuerte),
+              leading: LibretaIcono(AppAssets.accCamara, color: t.textoFuerte),
               title: Text('Cámara', style: TextStyle(color: t.textoFuerte, fontWeight: FontWeight.w600)),
               onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/bancos_venezuela.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 
 /// Abre la lista de bancos en una hoja inferior y devuelve el elegido.
@@ -168,8 +169,7 @@ class _HojaBancosState extends State<_HojaBancos> {
                       ),
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
-                        child: Icon(
-                          Icons.close_rounded,
+                        child: LibretaIcono(AppAssets.accCerrar,
                           size: 20,
                           color: t.textoMuted,
                         ),
@@ -181,7 +181,7 @@ class _HojaBancosState extends State<_HojaBancos> {
                     controller: _buscador,
                     hint: 'Buscar banco…',
                     height: 44,
-                    leading: Icon(Icons.search, size: 17, color: t.textoMuted),
+                    leading: LibretaIcono(AppAssets.accBuscar, size: 17, color: t.textoMuted),
                     onChanged: (v) => setState(() => _filtro = v),
                   ),
                 ],
@@ -255,7 +255,7 @@ class _FilaBanco extends StatelessWidget {
             ),
             if (activo) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.check, size: 16, color: LibretaColors.verde),
+              const LibretaIcono(AppAssets.accConfirmar, size: 16, color: LibretaColors.verde),
             ],
           ],
         ),

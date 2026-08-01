@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -182,7 +183,7 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                               onTap: () => setState(
                                 () => _filtro = const FiltroVentas(periodo: PeriodoFiltroVenta.personalizado),
                               ),
-                              child: const Icon(Icons.close, size: 14, color: LibretaColors.verde),
+                              child: const LibretaIcono(AppAssets.accCerrar, size: 14, color: LibretaColors.verde),
                             ),
                           ],
                         ),
@@ -196,19 +197,20 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
 
                   if (ventas.isEmpty)
                     LibretaEstadoVacio(
+                      ilustracion: Ilustracion.sinVentas,
                       titulo: 'Aún no registras ventas hoy',
                       detalle: 'Cuando cobres, tus ventas del día aparecerán '
                           'aquí, sumadas solas.',
                       tagline: 'tu primera venta te espera',
                       boton: LibretaButton(
                         label: 'Cobrar ahora',
-                        icon: const Icon(Icons.point_of_sale_outlined, size: 19, color: Colors.white),
+                        icon: const LibretaIcono(AppAssets.accEfectivo, size: 19, color: Colors.white),
                         onPressed: () => context.push(Routes.cobrar),
                       ),
                     )
                   else if (visibles.isEmpty)
                     LibretaEstadoVacio(
-                      busqueda: true,
+                      ilustracion: Ilustracion.sinResultados,
                       titulo: 'Sin ventas con este filtro',
                       detalle: 'Prueba con otro período, método de pago o estado.',
                       boton: LibretaSecondaryButton(

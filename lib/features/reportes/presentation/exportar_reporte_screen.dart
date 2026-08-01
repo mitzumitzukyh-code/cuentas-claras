@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../fiados/data/fiado_repository.dart';
 import '../../gastos/data/gasto_repository.dart';
@@ -251,7 +252,7 @@ class _ExportarReporteScreenState extends ConsumerState<ExportarReporteScreen> {
               LibretaButton(
                 label: _generando ? 'Preparando…' : 'Exportar y compartir',
                 loading: _generando,
-                icon: _generando ? null : const Icon(Icons.share, size: 18, color: Colors.white),
+                icon: _generando ? null : const LibretaIcono(AppAssets.accCompartir, size: 18, color: Colors.white),
                 onPressed: (_generando || (!_incluirVentas && !_incluirGastos && !_incluirFiados)) ? null : _exportar,
               ),
             ],

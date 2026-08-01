@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/whatsapp.dart';
@@ -126,6 +127,7 @@ class FiadosScreen extends ConsumerWidget {
 
                       if (conDeuda.isEmpty)
                         LibretaEstadoVacio(
+                          ilustracion: Ilustracion.sinFiados,
                           titulo: 'Nadie te debe… por ahora',
                           detalle: 'Aquí verás a quién le fiaste, cuánto y '
                               'desde cuándo, para no perder la cuenta.',
@@ -153,6 +155,7 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
                           Padding(
                             padding: const EdgeInsets.only(top: 24),
                             child: LibretaEstadoVacio(
+                              ilustracion: Ilustracion.sinResultados,
                               titulo: 'Sin resultados',
                               detalle:
                                   'Ningún cliente coincide con "$busqueda"',
@@ -321,7 +324,7 @@ class _BuscadorFiados extends ConsumerWidget {
       decoration: InputDecoration(
         hintText: 'Buscar cliente…',
         hintStyle: TextStyle(color: context.libreta.textoMuted),
-        prefixIcon: Icon(Icons.search, size: 20, color: context.libreta.textoMuted),
+        prefixIcon: LibretaIcono(AppAssets.accBuscar, size: 20, color: context.libreta.textoMuted),
         filled: true,
         fillColor: context.libreta.superficie,
         border: OutlineInputBorder(

@@ -110,7 +110,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const LibretaLogo(size: 52),
+                    const LibretaLogo(size: 52, sobreOscuro: true),
                     const SizedBox(height: 8),
                     const Text(
                       'Abre tu cuaderno',

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/constants/app_links.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 
 class _Pregunta {
@@ -143,7 +144,7 @@ class _CentroAyudaScreenState extends State<CentroAyudaScreen> {
                 hint: 'Buscar en la ayuda…',
                 height: 46,
                 bordeVerde: true,
-                leading: const Icon(Icons.search, size: 18, color: LibretaColors.verde),
+                leading: const LibretaIcono(AppAssets.accBuscar, size: 18, color: LibretaColors.verde),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 14),

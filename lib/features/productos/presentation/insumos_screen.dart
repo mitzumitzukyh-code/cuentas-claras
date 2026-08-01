@@ -134,6 +134,7 @@ class InsumosScreen extends ConsumerWidget {
 
               if (insumos.isEmpty)
                 LibretaEstadoVacio(
+                  ilustracion: Ilustracion.sinProductos,
                   titulo: 'Todavía no cargas insumos',
                   detalle: 'Carga la harina, los huevos, el aceite… Después los '
                       'pones en la receta de cada producto y se descuentan '

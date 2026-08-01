@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/routes.dart';
+import '../../core/theme/app_assets.dart';
 import 'libreta/libreta.dart';
 import 'permiso_requerido.dart';
 
 /// Pestañas de la barra inferior (réplica visual de `P0 · APP SHELL`,
-/// `Lote K · Navegación`): Inicio, Ventas, Mercancía, Reportes y Más.
+/// `Lote K · Navegación`): Inicio, Cobrar, Mercancía, Reportes y Más.
+///
+/// Se llama "Cobrar" y no "Ventas" a propósito: es exactamente lo que abre
+/// (`CobrarScreen`, con ese mismo título) — "Ventas" prometía un historial
+/// que esta pestaña no muestra.
 enum NavTab { inicio, cobrar, productos, reportes, perfil }
 
 /// Barra de navegación inferior, fija, con 5 pestañas.
@@ -65,32 +70,32 @@ class AppBottomNav extends ConsumerWidget {
       child: Row(
         children: [
           _Tab(
-            icono: Icons.home_outlined,
+            icono: AppAssets.navInicio,
             etiqueta: 'Inicio',
             activa: activa == NavTab.inicio,
             onTap: () => _ir(context, NavTab.inicio),
           ),
           _Tab(
-            icono: Icons.receipt_long_outlined,
-            etiqueta: 'Ventas',
+            icono: AppAssets.navVentas,
+            etiqueta: 'Cobrar',
             activa: activa == NavTab.cobrar,
             onTap: () => _ir(context, NavTab.cobrar),
           ),
           _Tab(
-            icono: Icons.inventory_2_outlined,
+            icono: AppAssets.navProductos,
             etiqueta: 'Mercancía',
             activa: activa == NavTab.productos,
             onTap: () => _ir(context, NavTab.productos),
           ),
           if (verReportes)
             _Tab(
-              icono: Icons.show_chart_rounded,
+              icono: AppAssets.navReportes,
               etiqueta: 'Reportes',
               activa: activa == NavTab.reportes,
               onTap: () => _ir(context, NavTab.reportes),
             ),
           _Tab(
-            icono: Icons.more_horiz_rounded,
+            icono: AppAssets.navMas,
             etiqueta: 'Más',
             activa: activa == NavTab.perfil,
             onTap: () => _ir(context, NavTab.perfil),
@@ -109,7 +114,8 @@ class _Tab extends StatelessWidget {
     required this.onTap,
   });
 
-  final IconData icono;
+  /// Ruta del SVG de `AppAssets.nav*`.
+  final String icono;
   final String etiqueta;
   final bool activa;
   final VoidCallback onTap;
@@ -127,7 +133,7 @@ class _Tab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icono, size: 21, color: color),
+            LibretaIcono(icono, size: 21, color: color),
             const SizedBox(height: 3),
             Text(
               etiqueta,

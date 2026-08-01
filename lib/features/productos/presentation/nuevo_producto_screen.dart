@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
@@ -428,7 +429,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                     child: LibretaSecondaryButton(
                       label: 'Tomar foto',
                       height: 44,
-                      icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                      icon: const LibretaIcono(AppAssets.accCamara, size: 16),
                       onPressed: () => _elegirFoto(ImageSource.camera),
                     ),
                   ),
@@ -437,7 +438,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                     child: LibretaSecondaryButton(
                       label: _codigoBarras == null ? 'Escanear código' : 'Código ✓',
                       height: 44,
-                      icon: const Icon(Icons.qr_code_scanner, size: 16),
+                      icon: const LibretaIcono(AppAssets.accEscanear, size: 16),
                       onPressed: _escanear,
                     ),
                   ),
@@ -758,7 +759,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                   label: _vencimiento == null
                       ? 'Elegir fecha'
                       : '${_vencimiento!.day}/${_vencimiento!.month}/${_vencimiento!.year}',
-                  icon: const Icon(Icons.event_outlined, size: 18),
+                  icon: const LibretaIcono(AppAssets.accCalendario, size: 18),
                   onPressed: _elegirVencimiento,
                 ),
               ],
@@ -904,7 +905,7 @@ class _ZonaFoto extends StatelessWidget {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_a_photo_outlined, size: 22, color: context.libreta.textoMuted),
+                  LibretaIcono(AppAssets.accCamara, size: 22, color: context.libreta.textoMuted),
                   SizedBox(height: 4),
                   Text(
                     'Foto',
@@ -1016,8 +1017,7 @@ class _EditorVariantesState extends State<_EditorVariantes> {
                   ),
                   GestureDetector(
                     onTap: () => widget.onEliminar(i),
-                    child: const Icon(
-                      Icons.close,
+                    child: const LibretaIcono(AppAssets.accCerrar,
                       size: 18,
                       color: LibretaColors.peligro,
                     ),
@@ -1215,7 +1215,7 @@ class _EditorRecetaState extends ConsumerState<_EditorReceta> {
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: () => widget.onEliminar(i),
-                    child: const Icon(Icons.close, size: 17, color: LibretaColors.peligro),
+                    child: const LibretaIcono(AppAssets.accCerrar, size: 17, color: LibretaColors.peligro),
                   ),
                 ],
               ),

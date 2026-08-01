@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -150,8 +151,7 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.warning_amber_rounded,
+                      child: const LibretaIcono(AppAssets.accAlerta,
                         size: 32,
                         color: LibretaColors.aviso,
                       ),
@@ -309,7 +309,7 @@ class _FilaBorrado extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          const Icon(Icons.close, size: 15, color: LibretaColors.aviso),
+          const LibretaIcono(AppAssets.accCerrar, size: 15, color: LibretaColors.aviso),
           const SizedBox(width: 10),
           Text(
             texto,

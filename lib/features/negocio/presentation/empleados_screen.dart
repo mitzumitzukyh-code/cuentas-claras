@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/negocio_repository.dart';
@@ -183,8 +184,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 40),
                             child: Column(
                               children: [
-                                Icon(
-                                  Icons.groups_outlined,
+                                LibretaIcono(AppAssets.navClientes,
                                   size: 30,
                                   color: context.libreta.textoMuted,
                                 ),
@@ -393,7 +393,7 @@ class _FilaMiembro extends StatelessWidget {
                 onTap: onQuitar,
                 child: Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close, size: 18, color: context.libreta.textoMuted),
+                  child: LibretaIcono(AppAssets.accCerrar, size: 18, color: context.libreta.textoMuted),
                 ),
               ),
             ],

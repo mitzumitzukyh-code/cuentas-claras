@@ -11,6 +11,7 @@ export 'libreta_chrome.dart';
 export 'libreta_colors.dart';
 export 'libreta_dotted.dart';
 export 'libreta_estado_vacio.dart';
+export 'libreta_icono.dart';
 export 'libreta_input.dart';
 export 'libreta_logo.dart';
 export 'libreta_tokens.dart';

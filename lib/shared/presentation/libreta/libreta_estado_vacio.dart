@@ -4,15 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'libreta_colors.dart';
+import 'libreta_icono.dart';
 import 'libreta_tokens.dart';
 
 /// Estado vacío estándar del sistema "libreta" (réplica de `Lote I ·
 /// Estados vacíos`): hoja de cuaderno flotando suavemente, título, detalle,
 /// tagline en Caveat y un botón de acción opcional.
 ///
-/// [busqueda] cambia el garabato dibujado en la hoja: una palomita para "no
-/// hay nada todavía" (ventas/productos/fiados) o una lupa tachada para "no
-/// hay resultados de tu búsqueda".
+/// [ilustracion] es la hoja dibujada del paquete de marca. Cuando no se pasa
+/// ninguna se cae a la hoja pintada a mano de este archivo, donde [busqueda]
+/// elige el garabato: una palomita para "no hay nada todavía" o una lupa
+/// tachada para "no hay resultados de tu búsqueda".
 class LibretaEstadoVacio extends StatefulWidget {
   const LibretaEstadoVacio({
     super.key,
@@ -21,6 +23,7 @@ class LibretaEstadoVacio extends StatefulWidget {
     this.tagline,
     this.boton,
     this.busqueda = false,
+    this.ilustracion,
   });
 
   final String titulo;
@@ -31,6 +34,11 @@ class LibretaEstadoVacio extends StatefulWidget {
 
   final Widget? boton;
   final bool busqueda;
+
+  /// Ilustración del paquete de marca. Entra y flota con la misma animación
+  /// que la hoja pintada, así que cambiar una por otra no altera el ritmo de
+  /// la pantalla.
+  final Ilustracion? ilustracion;
 
   @override
   State<LibretaEstadoVacio> createState() => _LibretaEstadoVacioState();
@@ -74,6 +82,7 @@ class _LibretaEstadoVacioState extends State<LibretaEstadoVacio>
           _HojaAnimated(
             controlador: _controlador,
             busqueda: widget.busqueda,
+            ilustracion: widget.ilustracion,
             superficie: t.superficie,
             textoFuerte: t.textoFuerte,
             textoMuted: t.textoMuted,
@@ -143,6 +152,7 @@ class _HojaAnimated extends StatefulWidget {
   const _HojaAnimated({
     required this.controlador,
     required this.busqueda,
+    required this.ilustracion,
     required this.superficie,
     required this.textoFuerte,
     required this.textoMuted,
@@ -152,6 +162,7 @@ class _HojaAnimated extends StatefulWidget {
 
   final AnimationController controlador;
   final bool busqueda;
+  final Ilustracion? ilustracion;
   final Color superficie, textoFuerte, textoMuted, margenCoral, bordeSuave;
 
   @override
@@ -194,16 +205,18 @@ class _HojaAnimatedState extends State<_HojaAnimated>
       child: SizedBox(
         width: 130,
         height: 130,
-        child: CustomPaint(
-          painter: _HojaPainter(
-            busqueda: widget.busqueda,
-            colorPagina: widget.superficie,
-            colorTexto: widget.textoFuerte,
-            colorMuted: widget.textoMuted,
-            colorMargen: widget.margenCoral,
-            colorRenglon: widget.bordeSuave,
-          ),
-        ),
+        child: widget.ilustracion != null
+            ? LibretaIlustracion(widget.ilustracion!, size: 130)
+            : CustomPaint(
+                painter: _HojaPainter(
+                  busqueda: widget.busqueda,
+                  colorPagina: widget.superficie,
+                  colorTexto: widget.textoFuerte,
+                  colorMuted: widget.textoMuted,
+                  colorMargen: widget.margenCoral,
+                  colorRenglon: widget.bordeSuave,
+                ),
+              ),
       ),
     );
   }

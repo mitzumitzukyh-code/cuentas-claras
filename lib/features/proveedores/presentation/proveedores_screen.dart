@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/proveedor_repository.dart';
@@ -91,6 +92,7 @@ class ProveedoresScreen extends ConsumerWidget {
                       const SizedBox(height: 16),
                       if (conDeuda.isEmpty)
                         LibretaEstadoVacio(
+                          ilustracion: Ilustracion.sinFiados,
                           titulo: 'No le debes a nadie',
                           detalle: 'Aquí verás tus deudas a proveedores y '
                               'cuándo vencen, para no perder la cuenta.',
@@ -116,6 +118,7 @@ class ProveedoresScreen extends ConsumerWidget {
                           const Padding(
                             padding: EdgeInsets.only(top: 24),
                             child: LibretaEstadoVacio(
+                              ilustracion: Ilustracion.sinResultados,
                               titulo: 'Sin resultados',
                               detalle: 'Ningún proveedor coincide con la búsqueda',
                             ),
@@ -165,7 +168,7 @@ class _BuscadorProveedores extends ConsumerWidget {
       decoration: InputDecoration(
         hintText: 'Buscar proveedor…',
         hintStyle: TextStyle(color: context.libreta.textoMuted),
-        prefixIcon: Icon(Icons.search, size: 20, color: context.libreta.textoMuted),
+        prefixIcon: LibretaIcono(AppAssets.accBuscar, size: 20, color: context.libreta.textoMuted),
         filled: true,
         fillColor: context.libreta.superficie,
         border: OutlineInputBorder(
@@ -203,7 +206,7 @@ class _FilaProveedor extends StatelessWidget {
               height: 38,
               decoration: BoxDecoration(color: const Color(0x1F0E9F6E), borderRadius: BorderRadius.circular(11)),
               alignment: Alignment.center,
-              child: const Icon(Icons.storefront_outlined, size: 19, color: LibretaColors.verde),
+              child: const LibretaIcono(AppAssets.catBodega, size: 19, color: LibretaColors.verde),
             ),
             const SizedBox(width: 12),
             Expanded(

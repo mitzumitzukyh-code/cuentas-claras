@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Blanco hueso de la marca: fondo del icono adaptativo (CLAUDE.md §3). -->
-    <color name="ic_launcher_background">#F7F9F7</color>
+    <!-- Azul noche de la marca: respaldo del fondo del icono adaptativo para
+         launchers que no resuelvan el bitmap con degradado. -->
+    <color name="ic_launcher_background">#1B3A4B</color>
 
     <!-- Verde esmeralda: tinte que Android aplica al icono de notificacion y a
          la barra lateral del aviso. -->
     <color name="color_notificacion">#0F9D82</color>
+
+    <!-- Marron del centro del degradado de portada. Es el fondo de la ventana
+         mientras arranca el proceso: en blanco, el arranque daba un fogonazo
+         claro antes de que el SplashScreen de Flutter pintara su degradado. -->
+    <color name="fondo_arranque">#5A3A28</color>
 </resources>

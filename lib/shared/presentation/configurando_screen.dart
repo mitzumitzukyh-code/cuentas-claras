@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/app_assets.dart';
 import 'libreta/libreta.dart';
 
 class ConfigurandoScreen extends ConsumerStatefulWidget {
@@ -100,7 +101,7 @@ class _ConfigurandoScreenState extends ConsumerState<ConfigurandoScreen>
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Icon(Icons.edit_outlined,
+                  const LibretaIcono(AppAssets.accEditar,
                       size: 15, color: LibretaColors.verde),
                 ],
               ),

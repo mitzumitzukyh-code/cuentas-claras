@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
@@ -152,6 +153,7 @@ class GastosScreen extends ConsumerWidget {
 
               if (gastos.isEmpty)
                 LibretaEstadoVacio(
+                  ilustracion: Ilustracion.sinReportes,
                   titulo: 'Aún no registras gastos este mes',
                   detalle: 'Registra lo que compras y paga el negocio para '
                       'saber cuánto te queda de verdad.',
@@ -296,8 +298,7 @@ class _FilaGasto extends StatelessWidget {
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: onEliminar,
-            icon: Icon(
-              Icons.delete_outline,
+            icon: LibretaIcono(AppAssets.accEliminar,
               size: 18,
               color: context.libreta.textoMuted,
             ),

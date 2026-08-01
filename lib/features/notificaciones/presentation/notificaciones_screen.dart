@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/firebase_providers.dart';
 import '../../../core/providers/historial_tasa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../dashboard/presentation/urgencias.dart';
@@ -187,7 +188,7 @@ class _FilaNotificacion extends ConsumerWidget {
                     : const Color(0x1F0E9F6E),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
+              child: LibretaIcono(
                 urgencia.icono,
                 size: 18,
                 color:
@@ -262,8 +263,7 @@ class _SinNotificaciones extends StatelessWidget {
                 color: Color(0x140E9F6E),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.check_rounded,
+              child: const LibretaIcono(AppAssets.accConfirmar,
                 size: 30,
                 color: LibretaColors.verde,
               ),

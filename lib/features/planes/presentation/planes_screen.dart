@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 
 /// Un plan del catálogo comercial (CLAUDE.md §6).
@@ -259,8 +260,7 @@ class _TarjetaPlan extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.check,
+                          const LibretaIcono(AppAssets.accConfirmar,
                             size: 18,
                             color: Colors.white,
                           ),

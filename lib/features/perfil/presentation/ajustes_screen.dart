@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_links.dart';
 import 'legal_screen.dart';
@@ -179,7 +180,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(Icons.photo_camera_outlined),
+                  leading: const LibretaIcono(AppAssets.accCamara),
                   title: const Text('Tomar foto'),
                   onTap: () => Navigator.of(c).pop(ImageSource.camera),
                 ),
@@ -330,10 +331,11 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // --- 1. Negocio ---
+                    // --- Negocio ---
                     _EntradaSuave(
                       orden: 2,
-                      child: _Seccion(
+                      child: _SeccionAcordeon(
+                        icono: Icons.storefront_outlined,
                         titulo: 'Negocio',
                         child: Column(
                           children: [
@@ -418,7 +420,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                               ),
                             ),
                             _Fila(
-                              ultima: true,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -465,55 +466,54 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                 ],
                               ),
                             ),
+                            _Fila(
+                              ultima: true,
+                              onTap: () => context.push(Routes.unirseCodigo),
+                              child: const _FilaSimple(
+                                icono: Icons.group_add_outlined,
+                                texto: 'Unirme a otro negocio',
+                                valor: 'con un código',
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
-                    // --- 2. Tasa de cambio · usar al cobrar ---
+                    // --- Cobros y tasa ---
                     _EntradaSuave(
                       orden: 3,
-                      child: _Seccion(
-                        titulo: 'Tasa de cambio · usar al cobrar',
-                        child: const _SelectorTasaAjustes(),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 2),
-                      child: Text(
-                        'La tasa elegida se usa para convertir el total a '
-                        'bolívares al momento de cobrar.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: context.libreta.textoMuted,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const _HistorialTasa(),
-                    const SizedBox(height: 18),
-
-                    _EntradaSuave(
-                      orden: 4,
-                      child: _Seccion(
-                        titulo: 'Seguridad',
-                        child: _Fila(
-                          ultima: true,
-                          child: const _InterruptorBiometria(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // --- 3. Recibos e impuestos ---
-                    _EntradaSuave(
-                      orden: 4,
-                      child: _Seccion(
-                        titulo: 'Recibos e impuestos',
+                      child: _SeccionAcordeon(
+                        icono: Icons.payments_outlined,
+                        titulo: 'Cobros y tasa',
                         child: Column(
                           children: [
+                            const _SelectorTasaAjustes(),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                14,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'La tasa elegida se usa para convertir '
+                                    'el total a bolívares al momento de '
+                                    'cobrar.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.libreta.textoMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const _HistorialTasa(),
+                                ],
+                              ),
+                            ),
                             _Fila(
                               child: _FilaInterruptor(
                                 titulo: 'Incluir IVA en recibos',
@@ -572,12 +572,13 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
-                    // --- 4. Avisos ---
+                    // --- Avisos ---
                     _EntradaSuave(
-                      orden: 5,
-                      child: _Seccion(
+                      orden: 4,
+                      child: _SeccionAcordeon(
+                        icono: Icons.notifications_none_rounded,
                         titulo: 'Avisos',
                         child: Column(
                           children: [
@@ -597,18 +598,26 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                         : null,
                               ),
                             ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                0,
+                                16,
+                                14,
+                              ),
+                              child: const AvisosTasaSeccion(),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    const _EntradaSuave(orden: 6, child: AvisosTasaSeccion()),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
-                    // --- 5. Apariencia ---
+                    // --- Apariencia ---
                     _EntradaSuave(
-                      orden: 7,
-                      child: _Seccion(
+                      orden: 5,
+                      child: _SeccionAcordeon(
+                        icono: Icons.palette_outlined,
                         titulo: 'Apariencia',
                         child: Column(
                           children: [
@@ -652,12 +661,48 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
-                    // --- 7. Legal ---
+                    // --- Seguridad y datos ---
                     _EntradaSuave(
-                      orden: 9,
-                      child: _Seccion(
+                      orden: 6,
+                      child: _SeccionAcordeon(
+                        icono: Icons.lock_outline_rounded,
+                        titulo: 'Seguridad y datos',
+                        child: Column(
+                          children: [
+                            _Fila(child: const _InterruptorBiometria()),
+                            _Fila(
+                              onTap: esDueno ? _exportarNegocio : null,
+                              child: _FilaSimple(
+                                icono: Icons.file_download_outlined,
+                                texto: 'Exportar todo mi negocio',
+                                valor: _exportando ? 'generando…' : '.zip',
+                              ),
+                            ),
+                            _Fila(
+                              ultima: true,
+                              onTap:
+                                  esDueno
+                                      ? () => context.push(Routes.auditoria)
+                                      : null,
+                              child: _FilaSimple(
+                                icono: Icons.fact_check_outlined,
+                                texto: 'Historial de auditoría',
+                                valor: 'quién hizo qué',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // --- Legal ---
+                    _EntradaSuave(
+                      orden: 7,
+                      child: _SeccionAcordeon(
+                        icono: Icons.gavel_outlined,
                         titulo: 'Legal',
                         child: Column(
                           children: [
@@ -679,39 +724,6 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                     DocumentoLegal.terminos,
                                   ),
                               child: _FilaLegal(texto: 'Términos de uso'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // --- 9. Respaldo y datos ---
-                    _EntradaSuave(
-                      orden: 11,
-                      child: _Seccion(
-                        titulo: 'Respaldo y datos',
-                        child: Column(
-                          children: [
-                            _Fila(
-                              onTap: esDueno ? _exportarNegocio : null,
-                              child: _FilaSimple(
-                                icono: Icons.file_download_outlined,
-                                texto: 'Exportar todo mi negocio',
-                                valor: _exportando ? 'generando…' : '.zip',
-                              ),
-                            ),
-                            _Fila(
-                              ultima: true,
-                              onTap:
-                                  esDueno
-                                      ? () => context.push(Routes.auditoria)
-                                      : null,
-                              child: _FilaSimple(
-                                icono: Icons.fact_check_outlined,
-                                texto: 'Historial de auditoría',
-                                valor: 'quién hizo qué',
-                              ),
                             ),
                           ],
                         ),
@@ -1009,7 +1021,7 @@ class _FilaTasa extends StatelessWidget {
             alignment: Alignment.center,
             child:
                 seleccionada
-                    ? const Icon(Icons.check, size: 13, color: Colors.white)
+                    ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
                     : null,
           ),
           const SizedBox(width: 12),
@@ -1260,8 +1272,7 @@ class _AvatarEditableState extends State<_AvatarEditable> {
                     border: Border.all(color: context.libreta.papel, width: 2),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    Icons.photo_camera_outlined,
+                  child: LibretaIcono(AppAssets.accCamara,
                     size: 14,
                     color: context.libreta.textoFuerte,
                   ),
@@ -1274,38 +1285,97 @@ class _AvatarEditableState extends State<_AvatarEditable> {
   }
 }
 
-/// Título de sección + tarjeta agrupadora.
-class _Seccion extends StatelessWidget {
-  const _Seccion({required this.titulo, required this.child});
+/// Categoría colapsable de Ajustes: se ve solo el título hasta que se toca.
+///
+/// Antes cada tema (Negocio, Tasa, Avisos, Apariencia…) era una tarjeta
+/// siempre abierta, una tras otra — 9 seguidas en una sola lista larga.
+/// Agruparlas en acordeones deja ver de entrada solo 6 títulos; cada quien
+/// abre nada más el tema al que vino.
+class _SeccionAcordeon extends StatefulWidget {
+  const _SeccionAcordeon({
+    required this.icono,
+    required this.titulo,
+    required this.child,
+  });
 
+  final IconData icono;
   final String titulo;
   final Widget child;
 
   @override
+  State<_SeccionAcordeon> createState() => _SeccionAcordeonState();
+}
+
+class _SeccionAcordeonState extends State<_SeccionAcordeon> {
+  bool _abierta = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          titulo.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-            color: context.libreta.textoMuted,
-          ),
+    final t = context.libreta;
+    return Container(
+      decoration: BoxDecoration(
+        color: t.superficie,
+        border: Border.all(
+          color:
+              _abierta
+                  ? const Color(0x590E9F6E)
+                  : const Color(0x141E2A38),
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: context.libreta.superficie,
-            border: Border.all(color: const Color(0x141E2A38)),
-            borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _abierta = !_abierta),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 15,
+              ),
+              child: Row(
+                children: [
+                  Icon(widget.icono, size: 19, color: LibretaColors.verde),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.titulo,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: t.textoFuerte,
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _abierta ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 22,
+                      color: t.textoMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: child,
-        ),
-      ],
+          ClipRect(
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              heightFactor: _abierta ? 1 : 0,
+              child: Column(
+                children: [
+                  Divider(height: 1, color: t.renglon),
+                  widget.child,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

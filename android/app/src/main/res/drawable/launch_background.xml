@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+<!--
+  Fondo de la ventana mientras arranca el proceso, antes del primer frame de
+  Flutter. Usa el color del centro del degradado de portada para que el
+  SplashScreen de Flutter (vinotinto -> verde) entre sin cambio de brillo.
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+  A proposito NO lleva el logo: la portada de Flutter dibuja la tapa del
+  cuaderno abriendose desde -72 grados, y un logo estatico ya completo aqui
+  saltaria de golpe al empezar esa animacion.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/fondo_arranque" />
 </layer-list>

@@ -65,6 +65,7 @@ dependencies:
   cached_network_image: ^3.4.1
   local_auth: ^2.3.0
   archive: ^3.6.1                # respaldo del negocio en .zip
+  flutter_svg: ^2.0.17           # iconos e ilustraciones de marca (assets/svg)
 
 dev_dependencies:
   flutter_test:
@@ -75,7 +76,26 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/icon/
+    # Nota: `assets/icon/` ya no existe. Eran los bocetos del icono anterior
+    # (5 PNG de ~1,5 MB cada uno) y viajaban enteros dentro del APK; su unico
+    # consumidor era la marca de agua del catalogo, que ahora usa el isotipo
+    # del paquete. Los originales quedaron en `herramientas/marca/`.
+
+    # Paquete de marca. Se empaquetan los SVG y no los PNG: el vector pesa
+    # ~400 KB en total contra 3,7 MB de las tres densidades, y `flutter_svg`
+    # los escala sin perder filo en cualquier pantalla.
+    - assets/svg/marca/
+    - assets/svg/iconos/nav/
+    - assets/svg/iconos/acciones/
+    - assets/svg/iconos/categorias/
+    - assets/svg/ilustraciones/
+    - assets/svg/ilustraciones-dark/
+    - assets/svg/texturas/
+
+    # Unico PNG del paquete que sí viaja: la marca de agua del catálogo y del
+    # estado se pinta dentro de un RepaintBoundary que se captura a imagen, y
+    # un SVG que todavía no terminó de decodificar saldría en blanco ahí.
+    - assets/png/2x/marca/isotipo-mono-blanco.png
 
   # Fuente del diseño empaquetada (antes se bajaba en runtime con google_fonts y
   # caía a Roboto sin red). Pesos 400/500/600/700/800 = los que usa el sistema.

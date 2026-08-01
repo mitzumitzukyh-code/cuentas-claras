@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/firebase_providers.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../ventas/data/venta_repository.dart';
@@ -11,7 +12,7 @@ import '../../ventas/data/venta_repository.dart';
 /// Un empujón dentro de la app: qué proponer, con qué icono y a dónde lleva.
 typedef _Sugerencia = ({
   String clave,
-  IconData icono,
+  String icono,
   String titulo,
   String detalle,
   String accion,
@@ -52,7 +53,7 @@ class _SugerenciaUsoState extends ConsumerState<SugerenciaUso> {
       if (productos == 0)
         (
           clave: 'primer_producto',
-          icono: Icons.add_box_outlined,
+          icono: AppAssets.accAgregar,
           titulo: 'Carga tu mercancía',
           detalle: 'Con tus productos adentro, cobrar es tocar y listo.',
           accion: 'Agregar producto',
@@ -61,7 +62,7 @@ class _SugerenciaUsoState extends ConsumerState<SugerenciaUso> {
       if (productos > 0 && ventasHoy == 0)
         (
           clave: 'primera_venta',
-          icono: Icons.point_of_sale_outlined,
+          icono: AppAssets.accEfectivo,
           titulo: 'Anota tu primera venta del día',
           detalle: 'La app descuenta el inventario y saca la cuenta en Bs.',
           accion: 'Cobrar',
@@ -70,7 +71,7 @@ class _SugerenciaUsoState extends ConsumerState<SugerenciaUso> {
       if (productos > 0)
         (
           clave: 'compartir_catalogo',
-          icono: Icons.chat_outlined,
+          icono: AppAssets.accMensaje,
           titulo: 'Manda tus precios por WhatsApp',
           detalle: 'Tus clientes ven qué tienes y a cómo, sin preguntarte.',
           accion: 'Ver catálogo',
@@ -79,7 +80,7 @@ class _SugerenciaUsoState extends ConsumerState<SugerenciaUso> {
       if (productos > 0)
         (
           clave: 'fiados',
-          icono: Icons.handshake_outlined,
+          icono: AppAssets.navClientes,
           titulo: '¿Fías?',
           detalle: 'Lleva quién te debe y cuánto, sin pelear con nadie.',
           accion: 'Ver fiados',
@@ -120,7 +121,7 @@ class _SugerenciaUsoState extends ConsumerState<SugerenciaUso> {
               color: const Color(0x290E9F6E),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(sugerencia.icono,
+            child: LibretaIcono(sugerencia.icono,
                 size: 18, color: LibretaColors.verde),
           ),
           const SizedBox(width: 11),
@@ -175,7 +176,7 @@ class _SugerenciaUsoState extends ConsumerState<SugerenciaUso> {
             behavior: HitTestBehavior.opaque,
             child: const Padding(
               padding: EdgeInsets.all(6),
-              child: Icon(Icons.close,
+              child: LibretaIcono(AppAssets.accCerrar,
                   size: 16, color: LibretaColors.textoMuted),
             ),
           ),
@@ -208,7 +209,7 @@ class _TodoAlDia extends StatelessWidget {
               color: const Color(0x121E2A38),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(Icons.check_rounded,
+            child: const LibretaIcono(AppAssets.accConfirmar,
                 size: 18, color: LibretaColors.verde),
           ),
           const SizedBox(width: 11),

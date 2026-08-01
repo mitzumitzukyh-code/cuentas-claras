@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -52,7 +53,7 @@ class _OpcionConexion extends StatelessWidget {
                 ),
               ),
               child: seleccionada
-                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                  ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
                   : null,
             ),
             const SizedBox(width: 12),

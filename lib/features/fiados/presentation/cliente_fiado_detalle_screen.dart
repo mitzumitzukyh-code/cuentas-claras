@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -188,7 +189,7 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
                     child: LibretaSecondaryButton(
                       label: 'Recordar',
                       height: 48,
-                      icon: const Icon(Icons.chat_outlined, size: 17, color: LibretaColors.verde),
+                      icon: const LibretaIcono(AppAssets.accMensaje, size: 17, color: LibretaColors.verde),
                       onPressed: () => _recordar(context, ref),
                     ),
                   ),

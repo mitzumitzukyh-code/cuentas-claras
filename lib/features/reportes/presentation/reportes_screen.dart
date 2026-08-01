@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
@@ -366,7 +367,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                 child: LibretaButton(
                   label: 'Exportar reporte',
                   color: const Color(0xFF1E2A38),
-                  icon: const Icon(Icons.ios_share, size: 18, color: Colors.white),
+                  icon: const LibretaIcono(AppAssets.accCompartir, size: 18, color: Colors.white),
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => ExportarReporteScreen(

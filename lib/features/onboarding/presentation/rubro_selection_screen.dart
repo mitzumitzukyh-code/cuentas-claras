@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -360,7 +361,7 @@ class _TarjetaRubro extends StatelessWidget {
                 color: rubro.color,
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: Icon(rubro.icono, size: 24, color: Colors.white),
+              child: LibretaIcono(rubro.icono, size: 24, color: Colors.white),
             ),
             const SizedBox(height: 10),
             Text(
@@ -514,7 +515,7 @@ class _OpcionMoneda extends StatelessWidget {
               ),
               child:
                   seleccionado
-                      ? const Icon(Icons.check, size: 13, color: Colors.white)
+                      ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
                       : null,
             ),
           ],
@@ -663,8 +664,7 @@ class _PasoResumen extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.check,
+                  child: const LibretaIcono(AppAssets.accConfirmar,
                     size: 40,
                     color: LibretaColors.verde,
                   ),

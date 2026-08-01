@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_assets.dart';
+
 /// Rubro del negocio (CLAUDE.md §4). Determina qué campos/pantallas se muestran.
 enum Rubro {
   bodega,
@@ -50,14 +52,21 @@ enum Rubro {
         Rubro.otro => const Color(0xFF8A9A96),
       };
 
-  IconData get icono => switch (this) {
-        Rubro.bodega => Icons.storefront_outlined,
-        Rubro.ropa => Icons.checkroom_outlined,
-        Rubro.belleza => Icons.brush_outlined,
-        Rubro.quincalleria => Icons.handyman_outlined,
-        Rubro.comidaRapida => Icons.lunch_dining_outlined,
-        Rubro.electronica => Icons.phone_android_outlined,
-        Rubro.otro => Icons.category_outlined,
+  /// Ícono de categoría del paquete de marca. El trazo de 1.7 y las esquinas
+  /// redondeadas del paquete son los que hacen que la cuadrícula de rubros se
+  /// lea como un set y no como siete íconos prestados de Material.
+  ///
+  /// El paquete trae once categorías y el negocio maneja siete: quincallería
+  /// toma el de ferretería y electrónica el de tecnología, que es el mismo
+  /// dibujo con otro nombre.
+  String get icono => switch (this) {
+        Rubro.bodega => AppAssets.catBodega,
+        Rubro.ropa => AppAssets.catRopa,
+        Rubro.belleza => AppAssets.catBelleza,
+        Rubro.quincalleria => AppAssets.catFerreteria,
+        Rubro.comidaRapida => AppAssets.catComida,
+        Rubro.electronica => AppAssets.catTecnologia,
+        Rubro.otro => AppAssets.catOtros,
       };
 
   RubroConfig get config => switch (this) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 
 /// `true` si el tutorial de bienvenida todavía no se le ha mostrado al usuario.
@@ -15,7 +16,7 @@ final tutorialPendienteProvider = FutureProvider<bool>(
 );
 
 /// Un paso del tutorial.
-typedef _Paso = ({IconData icono, String tagline, String titulo, String detalle});
+typedef _Paso = ({String icono, String tagline, String titulo, String detalle});
 
 /// Tutorial de bienvenida (réplica visual de `P1 · TUTORIAL`, `Lote F ·
 /// Onboarding y Sistema`).
@@ -47,28 +48,28 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
 
   static const List<_Paso> _pasos = [
     (
-      icono: Icons.payments_outlined,
+      icono: AppAssets.accEfectivo,
       tagline: 'este es tu cuaderno',
       titulo: 'Cobra en segundos',
       detalle: 'Toca los productos o escanea su código de barras para armar la '
           'cuenta. El total sale en dólares y bolívares con la tasa BCV del día.',
     ),
     (
-      icono: Icons.inventory_2_outlined,
+      icono: AppAssets.navProductos,
       tagline: 'todo bajo control',
       titulo: 'Tu inventario siempre claro',
       detalle: 'Agrega productos con foto, precio y stock. La app te avisa '
           'cuando algo se está agotando.',
     ),
     (
-      icono: Icons.bar_chart_outlined,
+      icono: AppAssets.navReportes,
       tagline: 'cuentas claras',
       titulo: 'Reportes de tu negocio',
       detalle: 'Mira cuánto vendiste hoy, tus productos más vendidos y envía '
           'reportes por WhatsApp.',
     ),
     (
-      icono: Icons.settings_outlined,
+      icono: AppAssets.accAjustes,
       tagline: 'a tu manera',
       titulo: 'Hazla tuya',
       detalle: 'Configura tu perfil, métodos de pago y empleados en Ajustes '
@@ -131,7 +132,7 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
                           color: Colors.white.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        child: Icon(paso.icono, size: 42, color: Colors.white),
+                        child: LibretaIcono(paso.icono, size: 42, color: Colors.white),
                       ),
                       const SizedBox(height: 22),
                       Text(

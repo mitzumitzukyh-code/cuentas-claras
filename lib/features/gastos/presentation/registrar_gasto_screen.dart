@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
@@ -304,7 +305,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                             child: LibretaSecondaryButton(
                               label: 'Cámara',
                               height: 38,
-                              icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                              icon: const LibretaIcono(AppAssets.accCamara, size: 16),
                               onPressed: () => _elegirFoto(ImageSource.camera),
                             ),
                           ),
@@ -494,8 +495,7 @@ class _ReciboPegado extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.receipt_long_outlined,
+                  LibretaIcono(AppAssets.navVentas,
                     size: 34,
                     color: t.textoMuted,
                   ),

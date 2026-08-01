@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
@@ -207,8 +208,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                     hint: 'Buscar producto…',
                     height: 46,
                     bordeVerde: true,
-                    leading: const Icon(
-                      Icons.search,
+                    leading: const LibretaIcono(AppAssets.accBuscar,
                       size: 18,
                       color: LibretaColors.verde,
                     ),
@@ -217,8 +217,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                             ? null
                             : GestureDetector(
                               onTap: () => setState(() => _busqueda.clear()),
-                              child: Icon(
-                                Icons.close,
+                              child: LibretaIcono(AppAssets.accCerrar,
                                 size: 17,
                                 color: context.libreta.textoMuted,
                               ),
@@ -287,6 +286,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   const SizedBox(height: 16),
                   if (productos.isEmpty)
                     LibretaEstadoVacio(
+                      ilustracion: Ilustracion.sinProductos,
                       titulo: 'Tu inventario está vacío',
                       detalle:
                           'Agrega tus productos con foto, precio y '
@@ -308,7 +308,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                     )
                   else if (visibles.isEmpty)
                     LibretaEstadoVacio(
-                      busqueda: true,
+                      ilustracion: Ilustracion.sinResultados,
                       titulo: 'Sin resultados',
                       detalle: texto.isNotEmpty
                           ? 'No hay productos que coincidan con '
@@ -439,8 +439,7 @@ class _BannerStockBajo extends StatelessWidget {
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onCerrar,
-            child: const Icon(
-              Icons.close,
+            child: const LibretaIcono(AppAssets.accCerrar,
               size: 16,
               color: LibretaColors.aviso,
             ),
