@@ -13,6 +13,41 @@ fuera de alcance a propósito.
   se eliminó y el vencimiento es un `ExtraField`. Las banderas que quedan
   encienden bloques enteros del formulario, no campos sueltos.
 
+## BLOQUEANTE DE LANZAMIENTO
+
+- **La sesión no sobrevive al reinicio en release, y el parche que lo tapa
+  necesita internet.** En release, sobre el Z2464N, `FirebaseAuth.currentUser`
+  amanecía en `null` tras cerrar y reabrir (sondeado a 3,5 s, 9,5 s y 14 s: no
+  es una carrera, es que no restaura). El parche vigente es
+  `AuthRepository.restaurarSesion`, que guarda **cómo** se entró y vuelve a
+  autenticar al arrancar.
+
+  Dos costos que lo hacen bloqueante, no una nota al pie:
+  1. **Requiere red.** La persistencia nativa de Firebase no. Un dueño que abre
+     la app sin señal cae al login y lee "perdí mis datos" — el escenario que
+     hace desinstalar. Ya no es un problema de un ROM: es de cualquiera con
+     mala cobertura.
+  2. **Guarda la contraseña** (cifrada, `flutter_secure_storage`) para poder
+     re-autenticar. Firebase guarda un *refresh token*, que es revocable y
+     acotado. Es una postura más débil.
+
+  **Lo que falta comprobar, y por qué nadie lo comprobó:** el SHA-1 de release
+  se registró en Firebase y el parche entraron en el **mismo commit**
+  (`d1deb31`, 2026-07-22). Nunca se probó release *con* el SHA-1 registrado y
+  *sin* el parche, así que no se sabe si la causa original ya está resuelta —
+  el parche la tapa en silencio. Sospecha principal: el token se refresca
+  contra el servidor al restaurar, y si esa llamada se rechaza porque el
+  certificado de firma no se reconoce (SHA-1 ausente, o la API key de Android
+  restringida en Google Cloud al SHA-1 de debug), el SDK **descarta la sesión
+  guardada** — lo que explica exactamente "en debug sí, en release no".
+
+  Cómo confirmarlo (necesita dispositivo, no código): desactivar
+  `restaurarSesionProvider` en un build de release, entrar, forzar cierre,
+  reabrir y mirar `currentUser`; revisar las restricciones de la API key de
+  Android en Google Cloud → Credenciales; y `adb logcat | grep -i FirebaseAuth`
+  en un arranque en frío. Descartado de entrada: el fabricante matando el
+  proceso — un proceso muerto vuelve a leer la sesión del disco al reabrir.
+
 ## Pendientes
 
 - **`RangoFechasVE` — endurecimiento pendiente, no un fix.** La app calcula los

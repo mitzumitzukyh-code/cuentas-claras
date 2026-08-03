@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -201,6 +204,22 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             precioAnterior: p.tieneOferta ? p.precioAnterior : null,
           ),
         );
+    // En un mostrador ruidoso, con el cliente al frente, el golpecito es la
+    // señal más confiable de que el toque entró — más que cualquier color.
+    unawaited(HapticFeedback.selectionClick());
+  }
+
+  /// Quita una unidad desde la propia ficha del catálogo (toque largo).
+  ///
+  /// Se descuenta de la ÚLTIMA línea de ese producto: con variantes hay varias
+  /// —una por talla/color— y la última es la que el dueño acaba de tocar, que
+  /// es la que espera deshacer. Para cambios finos está el carrito.
+  void _quitarDelGrid(Producto p) {
+    final carrito = ref.read(carritoProvider);
+    final idx = carrito.lastIndexWhere((i) => i.productoId == p.id);
+    if (idx < 0) return;
+    ref.read(carritoProvider.notifier).quitar(idx);
+    unawaited(HapticFeedback.selectionClick());
   }
 
   Future<Variante?> _elegirVariante(Producto p) {
@@ -743,6 +762,14 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final productosVisibles = _filtrarYOrdenar(productos, frecuencia);
     final total = _totalDe(carrito);
     final piezas = _piezasDe(carrito);
+    // Cuántas unidades lleva cada producto, sumando sus variantes: es lo que
+    // pinta el badge de la ficha. Al vaciar el carrito el mapa queda vacío y
+    // todas las fichas vuelven solas a su estado normal.
+    final cantidadesPorProducto = <String, int>{};
+    for (final item in carrito) {
+      cantidadesPorProducto[item.productoId] =
+          (cantidadesPorProducto[item.productoId] ?? 0) + item.cantidad;
+    }
     final esCotizacion = _modo == _Modo.cotizacion;
 
     final listo = total > 0 && tasa != null && negocio != null && !_cobrando;
@@ -868,6 +895,8 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                               productos: productosVisibles,
                               buscando: _termino.isNotEmpty,
                               onTap: _agregar,
+                              onQuitar: _quitarDelGrid,
+                              cantidades: cantidadesPorProducto,
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -1593,11 +1622,17 @@ class _GridCatalogo extends StatelessWidget {
   const _GridCatalogo({
     required this.productos,
     required this.onTap,
+    required this.onQuitar,
+    required this.cantidades,
     this.buscando = false,
   });
 
   final List<Producto> productos;
   final ValueChanged<Producto> onTap;
+  final ValueChanged<Producto> onQuitar;
+
+  /// Unidades en el carrito por `productoId`.
+  final Map<String, int> cantidades;
   final bool buscando;
 
   @override
@@ -1635,28 +1670,61 @@ class _GridCatalogo extends StatelessWidget {
       itemCount: productos.length,
       itemBuilder: (_, i) => _FichaProducto(
         producto: productos[i],
+        cantidad: cantidades[productos[i].id] ?? 0,
         onTap: () => onTap(productos[i]),
+        onQuitar: () => onQuitar(productos[i]),
       ),
     );
   }
 }
 
+/// Ficha del catálogo de Cobrar.
+///
+/// Cuando el producto está en el carrito la ficha cambia de estado y se ve a un
+/// metro: borde verde, fondo teñido y un badge con las unidades. Sin eso, la
+/// única pista de que el toque entró era que subía el total, y el dueño con un
+/// cliente delante tocaba otra vez por las dudas — cobrando doble y
+/// descuadrando el inventario.
+///
+/// El toque largo quita una unidad. Se eligió sobre unos controles −/+ dentro
+/// de la ficha porque la celda mide 58 px de alto: los botones no caben sin
+/// rehacer el grid entero.
 class _FichaProducto extends StatelessWidget {
-  const _FichaProducto({required this.producto, required this.onTap});
+  const _FichaProducto({
+    required this.producto,
+    required this.cantidad,
+    required this.onTap,
+    required this.onQuitar,
+  });
 
   final Producto producto;
+
+  /// Unidades de este producto en el carrito. `0` = ficha en estado normal.
+  final int cantidad;
   final VoidCallback onTap;
+  final VoidCallback onQuitar;
 
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
+    final enCarrito = cantidad > 0;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      onLongPress: enCarrito ? onQuitar : null,
+      child: Stack(
+        children: [
+          Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: t.superficie,
-          border: Border.all(color: t.renglon),
+          // Verde de marca teñido, no un gris de "seleccionado": el estado
+          // dice "esto ya está sumado", que es información de plata.
+          color: enCarrito
+              ? LibretaColors.verde.withValues(alpha: 0.10)
+              : t.superficie,
+          border: Border.all(
+            color: enCarrito ? LibretaColors.verde : t.renglon,
+            width: enCarrito ? 1.6 : 1,
+          ),
           borderRadius: BorderRadius.circular(13),
         ),
         child: Column(
@@ -1705,6 +1773,32 @@ class _FichaProducto extends StatelessWidget {
             ),
           ],
         ),
+          ),
+          if (enCarrito)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  // Verde sobre blanco, no ámbar: el ámbar no pasa contraste
+                  // sobre el papel claro de la app.
+                  color: LibretaColors.verde,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '×$cantidad',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
