@@ -282,7 +282,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.fiadoDetalle,
-        pageBuilder: (_, s) => _pagina(s, ClienteFiadoDetalleScreen(cliente: s.extra as ClienteFiado)),
+        pageBuilder: (_, s) => _pagina(s, ClienteFiadoDetalleScreen(clienteInicial: s.extra as ClienteFiado)),
       ),
       GoRoute(
         path: Routes.fiadoMovimiento,
@@ -319,7 +319,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.proveedorDetalle,
-        pageBuilder: (_, s) => _pagina(s, ProveedorDetalleScreen(proveedor: s.extra as Proveedor)),
+        pageBuilder: (_, s) => _pagina(s, ProveedorDetalleScreen(proveedorInicial: s.extra as Proveedor)),
       ),
       GoRoute(
         path: Routes.proveedorMovimiento,

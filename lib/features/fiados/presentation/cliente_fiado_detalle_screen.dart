@@ -20,9 +20,13 @@ import '../domain/cliente_fiado.dart';
 /// dejando que el dueño lo revise y edite ahí antes de enviarlo — las
 /// pantallas de "chat" del mockup (P3) son solo la ilustración de eso.
 class ClienteFiadoDetalleScreen extends ConsumerWidget {
-  const ClienteFiadoDetalleScreen({super.key, required this.cliente});
+  const ClienteFiadoDetalleScreen({super.key, required this.clienteInicial});
 
-  final ClienteFiado cliente;
+  /// El cliente tal como venía en el `extra` de la ruta: una foto del momento
+  /// de navegar. Solo se usa como valor de arranque — lo que se pinta es el
+  /// cliente vivo de [clienteFiadoPorIdProvider], porque el saldo cambia sin
+  /// salir de esta pantalla (se anota un abono y se vuelve aquí).
+  final ClienteFiado clienteInicial;
 
   String _fechaCorta(DateTime f) {
     const meses = [
@@ -32,7 +36,11 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
     return '${f.day} ${meses[f.month - 1]}';
   }
 
-  Future<void> _recordar(BuildContext context, WidgetRef ref) async {
+  Future<void> _recordar(
+    BuildContext context,
+    WidgetRef ref,
+    ClienteFiado cliente,
+  ) async {
     final telefono = cliente.telefono?.replaceAll(RegExp(r'\D'), '') ?? '';
     if (telefono.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,6 +69,8 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cliente =
+        ref.watch(clienteFiadoPorIdProvider(clienteInicial.id)) ?? clienteInicial;
     final movimientosAsync = ref.watch(movimientosClienteProvider(cliente.id));
     final tasa = ref.watch(tasaActivaValorProvider);
 
@@ -190,7 +200,7 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
                       label: 'Recordar',
                       height: 48,
                       icon: const LibretaIcono(AppAssets.accMensaje, size: 17, color: LibretaColors.verde),
-                      onPressed: () => _recordar(context, ref),
+                      onPressed: () => _recordar(context, ref, cliente),
                     ),
                   ),
                 ],

@@ -15,6 +15,25 @@ fuera de alcance a propósito.
 
 ## Pendientes
 
+- **`RangoFechasVE` — endurecimiento pendiente, no un fix.** La app calcula los
+  rangos de fecha con la zona **del dispositivo** (`DateTime(y, m, d)` y luego
+  `Timestamp.fromDate`, que convierte bien); el Worker los calcula con una zona
+  **fija** UTC−4 (`hoyEnVenezuela` / `inicioDiaVenezuela`, `worker/src/index.js`).
+  Coinciden mientras el teléfono esté en hora de Venezuela y divergen en cuanto
+  no lo esté — un viaje, una zona mal configurada, un emulador en UTC. No hay
+  mezcla de local y UTC dentro de Dart: no existe un solo `.toUtc()` en `lib/`.
+  Los sitios que de verdad calculan un rango son seis:
+  - `VentaRepository.ventasDelDia`, `.ventasDeAyer`, `.contarRacha`
+  - `gastosDelMesProvider` (`gasto_repository.dart`)
+  - `movimientosFiadoHoyProvider` (`fiado_repository.dart`)
+  - `PeriodoReporte.desde` / `.desdeAnterior` (`periodo_reporte.dart`)
+  - `reportes_providers.dart:23`
+  - `historial_tasa_provider.dart` (3 usos)
+
+  El resto de los ~40 `DateTime.now()` fuera de `presentation` son sellos de
+  escritura (`fecha: DateTime.now()`) o *fallbacks* de `fromDoc`, que un helper
+  de rangos no toca.
+
 - **Los negocios de servicio no están modelados.** Una barbería, un taller
   mecánico o un salón de belleza que cobra por trabajo —no por mercancía— hoy
   entra por el rubro `otro`, que es un cajón de sastre con `hora` entre sus

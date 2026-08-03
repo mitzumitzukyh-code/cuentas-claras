@@ -17,9 +17,12 @@ import '../domain/proveedor.dart';
 /// Detalle de un proveedor (réplica visual de `P3 · DETALLE PROVEEDOR`,
 /// `Lote H · Cierre y Proveedores`).
 class ProveedorDetalleScreen extends ConsumerWidget {
-  const ProveedorDetalleScreen({super.key, required this.proveedor});
+  const ProveedorDetalleScreen({super.key, required this.proveedorInicial});
 
-  final Proveedor proveedor;
+  /// El del `extra` de la ruta, congelado al navegar. Solo arranca la pantalla:
+  /// lo que se pinta es el proveedor vivo, porque el saldo cambia al anotar una
+  /// compra o un pago sin salir de aquí.
+  final Proveedor proveedorInicial;
 
   String _fechaCorta(DateTime f) {
     const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -36,6 +39,9 @@ class ProveedorDetalleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final proveedor =
+        ref.watch(proveedorPorIdProvider(proveedorInicial.id)) ??
+            proveedorInicial;
     final movimientosAsync = ref.watch(movimientosProveedorProvider(proveedor.id));
     final tasa = ref.watch(tasaActivaValorProvider);
 

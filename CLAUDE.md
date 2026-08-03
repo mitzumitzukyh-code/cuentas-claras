@@ -229,6 +229,32 @@ configuración propia. `configuracion` se sigue **escribiendo** por
 compatibilidad con los documentos existentes, pero nadie lo lee: lo único que
 el usuario edita es el `rubro`.
 
+## 8.c Dos reglas que se ganaron a pulso
+
+**El `extra` de una ruta es una semilla, nunca la fuente.** `s.extra as X` en
+`app_router.dart` entrega un objeto congelado en el instante de navegar. Sirve
+para formularios (`AnotarMovimientoScreen`) y para datos inmutables
+(`ResumenDiaScreen`, un cierre no se edita). No sirve para nada que cambie
+mientras la pantalla está abierta: el detalle de un cliente mostraba "+$12,00",
+"−$1,00" y un saldo pendiente de $12,00 porque la lista de movimientos era un
+stream y el encabezado era la foto vieja. Los detalles de cliente y proveedor
+reciben ahora un `…Inicial` y pintan lo que devuelven
+`clienteFiadoPorIdProvider` / `proveedorPorIdProvider`, que se sirven del stream
+de la lista —ya abierto— en vez de montar un segundo listener.
+
+**`valueOrNull ?? const []` convierte un error en "no hay nada".** Cargando,
+error y vacío son tres estados y tienen que verse distintos: un fallo de
+permisos pintaba "Aún no registras gastos este mes · −$0,00" con el gasto ya
+guardado. Para UI está `LibretaCargando` / `LibretaErrorCarga`
+(`lib/shared/presentation/estado_carga.dart`), que muestra una frase humana y
+un botón Reintentar, y manda la excepción a la consola — el `toString()` de una
+excepción no se le enseña nunca al usuario. Para lógica derivada está `_leidos`
+en `urgencias.dart`: una urgencia se emite sobre datos leídos o no se emite.
+
+## 8.d Infraestructura
+
+Cuentas de infraestructura documentadas en `INFRA.local.md` (no versionado).
+
 ## 9. Primer objetivo para Claude Code
 
 Implementar la **Fase 1** completa (pantallas 1-7) con Firebase configurado, tema de marca aplicado, y las reglas de seguridad de Firestore desde el día uno — no como algo a "agregar después".

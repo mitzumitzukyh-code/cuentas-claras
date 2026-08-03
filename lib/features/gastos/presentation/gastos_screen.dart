@@ -7,6 +7,7 @@ import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
@@ -72,7 +73,12 @@ class GastosScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final esDueno = ref.watch(esDuenoProvider);
-    final gastos = ref.watch(gastosDelMesProvider).valueOrNull ?? const <Gasto>[];
+    final gastosAsync = ref.watch(gastosDelMesProvider);
+    final gastos = gastosAsync.valueOrNull ?? const <Gasto>[];
+    // Cargando, error y vacío son tres cosas distintas: un fallo de lectura no
+    // puede verse igual que "no hay gastos".
+    final cargando = gastosAsync.isLoading && !gastosAsync.hasValue;
+    final fallo = gastosAsync.hasError && !gastosAsync.hasValue;
     final total = gastos.fold<double>(0, (s, g) => s + g.monto);
 
     if (!esDueno) {
@@ -151,7 +157,16 @@ class GastosScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 18),
 
-              if (gastos.isEmpty)
+              if (cargando)
+                const LibretaCargando()
+              else if (fallo)
+                LibretaErrorCarga(
+                  mensaje: 'No pudimos cargar tus gastos. Revisa tu internet '
+                      'e intenta de nuevo.',
+                  detalleTecnico: gastosAsync.error,
+                  onReintentar: () => ref.invalidate(gastosDelMesProvider),
+                )
+              else if (gastos.isEmpty)
                 LibretaEstadoVacio(
                   ilustracion: Ilustracion.sinReportes,
                   titulo: 'Aún no registras gastos este mes',

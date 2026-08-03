@@ -135,6 +135,27 @@ final clientesFiadoProvider = StreamProvider<List<ClienteFiado>>((ref) {
   return ref.watch(fiadoRepositoryProvider).clientes(membresia.negocioId);
 });
 
+/// El cliente vivo, por id.
+///
+/// La pantalla de detalle llega con un [ClienteFiado] en el `extra` de la ruta:
+/// un objeto congelado en el instante de navegar. Al anotar un abono, la lista
+/// de movimientos —que sí es un stream— se actualizaba y el saldo del
+/// encabezado no, así que el cliente veía "+$12,00", "−$1,00" y un saldo
+/// pendiente de $12,00.
+///
+/// Se sirve del stream de la lista, que ya está abierto, en vez de montar un
+/// segundo listener sobre el mismo documento. Devuelve `null` mientras la lista
+/// carga o si el cliente ya no está; quien llama se queda con el del `extra`.
+final clienteFiadoPorIdProvider =
+    Provider.family<ClienteFiado?, String>((ref, clienteId) {
+  final lista = ref.watch(clientesFiadoProvider).valueOrNull;
+  if (lista == null) return null;
+  for (final c in lista) {
+    if (c.id == clienteId) return c;
+  }
+  return null;
+});
+
 /// Movimientos de un cliente puntual (pantalla de detalle).
 final movimientosClienteProvider =
     StreamProvider.family<List<MovimientoFiado>, String>((ref, clienteId) {

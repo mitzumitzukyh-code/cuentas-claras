@@ -130,6 +130,19 @@ final proveedoresProvider = StreamProvider<List<Proveedor>>((ref) {
   return ref.watch(proveedorRepositoryProvider).proveedores(membresia.negocioId);
 });
 
+/// El proveedor vivo, por id. Misma razón que `clienteFiadoPorIdProvider`: el
+/// `extra` de la ruta es una foto del momento de navegar y el saldo cambia al
+/// anotar una compra o un pago desde la propia pantalla de detalle.
+final proveedorPorIdProvider =
+    Provider.family<Proveedor?, String>((ref, proveedorId) {
+  final lista = ref.watch(proveedoresProvider).valueOrNull;
+  if (lista == null) return null;
+  for (final p in lista) {
+    if (p.id == proveedorId) return p;
+  }
+  return null;
+});
+
 final movimientosProveedorProvider =
     StreamProvider.family<List<MovimientoProveedor>, String>((ref, proveedorId) {
   final membresia = ref.watch(membresiaActivaProvider);

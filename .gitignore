@@ -55,3 +55,6 @@ android/key.properties
 # Dependencias del Worker de avisos de tasa
 worker/node_modules/
 worker/.wrangler/
+
+# Referencia local de cuentas de infraestructura (no versionada a propósito).
+INFRA.local.md

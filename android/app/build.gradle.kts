@@ -45,7 +45,11 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Firebase Auth requiere minSdk >= 23.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        // Fijo en 36 (Android 16), no `flutter.targetSdkVersion`: el Flutter
+        // instalado (3.29.3) resuelve esa constante a 35, y Play exige 36 para
+        // publicar actualizaciones desde el 31 de agosto de 2026. Se pone a
+        // mano para no depender de cuándo se actualice el SDK de Flutter.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

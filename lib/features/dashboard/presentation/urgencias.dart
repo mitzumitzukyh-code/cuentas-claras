@@ -57,13 +57,32 @@ class Urgencia {
 /// El orden no es arbitrario: primero lo que descuadra la caja, después lo que
 /// es plata sin cobrar, después lo que impide vender, y de último lo que solo
 /// deja de traer clientes.
+/// Datos de un `AsyncValue` **solo** cuando de verdad llegaron.
+///
+/// `valueOrNull ?? const []` mentía: mientras el stream cargaba, o si fallaba
+/// por permisos, la lista vacía se leía como "no hay nada". En casi todas las
+/// urgencias eso solo hacía que no apareciera (un falso negativo callado),
+/// pero en la de gastos producía una afirmación falsa —"todavía no registras
+/// gastos este mes"— sin haber podido leer un solo gasto.
+///
+/// Una urgencia se emite sobre datos leídos o no se emite.
+List<T>? _leidos<T>(AsyncValue<List<T>> asincrono) =>
+    asincrono.hasValue && !asincrono.hasError ? asincrono.value : null;
+
+/// `true` si el `AsyncValue` ya resolvió y no falló.
+bool _llego(AsyncValue<Object?> asincrono) =>
+    asincrono.hasValue && !asincrono.hasError;
+
 final urgenciasProvider = Provider<List<Urgencia>>((ref) {
   final lista = <Urgencia>[];
 
   // 1 · Caja sin cerrar.
-  final cierreHoy = ref.watch(cierreDeHoyProvider).valueOrNull;
-  final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const [];
-  if (cierreHoy == null && ventas.isNotEmpty) {
+  final cierreAsync = ref.watch(cierreDeHoyProvider);
+  final ventas = _leidos(ref.watch(ventasDelDiaProvider));
+  if (_llego(cierreAsync) &&
+      cierreAsync.value == null &&
+      ventas != null &&
+      ventas.isNotEmpty) {
     final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
     lista.add(Urgencia(
       clave: 'caja',
@@ -78,7 +97,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
   }
 
   // 2 · Fiados vencidos.
-  final clientes = ref.watch(clientesFiadoProvider).valueOrNull ?? const [];
+  final clientes = _leidos(ref.watch(clientesFiadoProvider)) ?? const [];
   final ahora = DateTime.now();
   final vencidos = clientes
       .where((c) =>
@@ -104,7 +123,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
   }
 
   // 3 · Productos en cero.
-  final productos = ref.watch(productosConAlertaProvider).valueOrNull ?? const [];
+  final productos = _leidos(ref.watch(productosConAlertaProvider)) ?? const [];
   final enCero = productos.where((p) => p.cantidad <= 0).toList();
   final bajos = productos.where((p) => p.cantidad > 0 && p.stockBajo).toList();
   if (enCero.isNotEmpty) {
@@ -134,7 +153,7 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
   }
 
   // 4 · Deuda a proveedor.
-  final proveedores = ref.watch(proveedoresProvider).valueOrNull ?? const [];
+  final proveedores = _leidos(ref.watch(proveedoresProvider)) ?? const [];
   final conDeuda = proveedores.where((p) => p.saldoUSD > 0).toList()
     ..sort((a, b) => b.saldoUSD.compareTo(a.saldoUSD));
   if (conDeuda.isNotEmpty) {
@@ -154,14 +173,18 @@ final urgenciasProvider = Provider<List<Urgencia>>((ref) {
   // Con un par de días sin registrar nada, la ganancia del mes queda inflada:
   // se vio lo que entró y no lo que salió. Es la única forma de llegar a
   // Gastos desde Inicio, y es la que el diseño eligió.
-  final gastos = ref.watch(gastosDelMesProvider).valueOrNull ?? const [];
+  //
+  // Ojo: aquí `null` NO es "no hay gastos", es "no se pudieron leer". Sin esa
+  // distinción, un error de permisos o un stream a medio cargar afirmaban que
+  // el dueño no había anotado nada — que es justo el bug que se reportó.
+  final gastos = _leidos(ref.watch(gastosDelMesProvider));
   final ahoraG = DateTime.now();
-  final ultimoGasto = gastos.isEmpty
+  final ultimoGasto = (gastos == null || gastos.isEmpty)
       ? null
       : gastos.map((g) => g.fecha).reduce((a, b) => a.isAfter(b) ? a : b);
   final diasSinGastos =
       ultimoGasto == null ? null : ahoraG.difference(ultimoGasto).inDays;
-  if (diasSinGastos == null || diasSinGastos >= 2) {
+  if (gastos != null && (diasSinGastos == null || diasSinGastos >= 2)) {
     lista.add(Urgencia(
       clave: 'gastos',
       titulo: 'Anota lo que compraste',
