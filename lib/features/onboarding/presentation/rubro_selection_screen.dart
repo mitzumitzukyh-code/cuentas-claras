@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
@@ -53,7 +55,7 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
 
     setState(() => _cargando = true);
     try {
-      await ref
+      final negocio = await ref
           .read(negocioRepositoryProvider)
           .crearNegocio(
             usuarioId: user.uid,
@@ -62,8 +64,19 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
             nombreUsuario: user.displayName,
             correoUsuario: user.email,
           );
-      // Al crearse la membresía, `sesionProvider` pasa a `listo` y el router
-      // redirige al Dashboard automáticamente.
+      if (!mounted) return;
+
+      // El negocio recién creado pasa a ser el activo. Sin esto, quien abre
+      // una segunda sucursal aterriza en el Dashboard de la anterior: la
+      // membresía activa cae en `membresias.first`, que sigue siendo la vieja.
+      ref.read(negocioSeleccionadoProvider.notifier).state = negocio.id;
+
+      // La salida se navega aquí y no se deja al redirect del router: con
+      // sesión ya activa (segunda sucursal) el estado no cambia al terminar,
+      // así que no habría ningún redirect que disparara y la pantalla se
+      // quedaría puesta. Ver el comentario en `app_router.dart`.
+      if (!mounted) return;
+      context.go(Routes.dashboard);
     } catch (e) {
       if (!mounted) return;
       setState(() => _cargando = false);

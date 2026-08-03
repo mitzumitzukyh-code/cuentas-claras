@@ -496,7 +496,7 @@ async function manejarLecturaIA(peticion, env, lector) {
     return new Response('Cuerpo inválido: se esperaba JSON\n', { status: 400 });
   }
 
-  const { imagenBase64, mimeType, categorias } = cuerpo;
+  const { imagenBase64, mimeType, categorias, rubro } = cuerpo;
   if (!imagenBase64 || !mimeType) {
     return new Response('Faltan imagenBase64 o mimeType\n', { status: 400 });
   }
@@ -515,6 +515,9 @@ async function manejarLecturaIA(peticion, env, lector) {
       categorias: Array.isArray(categorias)
         ? categorias.filter((c) => typeof c === 'string').slice(0, 30)
         : [],
+      // El rubro solo sirve para elegir un matiz ya escrito (ver
+      // `MATICES_POR_RUBRO`); nunca se concatena al prompt tal cual.
+      rubro: typeof rubro === 'string' ? rubro : '',
     });
     // La cuota solo se gasta cuando la lectura de verdad llegó a Gemini y
     // volvió con algo usable: un cuerpo mal formado, una foto gigante o un

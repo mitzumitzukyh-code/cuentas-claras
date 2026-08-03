@@ -71,14 +71,32 @@ final _frecuenciaVentaProvider = Provider.autoDispose<Map<String, int>>((ref) {
 /// detrás del chevron de la tarjeta de total: entra como una línea con
 /// `productoId` vacío, que el repositorio reconoce y no descuenta de nada.
 class CobrarScreen extends ConsumerStatefulWidget {
-  const CobrarScreen({super.key});
+  const CobrarScreen({
+    super.key,
+    this.iniciarEnCotizacion = false,
+    this.abrirEscaner = false,
+  });
+
+  /// Abre el segmentado en "Cotización" en vez de "Venta". Lo usa el atajo
+  /// `cotizar` del Inicio (`/cobrar?modo=cotizacion`).
+  final bool iniciarEnCotizacion;
+
+  /// Levanta el escáner de código de barras apenas cargue el catálogo. Lo usa
+  /// el atajo `buscar_codigo` (`/cobrar?escanear=1`).
+  final bool abrirEscaner;
 
   @override
   ConsumerState<CobrarScreen> createState() => _CobrarScreenState();
 }
 
 class _CobrarScreenState extends ConsumerState<CobrarScreen> {
-  _Modo _modo = _Modo.venta;
+  late _Modo _modo =
+      widget.iniciarEnCotizacion ? _Modo.cotizacion : _Modo.venta;
+
+  /// El escáner no se puede abrir en `initState`: hace falta el catálogo ya
+  /// cargado para poder resolver el código a un producto. Se dispara en el
+  /// primer `build` en que el provider resuelve.
+  late bool _escanerPendiente = widget.abrirEscaner;
   MetodoPago _metodo = MetodoPago.efectivo;
   bool _fiado = false;
   ClienteFiado? _cliente;
@@ -709,8 +727,19 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final tasa = ref.watch(tasaActivaValorProvider);
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final carrito = ref.watch(carritoProvider);
-    final productos = ref.watch(productosProvider).valueOrNull ?? const [];
+    final productosAsync = ref.watch(productosProvider);
+    final productos = productosAsync.valueOrNull ?? const <Producto>[];
     final frecuencia = ref.watch(_frecuenciaVentaProvider);
+
+    // Atajo "Buscar código": el escáner se abre una sola vez, cuando ya hay
+    // catálogo contra el cual resolver lo escaneado.
+    if (_escanerPendiente && productosAsync.hasValue) {
+      _escanerPendiente = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _escanearProducto(productos);
+      });
+    }
+
     final productosVisibles = _filtrarYOrdenar(productos, frecuencia);
     final total = _totalDe(carrito);
     final piezas = _piezasDe(carrito);

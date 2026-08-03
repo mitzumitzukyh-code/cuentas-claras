@@ -32,10 +32,14 @@ class _OpcionConexion extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: seleccionada ? const Color(0x140E9F6E) : context.libreta.superficie,
+          color:
+              seleccionada
+                  ? const Color(0x140E9F6E)
+                  : context.libreta.superficie,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: seleccionada ? LibretaColors.verde : context.libreta.bordeSuave,
+            color:
+                seleccionada ? LibretaColors.verde : context.libreta.bordeSuave,
             width: 1.5,
           ),
         ),
@@ -48,13 +52,21 @@ class _OpcionConexion extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: seleccionada ? LibretaColors.verde : Colors.transparent,
                 border: Border.all(
-                  color: seleccionada ? LibretaColors.verde : context.libreta.bordeSuave,
+                  color:
+                      seleccionada
+                          ? LibretaColors.verde
+                          : context.libreta.bordeSuave,
                   width: 2,
                 ),
               ),
-              child: seleccionada
-                  ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
-                  : null,
+              child:
+                  seleccionada
+                      ? const LibretaIcono(
+                        AppAssets.accConfirmar,
+                        size: 13,
+                        color: Colors.white,
+                      )
+                      : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -72,7 +84,10 @@ class _OpcionConexion extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     detalle,
-                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.libreta.textoMuted,
+                    ),
                   ),
                 ],
               ),
@@ -172,6 +187,12 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
 
   ImpresoraConfig _config = const ImpresoraConfig();
   List<BluetoothInfo> _emparejadas = [];
+
+  /// Ya se buscó al menos una vez (para no ofrecer "ver todos" de entrada).
+  bool _busco = false;
+
+  /// La lista actual viene sin filtrar por clase de dispositivo.
+  bool _verTodos = false;
   bool _cargando = true;
   bool _buscando = false;
   bool _probando = false;
@@ -204,15 +225,26 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
     ref.invalidate(impresoraConfigProvider);
   }
 
-  Future<void> _buscarBluetooth() async {
+  Future<void> _buscarBluetooth({bool todos = false}) async {
     setState(() => _buscando = true);
     try {
-      final lista = await ref.read(impresoraServiceProvider).bluetoothEmparejadas();
-      if (mounted) setState(() => _emparejadas = lista);
+      final lista = await ref
+          .read(impresoraServiceProvider)
+          .bluetoothEmparejadas(todos: todos);
+      if (mounted) {
+        setState(() {
+          _emparejadas = lista;
+          _busco = true;
+          _verTodos = todos;
+        });
+      }
       if (mounted && lista.isEmpty) {
         _mostrar(
-          'No hay impresoras emparejadas. Empareja la tuya desde los ajustes '
-          'de Bluetooth del teléfono y vuelve aquí.',
+          todos
+              ? 'No tienes ningún dispositivo Bluetooth emparejado con este '
+                  'teléfono.'
+              : 'No encontramos ninguna impresora emparejada. Empárejala desde '
+                  'los ajustes de Bluetooth del teléfono y vuelve aquí.',
         );
       }
     } on ImpresoraException catch (e) {
@@ -267,8 +299,9 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
 
   void _mostrar(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
@@ -307,7 +340,10 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                 padding: EdgeInsets.only(left: 52),
                 child: Text(
                   'Para darle recibo impreso a tus clientes',
-                  style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: context.libreta.textoMuted,
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -372,7 +408,10 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                       const SizedBox(height: 2),
                       Text(
                         'El que salió en la hoja que imprimió',
-                        style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: context.libreta.textoMuted,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       LibretaInput(
@@ -410,25 +449,63 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                 if (_config.macBluetooth.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'Seleccionada: ${_config.nombreBluetooth}',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: LibretaColors.verde,
-                      ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Seleccionada: ${_config.nombreBluetooth}',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: LibretaColors.verde,
+                            ),
+                          ),
+                        ),
+                        // Sin esto, una selección equivocada se quedaba puesta
+                        // para siempre: no había forma de volver a "ninguna".
+                        GestureDetector(
+                          onTap:
+                              () => _guardar(
+                                _config.copyWith(
+                                  macBluetooth: '',
+                                  nombreBluetooth: '',
+                                ),
+                              ),
+                          behavior: HitTestBehavior.opaque,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Text(
+                              'Quitar',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: LibretaColors.peligro,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 for (final bt in _emparejadas)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: GestureDetector(
-                      onTap: () => _guardar(_config.copyWith(
-                        macBluetooth: bt.macAdress,
-                        nombreBluetooth: bt.name,
-                      )),
+                      onTap:
+                          () => _guardar(
+                            _config.copyWith(
+                              macBluetooth: bt.macAdress,
+                              nombreBluetooth: bt.name,
+                            ),
+                          ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: context.libreta.superficie,
                           border: Border.all(color: const Color(0x141E2A38)),
@@ -463,13 +540,53 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                       ),
                     ),
                   ),
+                // Salida de emergencia: la lista se filtra por clase de
+                // dispositivo, y una térmica que se anuncie con una clase
+                // rara quedaría escondida. Solo se ofrece después de buscar,
+                // para no invitar a saltarse el filtro de entrada.
+                if (_busco && !_verTodos)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: GestureDetector(
+                      onTap: () => _buscarBluetooth(todos: true),
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(
+                        _emparejadas.isEmpty
+                            ? '¿No aparece tu impresora? Ver todos los '
+                                'dispositivos emparejados'
+                            : 'Ver todos los dispositivos emparejados',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: LibretaColors.verde,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_verTodos)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Estás viendo todo lo emparejado con el teléfono, '
+                      'incluidos audífonos y cornetas. Elige solo tu '
+                      'impresora.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: context.libreta.textoMuted,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 4),
               ],
 
               // --- Tamaño de papel ---
               if (_config.tipo != TipoImpresora.ninguna) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
                     border: Border.all(color: const Color(0x141E2A38)),
@@ -494,15 +611,18 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                               _config.papel80mm
                                   ? 'Rollo grande, de mostrador (80 mm)'
                                   : 'Rollo pequeño, el más común (58 mm)',
-                              style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: context.libreta.textoMuted,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       LibretaToggle(
                         value: _config.papel80mm,
-                        onChanged: (v) =>
-                            _guardar(_config.copyWith(papel80mm: v)),
+                        onChanged:
+                            (v) => _guardar(_config.copyWith(papel80mm: v)),
                       ),
                     ],
                   ),
@@ -512,16 +632,15 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                   titulo: 'Imprimir logo',
                   detalle: 'Encabeza el ticket con el logo del negocio',
                   valor: _config.imprimirLogo,
-                  onChanged: (v) =>
-                      _guardar(_config.copyWith(imprimirLogo: v)),
+                  onChanged: (v) => _guardar(_config.copyWith(imprimirLogo: v)),
                 ),
                 const SizedBox(height: 10),
                 _FilaFormato(
                   titulo: 'Imprimir automático al cobrar',
                   detalle: 'Saca el ticket solo, sin que tengas que pedirlo',
                   valor: _config.imprimirAlCobrar,
-                  onChanged: (v) =>
-                      _guardar(_config.copyWith(imprimirAlCobrar: v)),
+                  onChanged:
+                      (v) => _guardar(_config.copyWith(imprimirAlCobrar: v)),
                 ),
                 const SizedBox(height: 18),
                 LibretaButton(
@@ -536,7 +655,10 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                         ? 'Escribe el número de la impresora para poder probar.'
                         : 'Elige tu impresora de la lista para poder probar.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.libreta.textoMuted,
+                    ),
                   ),
                 ],
               ],

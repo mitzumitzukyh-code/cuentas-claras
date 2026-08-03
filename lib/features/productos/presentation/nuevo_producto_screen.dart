@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/business/business_profile.dart';
+import '../../../core/business/business_profile_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
@@ -19,13 +21,19 @@ import '../domain/insumo.dart';
 import '../domain/producto.dart';
 import '../domain/variante.dart';
 import 'widgets/escaner_codigo_barras.dart';
+import 'widgets/extra_fields_section.dart';
 
 /// Pantalla 6 — Nuevo producto / Editar producto (réplica visual de
 /// `P3 · NUEVO PRODUCTO`, `Lote C · Gastos y Productos`).
 ///
 /// Zona de foto punteada, atajos de cámara y escáner, chips de categoría y los
-/// campos de precio/stock lado a lado. Se adapta al rubro: foto obligatoria
-/// (ropa/belleza/quincallería), variantes (ropa/belleza), vencimiento (belleza).
+/// campos de precio/stock lado a lado.
+///
+/// Todo lo que cambia entre rubros sale del `BusinessProfile`: las unidades de
+/// `allowedUnits`, los campos propios de `extraFields` (que pinta
+/// [ExtraFieldsSection]) y las banderas que encienden bloques enteros —foto
+/// obligatoria, variantes, receta, serial, peso—. Esta pantalla no sabe qué
+/// rubro está activo y no debe averiguarlo.
 ///
 /// Con [producto] pasa a modo edición: cambia el título, aparecen el ajuste
 /// rápido de stock y el botón de eliminar.
@@ -50,7 +58,14 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   String? _categoria;
   String? _codigoBarras;
   File? _foto;
-  DateTime? _vencimiento;
+
+  /// Unidad en la que se vende. `null` = todavía no se eligió y manda la
+  /// unidad por defecto del perfil.
+  String? _unidad;
+
+  /// Valores de los campos propios del rubro, por clave. Los pinta
+  /// [ExtraFieldsSection] a partir de `perfil.extraFields`.
+  final Map<String, dynamic> _extras = {};
   final List<Variante> _variantes = [];
   final List<LineaReceta> _receta = [];
   bool _vendidoPorPeso = false;
@@ -76,7 +91,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     _alertaEn.text = (p.alertaEn ?? 5).toString();
     _categoria = p.categoria.isEmpty ? null : p.categoria;
     _codigoBarras = p.codigoBarras;
-    _vencimiento = p.fechaVencimiento;
+    _unidad = p.unidad;
+    _extras.addAll(p.extras);
+    // `vencimiento` tiene columna propia desde antes de que existieran los
+    // campos extra; se sube al mapa para que la sección lo pinte como uno más.
+    if (p.fechaVencimiento != null) _extras['vencimiento'] = p.fechaVencimiento;
     _vendidoPorPeso = p.vendidoPorPeso;
     _variantes.addAll(p.variantes);
     _receta.addAll(p.receta);
@@ -116,32 +135,39 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     if (codigo == null || !mounted) return;
 
     final productos = ref.read(productosProvider).valueOrNull ?? const [];
-    final duplicado = productos
-        .where((p) =>
-            p.codigoBarras == codigo && p.id != (widget.producto?.id ?? ''))
-        .firstOrNull;
+    final duplicado =
+        productos
+            .where(
+              (p) =>
+                  p.codigoBarras == codigo &&
+                  p.id != (widget.producto?.id ?? ''),
+            )
+            .firstOrNull;
 
     if (duplicado != null) {
       final usarIgual = await showDialog<bool>(
         context: context,
-        builder: (d) => AlertDialog(
-          title: const Text('Código ya registrado'),
-          content: Text(
-            'Este código ya lo tiene "${duplicado.nombre}". Si sigues, dos '
-            'productos distintos quedarán con el mismo código de barras.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(d).pop(false),
-              child: const Text('Cancelar'),
+        builder:
+            (d) => AlertDialog(
+              title: const Text('Código ya registrado'),
+              content: Text(
+                'Este código ya lo tiene "${duplicado.nombre}". Si sigues, dos '
+                'productos distintos quedarán con el mismo código de barras.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(d).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(d).pop(true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: LibretaColors.peligro,
+                  ),
+                  child: const Text('Usar igual'),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.of(d).pop(true),
-              style: TextButton.styleFrom(foregroundColor: LibretaColors.peligro),
-              child: const Text('Usar igual'),
-            ),
-          ],
-        ),
       );
       if (usarIgual != true || !mounted) return;
     }
@@ -153,14 +179,18 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   /// Pide a la IA que sugiera un nombre a partir de la foto ya tomada.
   Future<void> _leerConIA() async {
     if (_foto == null) return;
-    final config = (ref.read(negocioActivoProvider).valueOrNull?.rubro ??
-            Rubro.otro)
-        .config;
+    final rubro =
+        ref.read(negocioActivoProvider).valueOrNull?.rubro ?? Rubro.otro;
+    final config = rubro.config;
     setState(() => _leyendoIA = true);
     try {
       final sugerencia = await ref
           .read(lectorEtiquetaServiceProvider)
-          .leer(_foto!, categorias: config.categoriasSugeridas);
+          .leer(
+            _foto!,
+            categorias: config.categoriasSugeridas,
+            rubro: rubro.id,
+          );
       if (!mounted) return;
 
       var nombre = sugerencia.nombre;
@@ -203,22 +233,29 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     }
   }
 
-  Future<void> _elegirVencimiento() async {
-    final hoy = DateTime.now();
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: hoy,
-      firstDate: hoy,
-      lastDate: DateTime(hoy.year + 10),
-    );
-    if (fecha != null && mounted) setState(() => _vencimiento = fecha);
-  }
+  /// Nombre del tipo de producto en el idioma del rubro.
+  ///
+  /// "Con talla-color" es lo que dice un vendedor de ropa; el de repuestos no
+  /// vende tallas, vende medidas. La etiqueta se arma con las mismas
+  /// [BusinessProfile.etiquetasVariante] que rotulan el editor, así que las dos
+  /// no se pueden desincronizar.
+  String _etiquetaTipo(TipoProducto tipo, BusinessProfile perfil) =>
+      switch (tipo) {
+        TipoProducto.simple => 'Simple',
+        TipoProducto.serial => 'Con serial-garantía',
+        TipoProducto.variantes =>
+          perfil.etiquetasVariante.length > 1
+              ? 'Con ${perfil.etiquetasVariante[0].toLowerCase()}-'
+                  '${perfil.etiquetasVariante[1].toLowerCase()}'
+              : 'Con variantes',
+      };
 
-  bool _puedeGuardar(RubroConfig config) {
+  bool _puedeGuardar(BusinessProfile perfil) {
     final precio = double.tryParse(_precio.text.replaceAll(',', '.'));
-    final stockOk = config.usaVariantes
-        ? _variantes.isNotEmpty
-        : int.tryParse(_cantidad.text) != null;
+    final stockOk =
+        perfil.usaVariantes
+            ? _variantes.isNotEmpty
+            : int.tryParse(_cantidad.text) != null;
     return _nombre.text.trim().isNotEmpty &&
         _categoria != null &&
         precio != null &&
@@ -226,9 +263,9 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         stockOk;
   }
 
-  Future<void> _guardar(RubroConfig config) async {
+  Future<void> _guardar(BusinessProfile perfil) async {
     final faltaFoto = _foto == null && widget.producto?.fotoUrl == null;
-    if (config.fotoObligatoria && faltaFoto) {
+    if (perfil.fotoObligatoria && faltaFoto) {
       _mostrar('La foto es obligatoria para este rubro.');
       return;
     }
@@ -246,14 +283,14 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         try {
           fotoUrl = await repo.subirFoto(membresia.negocioId, _foto!);
         } on CloudinaryException catch (e) {
-          if (config.fotoObligatoria) {
+          if (perfil.fotoObligatoria) {
             setState(() => _guardando = false);
             _mostrar(e.mensaje);
             return;
           }
           avisoFoto = 'Se guardó sin la foto: ${e.mensaje}';
         } catch (_) {
-          if (config.fotoObligatoria) {
+          if (perfil.fotoObligatoria) {
             setState(() => _guardando = false);
             _mostrar(
               'Sin conexión no se puede subir la foto, y este rubro '
@@ -267,11 +304,14 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         }
       }
 
-      final cantidadTotal = _variantes.isEmpty
-          ? double.parse(_cantidad.text.replaceAll(',', '.'))
-          : _variantes.fold<int>(0, (s, v) => s + v.cantidad).toDouble();
+      final cantidadTotal =
+          _variantes.isEmpty
+              ? double.parse(_cantidad.text.replaceAll(',', '.'))
+              : _variantes.fold<int>(0, (s, v) => s + v.cantidad).toDouble();
 
-      final precioAnteriorValor = double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
+      final precioAnteriorValor = double.tryParse(
+        _precioAnterior.text.replaceAll(',', '.'),
+      );
       final producto = Producto(
         id: widget.producto?.id ?? '',
         nombre: _nombre.text.trim(),
@@ -282,7 +322,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         fotoUrl: fotoUrl ?? widget.producto?.fotoUrl,
         variantes: _variantes,
         alertaEn: int.tryParse(_alertaEn.text),
-        fechaVencimiento: _vencimiento,
+        fechaVencimiento: _extras['vencimiento'] as DateTime?,
         codigoBarras: _codigoBarras,
         vendidoPorPeso: _vendidoPorPeso,
         tipo: _tipo,
@@ -291,11 +331,16 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         enOferta: _enOferta,
         garantiaMeses: _garantiaMeses,
         receta: _receta,
+        unidad: _unidad ?? perfil.defaultUnit,
+        // `vencimiento` ya viajó a su columna: guardarlo también aquí sería
+        // tener el mismo dato en dos sitios que pueden discrepar.
+        extras: {..._extras}..remove('vencimiento'),
       );
 
-      final confirmado = _editando
-          ? await repo.actualizar(membresia.negocioId, producto)
-          : await repo.crear(membresia.negocioId, producto);
+      final confirmado =
+          _editando
+              ? await repo.actualizar(membresia.negocioId, producto)
+              : await repo.crear(membresia.negocioId, producto);
       if (!mounted) return;
       Navigator.of(context).pop();
       _mostrar(
@@ -315,7 +360,9 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   /// Ajuste rápido de stock del modo edición (merma / reposición).
   void _ajustarStock(int delta) {
     final actual = int.tryParse(_cantidad.text) ?? 0;
-    setState(() => _cantidad.text = (actual + delta).clamp(0, 999999).toString());
+    setState(
+      () => _cantidad.text = (actual + delta).clamp(0, 999999).toString(),
+    );
   }
 
   Future<void> _eliminar() async {
@@ -325,24 +372,27 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
 
     final confirmado = await showDialog<bool>(
       context: context,
-      builder: (d) => AlertDialog(
-        title: Text('¿Eliminar "${producto.nombre}"?'),
-        content: const Text(
-          'El producto desaparecerá del inventario. Las ventas ya registradas '
-          'conservan su nombre y precio, así que el historial no se altera.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(d).pop(false),
-            child: const Text('Cancelar'),
+      builder:
+          (d) => AlertDialog(
+            title: Text('¿Eliminar "${producto.nombre}"?'),
+            content: const Text(
+              'El producto desaparecerá del inventario. Las ventas ya registradas '
+              'conservan su nombre y precio, así que el historial no se altera.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(d).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(d).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: LibretaColors.peligro,
+                ),
+                child: const Text('Eliminar'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(d).pop(true),
-            style: TextButton.styleFrom(foregroundColor: LibretaColors.peligro),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
     );
     if (confirmado != true) return;
 
@@ -367,14 +417,26 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
   }
 
   void _mostrar(String mensaje) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
   Widget build(BuildContext context) {
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final config = (negocio?.rubro ?? Rubro.otro).config;
+    final perfil = ref.watch(businessProfileProvider);
+
+    // Tipos de producto que este rubro admite. Un producto ya guardado con un
+    // tipo que su rubro hoy no ofrece se agrega igual: si no, al editarlo la
+    // fila desaparecería y no habría forma de devolverlo a "Simple".
+    final tiposDisponibles = <TipoProducto>[
+      TipoProducto.simple,
+      if (perfil.usaVariantes) TipoProducto.variantes,
+      if (perfil.usaSerial) TipoProducto.serial,
+    ];
+    if (!tiposDisponibles.contains(_tipo)) tiposDisponibles.add(_tipo);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -408,7 +470,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 children: [
                   _ZonaFoto(
                     foto: _foto,
-                    obligatoria: config.fotoObligatoria,
+                    obligatoria: perfil.fotoObligatoria,
                     onTap: () => _elegirFoto(ImageSource.gallery),
                   ),
                   const SizedBox(width: 14),
@@ -436,7 +498,10 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: LibretaSecondaryButton(
-                      label: _codigoBarras == null ? 'Escanear código' : 'Código ✓',
+                      label:
+                          _codigoBarras == null
+                              ? 'Escanear código'
+                              : 'Código ✓',
                       height: 44,
                       icon: const LibretaIcono(AppAssets.accEscanear, size: 16),
                       onPressed: _escanear,
@@ -447,11 +512,13 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
               if (_foto != null) ...[
                 const SizedBox(height: 10),
                 LibretaSecondaryButton(
-                  label: _leyendoIA ? 'Leyendo la foto…' : 'Sugerir nombre con IA',
+                  label:
+                      _leyendoIA ? 'Leyendo la foto…' : 'Sugerir nombre con IA',
                   height: 44,
-                  icon: _leyendoIA
-                      ? null
-                      : const Icon(Icons.auto_awesome, size: 16),
+                  icon:
+                      _leyendoIA
+                          ? null
+                          : const Icon(Icons.auto_awesome, size: 16),
                   onPressed: _leyendoIA ? null : _leerConIA,
                 ),
               ],
@@ -488,8 +555,9 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                       controller: _precio,
                       label: 'Precio (USD)',
                       hint: '0.00',
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
@@ -497,23 +565,56 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                   Expanded(
                     child: LibretaInput(
                       controller: _cantidad,
-                      label: config.usaVariantes ? 'Stock (variantes)' : 'Stock inicial',
+                      label:
+                          perfil.usaVariantes
+                              ? 'Stock (variantes)'
+                              : 'Stock inicial',
                       hint: '0',
-                      enabled: !config.usaVariantes,
+                      enabled: !perfil.usaVariantes,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
               ),
+
+              // Unidad en que se vende. Las opciones salen del perfil: una
+              // panadería ofrece kg/docena/bandeja y una tienda de ropa
+              // unidad/par, sin que esta pantalla sepa de rubros.
+              const SizedBox(height: 14),
+              Text(
+                'Se vende por',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.libreta.textoMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final u in perfil.allowedUnits)
+                    LibretaChip(
+                      label: u,
+                      selected: (_unidad ?? perfil.defaultUnit) == u,
+                      onTap: () => setState(() => _unidad = u),
+                    ),
+                ],
+              ),
+
               const SizedBox(height: 14),
               LibretaInput(
                 controller: _costo,
-                label: _vendidoPorPeso
-                    ? 'Costo por kg (USD) — para calcular tu ganancia'
-                    : 'Costo por unidad (USD) — para calcular tu ganancia',
+                label:
+                    _vendidoPorPeso
+                        ? 'Costo por kg (USD) — para calcular tu ganancia'
+                        : 'Costo por unidad (USD) — para calcular tu ganancia',
                 hint: 'Opcional',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               if (_editando) ...[
                 const SizedBox(height: 14),
@@ -522,7 +623,10 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                     Expanded(
                       child: Text(
                         'Ajuste rápido de stock',
-                        style: TextStyle(fontSize: 12.5, color: context.libreta.textoMuted),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: context.libreta.textoMuted,
+                        ),
                       ),
                     ),
                     _BotonAjuste(
@@ -541,10 +645,16 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
               ],
 
               // Ganancia en vivo
-              if (_costo.text.isNotEmpty && double.tryParse(_costo.text.replaceAll(',', '.')) != null && double.tryParse(_precio.text.replaceAll(',', '.')) != null) ...[
+              if (_costo.text.isNotEmpty &&
+                  double.tryParse(_costo.text.replaceAll(',', '.')) != null &&
+                  double.tryParse(_precio.text.replaceAll(',', '.')) !=
+                      null) ...[
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0x1A0E9F6E),
                     borderRadius: BorderRadius.circular(12),
@@ -552,14 +662,27 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.trending_up, size: 16, color: LibretaColors.verde),
+                      Icon(
+                        Icons.trending_up,
+                        size: 16,
+                        color: LibretaColors.verde,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         () {
-                          final precio = double.tryParse(_precio.text.replaceAll(',', '.'))!;
-                          final costo = double.tryParse(_costo.text.replaceAll(',', '.'))!;
+                          final precio =
+                              double.tryParse(
+                                _precio.text.replaceAll(',', '.'),
+                              )!;
+                          final costo =
+                              double.tryParse(
+                                _costo.text.replaceAll(',', '.'),
+                              )!;
                           final ganancia = precio - costo;
-                          final pct = costo > 0 ? ((ganancia / costo) * 100).round() : 0;
+                          final pct =
+                              costo > 0
+                                  ? ((ganancia / costo) * 100).round()
+                                  : 0;
                           return '${MoneyFormatter.usd(ganancia)} · $pct %';
                         }(),
                         style: const TextStyle(
@@ -582,34 +705,44 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 keyboardType: TextInputType.number,
               ),
 
-              const SizedBox(height: 18),
+              // Tipo de producto — solo si el rubro ofrece más de uno. Con
+              // una sola opción no hay nada que elegir: la fila era decorado
+              // que además invitaba a marcar cosas sin sentido, como ponerle
+              // "serial y garantía" a una hamburguesa.
+              if (tiposDisponibles.length > 1) ...[
+                const SizedBox(height: 18),
 
-              // Tipo de producto
-              Text(
-                'Tipo de producto',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: context.libreta.textoMuted,
+                Text(
+                  'Tipo de producto',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: context.libreta.textoMuted,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _TipoPill(label: 'Simple', selected: _tipo == TipoProducto.simple, onTap: () => setState(() => _tipo = TipoProducto.simple)),
-                  if (config.usaVariantes)
-                    _TipoPill(label: 'Con talla-color', selected: _tipo == TipoProducto.variantes, onTap: () => setState(() => _tipo = TipoProducto.variantes)),
-                  _TipoPill(label: 'Con serial-garantía', selected: _tipo == TipoProducto.serial, onTap: () => setState(() => _tipo = TipoProducto.serial)),
-                ],
-              ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final tipo in tiposDisponibles)
+                      _TipoPill(
+                        label: _etiquetaTipo(tipo, perfil),
+                        selected: _tipo == tipo,
+                        onTap: () => setState(() => _tipo = tipo),
+                      ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: 18),
 
               // Cuando el stock llegue a 0
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
                   border: Border.all(color: const Color(0x141E2A38)),
@@ -621,11 +754,24 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Cuando el stock llegue a 0',
-                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.libreta.textoFuerte)),
+                          Text(
+                            'Cuando el stock llegue a 0',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: context.libreta.textoFuerte,
+                            ),
+                          ),
                           SizedBox(height: 2),
-                          Text(_bloquearAlAgotarse ? 'No permitir más ventas' : 'Seguir vendiendo en negativo',
-                            style: TextStyle(fontSize: 11, color: context.libreta.textoMuted)),
+                          Text(
+                            _bloquearAlAgotarse
+                                ? 'No permitir más ventas'
+                                : 'Seguir vendiendo en negativo',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.libreta.textoMuted,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -641,7 +787,10 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
 
               // Ponerlo en oferta
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
                   border: Border.all(color: const Color(0x141E2A38)),
@@ -655,11 +804,22 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Ponerlo en oferta',
-                                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.libreta.textoFuerte)),
+                              Text(
+                                'Ponerlo en oferta',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.libreta.textoFuerte,
+                                ),
+                              ),
                               SizedBox(height: 2),
-                              Text('Mostrar precio anterior tachado',
-                                style: TextStyle(fontSize: 11, color: context.libreta.textoMuted)),
+                              Text(
+                                'Mostrar precio anterior tachado',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: context.libreta.textoMuted,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -678,13 +838,27 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                               controller: _precioAnterior,
                               label: 'Precio anterior (USD)',
                               hint: '0.00',
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          if (_precioAnterior.text.isNotEmpty && double.tryParse(_precioAnterior.text.replaceAll(',', '.')) != null && double.tryParse(_precio.text.replaceAll(',', '.')) != null)
+                          if (_precioAnterior.text.isNotEmpty &&
+                              double.tryParse(
+                                    _precioAnterior.text.replaceAll(',', '.'),
+                                  ) !=
+                                  null &&
+                              double.tryParse(
+                                    _precio.text.replaceAll(',', '.'),
+                                  ) !=
+                                  null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0x24F2A93C),
                                 borderRadius: BorderRadius.circular(8),
@@ -695,7 +869,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                                   final actual = double.tryParse(_precio.text.replaceAll(',', '.'))!;
                                   return ((ant - actual) / ant * 100).round().toString();
                                 }()} %',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB07D1E)),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFB07D1E),
+                                ),
                               ),
                             ),
                         ],
@@ -706,69 +884,77 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
               ),
 
               // --- Vender por peso ---
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: context.libreta.superficie,
-                  border: Border.all(color: const Color(0x141E2A38)),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Vender por peso (kg)',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: context.libreta.textoFuerte,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'El precio se calculará según el peso ingresado',
-                            style: TextStyle(fontSize: 11, color: context.libreta.textoMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    LibretaToggle(
-                      value: _vendidoPorPeso,
-                      onChanged: (v) => setState(() => _vendidoPorPeso = v),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Fecha de vencimiento — solo belleza.
-              if (config.usaFechaVencimiento) ...[
-                const SizedBox(height: 18),
-                Text(
-                  'Fecha de vencimiento (opcional)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: context.libreta.textoMuted,
+              // Solo en los rubros que de verdad pesan mercancía. La segunda
+              // condición es para no dejar huérfano a un producto que YA se
+              // guardó por peso en un rubro donde hoy no se ofrece: sin ella,
+              // al editarlo el interruptor desaparecería y no habría forma de
+              // quitarle el peso.
+              if (perfil.vendePorPeso || _vendidoPorPeso) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
                   ),
-                ),
-                const SizedBox(height: 6),
-                LibretaSecondaryButton(
-                  label: _vencimiento == null
-                      ? 'Elegir fecha'
-                      : '${_vencimiento!.day}/${_vencimiento!.month}/${_vencimiento!.year}',
-                  icon: const LibretaIcono(AppAssets.accCalendario, size: 18),
-                  onPressed: _elegirVencimiento,
+                  decoration: BoxDecoration(
+                    color: context.libreta.superficie,
+                    border: Border.all(color: const Color(0x141E2A38)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Vender por peso (kg)',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: context.libreta.textoFuerte,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'El precio se calculará según el peso ingresado',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.libreta.textoMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      LibretaToggle(
+                        value: _vendidoPorPeso,
+                        onChanged: (v) => setState(() => _vendidoPorPeso = v),
+                      ),
+                    ],
+                  ),
                 ),
               ],
 
-              // Variantes — ropa y belleza.
-              if (config.usaVariantes) ...[
+              // Campos propios del rubro. Esta sección es la única fuente de
+              // qué campos extra se pintan: itera `perfil.extraFields` y no
+              // sabe qué rubro está activo (CLAUDE.md §8.b).
+              ExtraFieldsSection(
+                campos: perfil.extraFields,
+                valores: _extras,
+                onCambio:
+                    (clave, valor) => setState(() {
+                      if (valor == null || valor == '') {
+                        _extras.remove(clave);
+                      } else {
+                        _extras[clave] = valor;
+                      }
+                    }),
+              ),
+
+              // Variantes — según el perfil del negocio.
+              if (perfil.usaVariantes) ...[
                 const SizedBox(height: 24),
                 _EditorVariantes(
-                  etiquetas: config.etiquetasVariante,
+                  etiquetas: perfil.etiquetasVariante,
                   variantes: _variantes,
                   onAgregar: (v) => setState(() => _variantes.add(v)),
                   onEliminar: (i) => setState(() => _variantes.removeAt(i)),
@@ -776,7 +962,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
               ],
 
               // Receta (rubros que cocinan o arman) — Lote C · P3.
-              if (config.usaReceta) ...[
+              if (perfil.usaReceta) ...[
                 const SizedBox(height: 20),
                 _EditorReceta(
                   receta: _receta,
@@ -785,8 +971,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 ),
               ],
 
-              // Garantía — solo Electrónica.
-              if ((negocio?.rubro ?? Rubro.otro) == Rubro.electronica) ...[
+              // Garantía — va con el serial, así que la manda la misma
+              // bandera del rubro y no una comparación suelta contra
+              // `Rubro.electronica`. Con dos fuentes distintas, agregar un
+              // rubro con serial dejaba la garantía fuera sin que se notara.
+              if (perfil.usaSerial) ...[
                 const SizedBox(height: 20),
                 Text(
                   'Garantía',
@@ -801,9 +990,21 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _TipoPill(label: 'Sin garantía', selected: _garantiaMeses == null, onTap: () => setState(() => _garantiaMeses = null)),
-                    _TipoPill(label: '30 días', selected: _garantiaMeses == 1, onTap: () => setState(() => _garantiaMeses = 1)),
-                    _TipoPill(label: '90 días', selected: _garantiaMeses == 3, onTap: () => setState(() => _garantiaMeses = 3)),
+                    _TipoPill(
+                      label: 'Sin garantía',
+                      selected: _garantiaMeses == null,
+                      onTap: () => setState(() => _garantiaMeses = null),
+                    ),
+                    _TipoPill(
+                      label: '30 días',
+                      selected: _garantiaMeses == 1,
+                      onTap: () => setState(() => _garantiaMeses = 1),
+                    ),
+                    _TipoPill(
+                      label: '90 días',
+                      selected: _garantiaMeses == 3,
+                      onTap: () => setState(() => _garantiaMeses = 3),
+                    ),
                   ],
                 ),
               ],
@@ -820,7 +1021,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                 label: _editando ? 'Guardar cambios' : 'Guardar producto',
                 loading: _guardando,
                 onPressed:
-                    _puedeGuardar(config) ? () => _guardar(config) : null,
+                    _puedeGuardar(perfil) ? () => _guardar(perfil) : null,
               ),
             ],
           ),
@@ -891,32 +1092,39 @@ class _ZonaFoto extends StatelessWidget {
           color: context.libreta.superficie,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: obligatoria && foto == null
-                ? const Color(0xFFF2A93C)
-                : const Color(0x381E2A38),
+            color:
+                obligatoria && foto == null
+                    ? const Color(0xFFF2A93C)
+                    : const Color(0x381E2A38),
             width: 1.5,
           ),
-          image: foto == null
-              ? null
-              : DecorationImage(image: FileImage(foto!), fit: BoxFit.cover),
+          image:
+              foto == null
+                  ? null
+                  : DecorationImage(image: FileImage(foto!), fit: BoxFit.cover),
         ),
-        child: foto != null
-            ? null
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  LibretaIcono(AppAssets.accCamara, size: 22, color: context.libreta.textoMuted),
-                  SizedBox(height: 4),
-                  Text(
-                    'Foto',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+        child:
+            foto != null
+                ? null
+                : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    LibretaIcono(
+                      AppAssets.accCamara,
+                      size: 22,
                       color: context.libreta.textoMuted,
                     ),
-                  ),
-                ],
-              ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Foto',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: context.libreta.textoMuted,
+                      ),
+                    ),
+                  ],
+                ),
       ),
     );
   }
@@ -1012,12 +1220,16 @@ class _EditorVariantesState extends State<_EditorVariantes> {
                           widget.variantes[i].color!,
                         '×${widget.variantes[i].cantidad}',
                       ].join(' · '),
-                      style: TextStyle(fontSize: 13, color: context.libreta.textoFuerte),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.libreta.textoFuerte,
+                      ),
                     ),
                   ),
                   GestureDetector(
                     onTap: () => widget.onEliminar(i),
-                    child: const LibretaIcono(AppAssets.accCerrar,
+                    child: const LibretaIcono(
+                      AppAssets.accCerrar,
                       size: 18,
                       color: LibretaColors.peligro,
                     ),
@@ -1030,15 +1242,27 @@ class _EditorVariantesState extends State<_EditorVariantes> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: LibretaInput(controller: _valor, hint: etiqueta1, height: 44),
+              child: LibretaInput(
+                controller: _valor,
+                hint: etiqueta1,
+                height: 44,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: LibretaInput(controller: _color, hint: etiqueta2, height: 44),
+              child: LibretaInput(
+                controller: _color,
+                hint: etiqueta2,
+                height: 44,
+              ),
             ),
             const SizedBox(width: 8),
+            // 80 y no 64: `LibretaInput` se come 14px de padding por lado, así
+            // que con 64 le quedaban 36 para el texto y "Cant." salía cortado
+            // como "Ca…". Los 16px extra se los quitan Talla y Color, que con
+            // palabras tan cortas los tenían de sobra.
             SizedBox(
-              width: 64,
+              width: 80,
               child: LibretaInput(
                 controller: _cantidad,
                 hint: 'Cant.',
@@ -1056,7 +1280,11 @@ class _EditorVariantesState extends State<_EditorVariantes> {
 }
 
 class _TipoPill extends StatelessWidget {
-  const _TipoPill({required this.label, required this.selected, required this.onTap});
+  const _TipoPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -1215,7 +1443,11 @@ class _EditorRecetaState extends ConsumerState<_EditorReceta> {
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: () => widget.onEliminar(i),
-                    child: const LibretaIcono(AppAssets.accCerrar, size: 17, color: LibretaColors.peligro),
+                    child: const LibretaIcono(
+                      AppAssets.accCerrar,
+                      size: 17,
+                      color: LibretaColors.peligro,
+                    ),
                   ),
                 ],
               ),
@@ -1226,7 +1458,11 @@ class _EditorRecetaState extends ConsumerState<_EditorReceta> {
             Text(
               'Todavía no tienes insumos cargados. Créalos primero en '
               '«Ver insumos» y vuelve para armar la receta.',
-              style: TextStyle(fontSize: 12.5, height: 1.4, color: t.textoMuted),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: t.textoMuted,
+              ),
             )
           else
             Row(
@@ -1240,8 +1476,10 @@ class _EditorRecetaState extends ConsumerState<_EditorReceta> {
                     hint: const Text('Insumo', style: TextStyle(fontSize: 13)),
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       filled: true,
                       fillColor: t.papel,
                       border: OutlineInputBorder(
@@ -1273,7 +1511,9 @@ class _EditorRecetaState extends ConsumerState<_EditorReceta> {
                     controller: _cantidad,
                     hint: _elegido?.unidad.corta ?? 'Cant.',
                     height: 44,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

@@ -30,26 +30,26 @@ enum FormatoEstado {
   nuevo;
 
   String get titulo => switch (this) {
-        FormatoEstado.grilla => 'Lista de precios',
-        FormatoEstado.flyer => 'Oferta del día',
-        FormatoEstado.combo => 'Combo',
-        FormatoEstado.nuevo => 'Llegó nuevo',
-      };
+    FormatoEstado.grilla => 'Lista de precios',
+    FormatoEstado.flyer => 'Oferta del día',
+    FormatoEstado.combo => 'Combo',
+    FormatoEstado.nuevo => 'Llegó nuevo',
+  };
 
   String get detalle => switch (this) {
-        FormatoEstado.grilla => 'hasta 6 productos',
-        FormatoEstado.flyer => '1 producto grande',
-        FormatoEstado.combo => '4 productos + total',
-        FormatoEstado.nuevo => 'avisar mercancía',
-      };
+    FormatoEstado.grilla => 'hasta 6 productos',
+    FormatoEstado.flyer => '1 producto grande',
+    FormatoEstado.combo => '4 productos + total',
+    FormatoEstado.nuevo => 'avisar mercancía',
+  };
 
   /// Cuántos productos entran.
   int get cupo => switch (this) {
-        FormatoEstado.grilla => 6,
-        FormatoEstado.flyer => 1,
-        FormatoEstado.combo => 4,
-        FormatoEstado.nuevo => 3,
-      };
+    FormatoEstado.grilla => 6,
+    FormatoEstado.flyer => 1,
+    FormatoEstado.combo => 4,
+    FormatoEstado.nuevo => 3,
+  };
 }
 
 /// Los tres pasos del asistente (`Lote O · P0-P2`).
@@ -132,9 +132,8 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
           unidades[i.productoId] = (unidades[i.productoId] ?? 0) + i.cantidad;
         }
       }
-      lista = [...lista]..sort(
-          (a, b) => (unidades[b.id] ?? 0).compareTo(unidades[a.id] ?? 0),
-        );
+      lista = [...lista]
+        ..sort((a, b) => (unidades[b.id] ?? 0).compareTo(unidades[a.id] ?? 0));
     }
 
     return lista;
@@ -172,10 +171,9 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
         escala: 3,
         nombre: 'estado',
       );
-      await Share.shareXFiles(
-        [XFile(archivo.path)],
-        text: '📲 Hecho con Cuenta Clara — ${AppLinks.descargar}',
-      );
+      await Share.shareXFiles([
+        XFile(archivo.path),
+      ], text: '📲 Hecho con Cuenta Clara — ${AppLinks.descargar}');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -197,21 +195,21 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
     }
 
     // El destacado del flyer es el único elegido; en la parrilla no aplica.
-    _destacado = _todos
-        .where((p) => _elegidos.contains(p.id))
-        .firstOrNull;
+    _destacado = _todos.where((p) => _elegidos.contains(p.id)).firstOrNull;
 
-    final precioAnterior =
-        double.tryParse(_precioAnterior.text.replaceAll(',', '.'));
+    final precioAnterior = double.tryParse(
+      _precioAnterior.text.replaceAll(',', '.'),
+    );
     final telefono = negocio.telefonoParaCliente;
     final lienzo = _LienzoEstado(
       formato: _formato,
       negocioNombre: negocio.nombre,
       productos: _paraLienzo,
       destacado: _destacado,
-      colores: _oscuro
-          ? (const Color(0xFF262420), const Color(0xFF141311))
-          : _plantillas[_plantilla],
+      colores:
+          _oscuro
+              ? (const Color(0xFF262420), const Color(0xFF141311))
+              : _plantillas[_plantilla],
       tasa: _mostrarBs ? tasa : null,
       esOferta: _formato == FormatoEstado.flyer && _esOferta,
       precioAnterior: precioAnterior,
@@ -224,14 +222,25 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
         backgroundColor: context.libreta.papel,
         body: LibretaPageBackground(
           child: SafeArea(
-            child: const Padding(
-              padding: EdgeInsets.fromLTRB(24, 100, 24, 0),
-              child: LibretaEstadoVacio(
-                ilustracion: Ilustracion.sinProductos,
-                titulo: 'Todavía no tienes mercancía',
-                detalle: 'Carga tus productos y arma con ellos la imagen '
-                    'para tu Estado de WhatsApp.',
-                tagline: 'tus precios, en la pantalla de todos',
+            // El botón de atrás va también aquí: esta rama devuelve su propio
+            // Scaffold y se salta el encabezado del flujo normal, así que sin
+            // él quien entra sin productos se queda sin salida visible.
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  LibretaBackButton(oscuro: true),
+                  SizedBox(height: 60),
+                  LibretaEstadoVacio(
+                    ilustracion: Ilustracion.sinProductos,
+                    titulo: 'Todavía no tienes mercancía',
+                    detalle:
+                        'Carga tus productos y arma con ellos la imagen '
+                        'para tu Estado de WhatsApp.',
+                    tagline: 'tus precios, en la pantalla de todos',
+                  ),
+                ],
               ),
             ),
           ),
@@ -247,10 +256,11 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
         formato: _formato,
         oscuro: _oscuro,
         generando: _generando,
-        onFormato: (f) => setState(() {
-          _formato = f;
-          _oscuro = false;
-        }),
+        onFormato:
+            (f) => setState(() {
+              _formato = f;
+              _oscuro = false;
+            }),
         onOscuro: () => setState(() => _oscuro = !_oscuro),
         onCompartir: _compartir,
         onVolver: () => setState(() => _paso = _Paso.productos),
@@ -261,37 +271,45 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
       backgroundColor: context.libreta.papel,
       body: LibretaPageBackground(
         child: SafeArea(
-          child: _paso == _Paso.plantilla
-              ? _PasoPlantilla(
-                  formato: _formato,
-                  onFormato: (f) => setState(() => _formato = f),
-                  onSiguiente: () => setState(() => _paso = _Paso.productos),
-                )
-              : _PasoProductos(
-                  titulo: _formato.titulo,
-                  cupo: _formato.cupo,
-                  productos: _seleccion,
-                  elegidos: _elegidos,
-                  unicoDestacado: _formato.cupo == 1,
-                  masVendidos: _soloMasVendidos,
-                  mostrarBs: _mostrarBs,
-                  mostrarTelefono: _mostrarTelefono,
-                  telefonoDisponible: telefono != null,
-                  delivery: _mostrarDelivery,
-                  onBuscar: (v) => setState(() => _busqueda = v),
-                  onMasVendidos: () =>
-                      setState(() => _soloMasVendidos = !_soloMasVendidos),
-                  onAlternar: _alternarProducto,
-                  onBs: () => setState(() => _mostrarBs = !_mostrarBs),
-                  onTelefono: () =>
-                      setState(() => _mostrarTelefono = !_mostrarTelefono),
-                  onDelivery: () =>
-                      setState(() => _mostrarDelivery = !_mostrarDelivery),
-                  onAtras: () => setState(() => _paso = _Paso.plantilla),
-                  onVer: _elegidos.isEmpty
-                      ? null
-                      : () => setState(() => _paso = _Paso.prevista),
-                ),
+          child:
+              _paso == _Paso.plantilla
+                  ? _PasoPlantilla(
+                    formato: _formato,
+                    onFormato: (f) => setState(() => _formato = f),
+                    onSiguiente: () => setState(() => _paso = _Paso.productos),
+                  )
+                  : _PasoProductos(
+                    titulo: _formato.titulo,
+                    cupo: _formato.cupo,
+                    productos: _seleccion,
+                    elegidos: _elegidos,
+                    unicoDestacado: _formato.cupo == 1,
+                    masVendidos: _soloMasVendidos,
+                    mostrarBs: _mostrarBs,
+                    mostrarTelefono: _mostrarTelefono,
+                    telefonoDisponible: telefono != null,
+                    delivery: _mostrarDelivery,
+                    onBuscar: (v) => setState(() => _busqueda = v),
+                    onMasVendidos:
+                        () => setState(
+                          () => _soloMasVendidos = !_soloMasVendidos,
+                        ),
+                    onAlternar: _alternarProducto,
+                    onBs: () => setState(() => _mostrarBs = !_mostrarBs),
+                    onTelefono:
+                        () => setState(
+                          () => _mostrarTelefono = !_mostrarTelefono,
+                        ),
+                    onDelivery:
+                        () => setState(
+                          () => _mostrarDelivery = !_mostrarDelivery,
+                        ),
+                    onAtras: () => setState(() => _paso = _Paso.plantilla),
+                    onVer:
+                        _elegidos.isEmpty
+                            ? null
+                            : () => setState(() => _paso = _Paso.prevista),
+                  ),
         ),
       ),
     );
@@ -378,8 +396,11 @@ class _PasoPlantilla extends StatelessWidget {
                           color: LibretaColors.verde,
                           shape: BoxShape.circle,
                         ),
-                        child: const LibretaIcono(AppAssets.accConfirmar,
-                            size: 12, color: Colors.white),
+                        child: const LibretaIcono(
+                          AppAssets.accConfirmar,
+                          size: 12,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 7),
                       const Flexible(
@@ -431,8 +452,11 @@ class _PasoPlantilla extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        size: 18, color: LibretaColors.verde),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: LibretaColors.verde,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -460,8 +484,11 @@ class _PasoPlantilla extends StatelessWidget {
           child: LibretaButton(
             label: 'Escoger productos',
             height: 54,
-            icon: const Icon(Icons.arrow_forward_rounded,
-                size: 18, color: Colors.white),
+            icon: const Icon(
+              Icons.arrow_forward_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
             onPressed: onSiguiente,
           ),
         ),
@@ -566,13 +593,10 @@ class _PasoProductos extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: masVendidos
-                            ? LibretaColors.verde
-                            : t.superficie,
+                        color: masVendidos ? LibretaColors.verde : t.superficie,
                         border: Border.all(
-                          color: masVendidos
-                              ? LibretaColors.verde
-                              : t.bordeSuave,
+                          color:
+                              masVendidos ? LibretaColors.verde : t.bordeSuave,
                           width: 1.5,
                         ),
                         borderRadius: BorderRadius.circular(11),
@@ -593,7 +617,11 @@ class _PasoProductos extends StatelessWidget {
               LibretaInput(
                 hint: 'Buscar en mi mercancía…',
                 height: 44,
-                leading: LibretaIcono(AppAssets.accBuscar, size: 17, color: t.textoMuted),
+                leading: LibretaIcono(
+                  AppAssets.accBuscar,
+                  size: 17,
+                  color: t.textoMuted,
+                ),
                 onChanged: onBuscar,
               ),
             ],
@@ -610,8 +638,8 @@ class _PasoProductos extends StatelessWidget {
                 producto: p,
                 elegido: elegido,
                 // Con el cupo lleno solo se puede quitar, no agregar.
-                bloqueado: !elegido && !unicoDestacado &&
-                    elegidos.length >= cupo,
+                bloqueado:
+                    !elegido && !unicoDestacado && elegidos.length >= cupo,
                 onTap: () => onAlternar(p),
               );
             },
@@ -651,8 +679,11 @@ class _PasoProductos extends StatelessWidget {
               LibretaButton(
                 label: 'Ver cómo queda',
                 height: 54,
-                icon: const Icon(Icons.visibility_outlined,
-                    size: 18, color: Colors.white),
+                icon: const Icon(
+                  Icons.visibility_outlined,
+                  size: 18,
+                  color: Colors.white,
+                ),
                 onPressed: onVer,
               ),
             ],
@@ -707,14 +738,20 @@ class _FilaEscoger extends ConsumerWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: elegido ? LibretaColors.verde : Colors.transparent,
-                  border: elegido
-                      ? null
-                      : Border.all(color: t.bordeSuave, width: 2),
+                  border:
+                      elegido
+                          ? null
+                          : Border.all(color: t.bordeSuave, width: 2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: elegido
-                    ? const LibretaIcono(AppAssets.accConfirmar, size: 14, color: Colors.white)
-                    : null,
+                child:
+                    elegido
+                        ? const LibretaIcono(
+                          AppAssets.accConfirmar,
+                          size: 14,
+                          color: Colors.white,
+                        )
+                        : null,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -802,16 +839,21 @@ class _ChipAnuncio extends StatelessWidget {
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: activo
-              ? const Color(0x1F0E9F6E)
-              : t.textoFuerte.withValues(alpha: 0.07),
+          color:
+              activo
+                  ? const Color(0x1F0E9F6E)
+                  : t.textoFuerte.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(100),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (activo) ...[
-              const LibretaIcono(AppAssets.accConfirmar, size: 13, color: LibretaColors.verde),
+              const LibretaIcono(
+                AppAssets.accConfirmar,
+                size: 13,
+                color: LibretaColors.verde,
+              ),
               const SizedBox(width: 7),
             ],
             Text(
@@ -819,9 +861,10 @@ class _ChipAnuncio extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: activo ? FontWeight.w800 : FontWeight.w700,
-                color: !habilitado
-                    ? t.textoMuted.withValues(alpha: 0.5)
-                    : activo
+                color:
+                    !habilitado
+                        ? t.textoMuted.withValues(alpha: 0.5)
+                        : activo
                         ? LibretaColors.verde
                         : t.textoMuted,
               ),
@@ -886,8 +929,11 @@ class _Prevista extends StatelessWidget {
                         color: const Color(0x24FFFFFF),
                         borderRadius: BorderRadius.circular(11),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new,
-                          size: 16, color: Colors.white),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new,
+                        size: 16,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -940,8 +986,11 @@ class _Prevista extends StatelessWidget {
                     child: LibretaButton(
                       label: generando ? 'Generando…' : 'Compartir en Estado',
                       loading: generando,
-                      icon: const LibretaIcono(AppAssets.accCompartir,
-                          size: 18, color: Colors.white),
+                      icon: const LibretaIcono(
+                        AppAssets.accCompartir,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                       onPressed: generando ? null : onCompartir,
                     ),
                   ),
@@ -983,9 +1032,8 @@ class _ChipPlantilla extends StatelessWidget {
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: activo ? FontWeight.w800 : FontWeight.w700,
-            color: activo
-                ? LibretaColors.tarjetaOscura
-                : const Color(0xCCFFFFFF),
+            color:
+                activo ? LibretaColors.tarjetaOscura : const Color(0xCCFFFFFF),
           ),
         ),
       ),
@@ -1026,15 +1074,16 @@ class _TarjetaPlantilla extends StatelessWidget {
             color: activa ? LibretaColors.verde : t.renglon,
             width: activa ? 2 : 1.5,
           ),
-          boxShadow: activa
-              ? const [
-                  BoxShadow(
-                    color: Color(0x240E9F6E),
-                    offset: Offset(0, 8),
-                    blurRadius: 18,
-                  ),
-                ]
-              : null,
+          boxShadow:
+              activa
+                  ? const [
+                    BoxShadow(
+                      color: Color(0x240E9F6E),
+                      offset: Offset(0, 8),
+                      blurRadius: 18,
+                    ),
+                  ]
+                  : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1082,11 +1131,11 @@ class _VistaPlantilla extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (formato) {
-        FormatoEstado.grilla => const _VistaLista(),
-        FormatoEstado.flyer => const _VistaOferta(),
-        FormatoEstado.combo => const _VistaCombo(),
-        FormatoEstado.nuevo => const _VistaNuevo(),
-      };
+    FormatoEstado.grilla => const _VistaLista(),
+    FormatoEstado.flyer => const _VistaOferta(),
+    FormatoEstado.combo => const _VistaCombo(),
+    FormatoEstado.nuevo => const _VistaNuevo(),
+  };
 }
 
 /// Miniatura del combo: cuatro casillas de colores.
@@ -1334,7 +1383,10 @@ class _LienzoEstado extends StatelessWidget {
             Align(
               alignment: Alignment.center,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF2A93C),
                   borderRadius: BorderRadius.circular(100),
@@ -1360,14 +1412,13 @@ class _LienzoEstado extends StatelessWidget {
           Expanded(
             child: switch (formato) {
               FormatoEstado.flyer => _Flyer(
-                  producto: destacado,
-                  tasa: tasa,
-                  precioAnterior: esOferta ? precioAnterior : null,
-                ),
+                producto: destacado,
+                tasa: tasa,
+                precioAnterior: esOferta ? precioAnterior : null,
+              ),
               FormatoEstado.combo => _Combo(productos: productos, tasa: tasa),
               FormatoEstado.nuevo => _LlegoNuevo(productos: productos),
-              FormatoEstado.grilla =>
-                _Grilla(productos: productos, tasa: tasa),
+              FormatoEstado.grilla => _Grilla(productos: productos, tasa: tasa),
             },
           ),
 
@@ -1512,10 +1563,7 @@ class _Flyer extends StatelessWidget {
     final p = producto;
     if (p == null) {
       return const Center(
-        child: Text(
-          'Elige un producto',
-          style: TextStyle(color: Colors.white),
-        ),
+        child: Text('Elige un producto', style: TextStyle(color: Colors.white)),
       );
     }
 
@@ -1586,10 +1634,7 @@ class _Flyer extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 MoneyFormatter.usdComoBs(p.precio, tasa!),
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Color(0xD9FFFFFF),
-                ),
+                style: const TextStyle(fontSize: 15, color: Color(0xD9FFFFFF)),
               ),
             ],
           ],

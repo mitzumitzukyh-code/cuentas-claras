@@ -200,8 +200,13 @@ class NegocioRepository {
     String? bancoNombre,
     String? fotoUrl,
     bool? fotoComoFondo,
+    Rubro? rubro,
   }) {
     final cambios = <String, dynamic>{
+      // Cambiar el rubro cambia el perfil (vocabulario, unidades, qué campos
+      // pinta el formulario) y las categorías sugeridas. No toca ni un
+      // producto ya guardado.
+      if (rubro != null) 'rubro': rubro.id,
       if (nombre != null) 'nombre': nombre,
       if (incluirIva != null) 'incluirIva': incluirIva,
       if (reciboMensaje != null) 'reciboMensaje': reciboMensaje,

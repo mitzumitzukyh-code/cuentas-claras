@@ -39,6 +39,8 @@ class Producto {
     this.enOferta = false,
     this.garantiaMeses,
     this.receta = const [],
+    this.unidad,
+    this.extras = const {},
   });
 
   final String id;
@@ -93,6 +95,23 @@ class Producto {
   /// cocinan o arman). Al vender se descuentan del inventario de insumos.
   final List<LineaReceta> receta;
 
+  /// Unidad en que se vende ('unidad', 'kg', 'docena', 'bandeja'…).
+  ///
+  /// Sale de `BusinessProfile.allowedUnits`. `null` en los productos creados
+  /// antes de que el campo existiera: se muestran con la unidad por defecto
+  /// del perfil, que es lo que ya se asumía.
+  final String? unidad;
+
+  /// Campos propios del rubro, por clave (`BusinessProfile.extraFields`).
+  ///
+  /// Bolsa abierta a propósito: agregar un campo a un rubro no debe obligar a
+  /// migrar el documento ni a tocar este modelo.
+  ///
+  /// Lo que tiene columna propia aquí **no** se guarda además en `extras`: el
+  /// formulario hace de puente (la regla, en `CLAUDE.md` §8.b). Hoy el único
+  /// caso es `vencimiento` → [fechaVencimiento].
+  final Map<String, dynamic> extras;
+
   bool get tieneReceta => receta.isNotEmpty;
 
   /// Porcentaje de descuento derivado, para pintar "−16 %".
@@ -112,6 +131,32 @@ class Producto {
 
   /// Stock listo para pintar: "23" si es entero, "1,5 kg" si se vende por peso.
   String get cantidadLabel => formatearCantidad(cantidad, vendidoPorPeso);
+
+  /// Stock con su unidad: "12,5 kg", "3 docenas", "23".
+  ///
+  /// [unidadPorDefecto] es la del perfil del negocio: los productos creados
+  /// antes de que existiera [unidad] no la traen, y mostrarlos sin unidad
+  /// mientras los nuevos sí la tienen se vería como un error de datos.
+  ///
+  /// "unidad" no se escribe —"quedan 12 unidad" no lo dice nadie— y ahí manda
+  /// [cantidadLabel], que ya sabe poner "kg" si el producto se pesa.
+  String cantidadCon(String? unidadPorDefecto) {
+    final propia = unidad?.trim();
+    final u = (propia != null && propia.isNotEmpty)
+        ? propia
+        : unidadPorDefecto?.trim();
+    if (u == null || u.isEmpty || u == 'unidad') return cantidadLabel;
+    return '${formatearCantidad(cantidad, false)} ${_plural(u)}';
+  }
+
+  /// Plural de la unidad, solo para las que terminan en vocal: "docenas",
+  /// "bandejas", "litros". Las que terminan en consonante se dejan como están
+  /// —"kg" y "ml" no pluralizan— a costa de que "par" y "ración" queden en
+  /// singular; un pluralizador de español completo no vale lo que cuesta.
+  static String _plural(String unidad) {
+    if (!'aeiou'.contains(unidad.substring(unidad.length - 1))) return unidad;
+    return '${unidad}s';
+  }
 
   /// Oculta los decimales cuando no aportan nada ("23" en vez de "23,0").
   static String formatearCantidad(double valor, bool porPeso) {
@@ -148,6 +193,10 @@ class Producto {
           .whereType<Map<String, dynamic>>()
           .map(LineaReceta.fromMap)
           .toList(),
+      unidad: data['unidad'] as String?,
+      extras: Map<String, dynamic>.from(
+        (data['extras'] as Map?) ?? const <String, dynamic>{},
+      ),
     );
   }
 
@@ -171,5 +220,7 @@ class Producto {
         'enOferta': enOferta,
         'garantiaMeses': garantiaMeses,
         'receta': receta.map((l) => l.toMap()).toList(),
+        'unidad': unidad,
+        'extras': extras,
       };
 }

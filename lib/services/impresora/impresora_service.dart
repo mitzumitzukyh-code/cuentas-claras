@@ -1,10 +1,47 @@
 import 'dart:io';
 
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Un dispositivo emparejado tal como lo reporta Android, con su clase.
+class _DispositivoBt {
+  const _DispositivoBt({
+    required this.nombre,
+    required this.mac,
+    required this.claseMayor,
+  });
+
+  factory _DispositivoBt.desdeMapa(Map<Object?, Object?> m) => _DispositivoBt(
+    nombre: (m['nombre'] as String?) ?? '',
+    mac: (m['mac'] as String?) ?? '',
+    claseMayor: (m['claseMayor'] as int?) ?? 0,
+  );
+
+  final String nombre;
+  final String mac;
+
+  /// Clase mayor de Android (`BluetoothClass.Device.Major`).
+  final int claseMayor;
+
+  /// Clases que SÍ pueden ser una impresora térmica.
+  ///
+  /// Se filtra por lista blanca corta en vez de excluir solo el audio: las
+  /// térmicas baratas se anuncian como `imaging` (lo correcto), pero muchas
+  /// se declaran `uncategorized` o `misc` porque el fabricante no rellenó el
+  /// campo. Lo que nunca es una impresora —audio, teléfonos, computadoras,
+  /// teclados, relojes— queda fuera.
+  static const _clasesDeImpresora = {
+    0x0000, // misc
+    0x0600, // imaging (impresoras, escáneres)
+    0x1F00, // uncategorized
+  };
+
+  bool get esImpresora => _clasesDeImpresora.contains(claseMayor);
+}
 
 /// Cómo está conectada la impresora de tickets.
 enum TipoImpresora {
@@ -15,24 +52,24 @@ enum TipoImpresora {
   String get id => name;
 
   static TipoImpresora fromId(String? id) => TipoImpresora.values.firstWhere(
-        (t) => t.id == id,
-        orElse: () => TipoImpresora.ninguna,
-      );
+    (t) => t.id == id,
+    orElse: () => TipoImpresora.ninguna,
+  );
 
   String get etiqueta => switch (this) {
-        TipoImpresora.ninguna => 'No uso impresora',
-        TipoImpresora.wifi => 'Por WiFi',
-        TipoImpresora.bluetooth => 'Por Bluetooth',
-      };
+    TipoImpresora.ninguna => 'No uso impresora',
+    TipoImpresora.wifi => 'Por WiFi',
+    TipoImpresora.bluetooth => 'Por Bluetooth',
+  };
 
   /// Explicación en lenguaje llano, para quien nunca configuró una impresora.
   String get explicacion => switch (this) {
-        TipoImpresora.ninguna => 'Doy el recibo por WhatsApp o de palabra',
-        TipoImpresora.wifi =>
-          'La impresora se conecta al WiFi, o crea su propia red WiFi',
-        TipoImpresora.bluetooth =>
-          'La impresora se empareja con este teléfono, como unos audífonos',
-      };
+    TipoImpresora.ninguna => 'Doy el recibo por WhatsApp o de palabra',
+    TipoImpresora.wifi =>
+      'La impresora se conecta al WiFi, o crea su propia red WiFi',
+    TipoImpresora.bluetooth =>
+      'La impresora se empareja con este teléfono, como unos audífonos',
+  };
 }
 
 /// Ajustes de la impresora, guardados en el dispositivo.
@@ -71,10 +108,10 @@ class ImpresoraConfig {
   PaperSize get tamanoPapel => papel80mm ? PaperSize.mm80 : PaperSize.mm58;
 
   bool get configurada => switch (tipo) {
-        TipoImpresora.ninguna => false,
-        TipoImpresora.wifi => ip.trim().isNotEmpty,
-        TipoImpresora.bluetooth => macBluetooth.isNotEmpty,
-      };
+    TipoImpresora.ninguna => false,
+    TipoImpresora.wifi => ip.trim().isNotEmpty,
+    TipoImpresora.bluetooth => macBluetooth.isNotEmpty,
+  };
 
   ImpresoraConfig copyWith({
     TipoImpresora? tipo,
@@ -152,7 +189,10 @@ class ImpresoraService {
   ///
   /// No se escanean dispositivos nuevos a propósito: emparejar se hace una vez
   /// desde Android, y así evitamos pedir permisos de ubicación.
-  Future<List<BluetoothInfo>> bluetoothEmparejadas() async {
+  ///
+  /// [todos] salta el filtro por clase, para el caso raro de una impresora que
+  /// se anuncia con una clase inesperada. Ver [_esImpresora].
+  Future<List<BluetoothInfo>> bluetoothEmparejadas({bool todos = false}) async {
     await _pedirPermiso();
 
     if (!await PrintBluetoothThermal.bluetoothEnabled) {
@@ -161,8 +201,37 @@ class ImpresoraService {
         'intentar.',
       );
     }
+
+    // El plugin no expone la clase de dispositivo (`BluetoothInfo` solo trae
+    // nombre y MAC), así que la lista se pide por el canal nativo para poder
+    // dejar fuera lo que no es una impresora. Si el canal falla —iOS, o una
+    // versión vieja del APK— se cae a la lista sin filtrar del plugin: es
+    // preferible mostrar de más que dejar al dueño sin poder elegir nada.
+    try {
+      final crudo = await _canal.invokeListMethod<Map<Object?, Object?>>(
+        'emparejados',
+      );
+      if (crudo != null) {
+        final dispositivos = crudo.map(_DispositivoBt.desdeMapa).toList();
+        final utiles =
+            todos
+                ? dispositivos
+                : dispositivos.where((d) => d.esImpresora).toList();
+        return [
+          for (final d in utiles)
+            BluetoothInfo(name: d.nombre, macAdress: d.mac),
+        ];
+      }
+    } on PlatformException {
+      // Sin canal nativo: se sigue con la lista del plugin.
+    } on MissingPluginException {
+      // Idem (iOS).
+    }
+
     return PrintBluetoothThermal.pairedBluetooths;
   }
+
+  static const _canal = MethodChannel('cuentaclara/bluetooth');
 
   /// En Android 12+ hay que pedir `BLUETOOTH_CONNECT` en caliente: declararlo
   /// en el manifiesto no basta. Sin él la lista de emparejadas vuelve vacía
@@ -230,7 +299,7 @@ class ImpresoraService {
     if (!conectado) {
       throw ImpresoraException(
         'No se pudo conectar con ${config.nombreBluetooth.isEmpty ? "la "
-            "impresora" : config.nombreBluetooth}. Revisa que esté encendida '
+                "impresora" : config.nombreBluetooth}. Revisa que esté encendida '
         'y emparejada.',
       );
     }

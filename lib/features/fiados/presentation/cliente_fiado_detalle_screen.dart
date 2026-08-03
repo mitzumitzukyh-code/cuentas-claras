@@ -176,7 +176,7 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
                       label: 'Registrar abono',
                       height: 48,
                       onPressed: () => context.push(
-                        Routes.fiadoMovimiento.replaceAll(':clienteId', cliente.id),
+                        Routes.fiadoMovimientoDe(cliente.id),
                         extra: {
                           'clientePreseleccionado': cliente,
                           'tipoInicial': TipoMovimientoFiado.abono,

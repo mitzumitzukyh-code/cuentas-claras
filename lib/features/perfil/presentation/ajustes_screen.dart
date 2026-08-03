@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../onboarding/domain/rubro.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_links.dart';
@@ -160,6 +161,51 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
             haceDelivery: haceDelivery,
             fotoComoFondo: fotoComoFondo,
           );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo guardar: $e'),
+          backgroundColor: LibretaColors.peligro,
+        ),
+      );
+    }
+  }
+
+  /// Cambiar el rubro del negocio (Ajustes → Negocio → Tipo de negocio).
+  ///
+  /// El rubro es lo único que se pregunta en el onboarding y de él cuelga todo
+  /// el perfil: vocabulario, unidades, qué campos pinta el formulario de
+  /// producto y qué atajos salen en el Inicio. Cambiarlo no toca ni un producto
+  /// guardado — solo cambia qué se muestra de aquí en adelante.
+  Future<void> _abrirSelectorRubro(Negocio negocio) async {
+    final elegido = await showModalBottomSheet<Rubro>(
+      context: context,
+      builder:
+          (c) => SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final r in Rubro.values)
+                    ListTile(
+                      leading: LibretaIcono(r.icono, color: r.color),
+                      title: Text(r.etiqueta),
+                      trailing:
+                          r == negocio.rubro ? const Icon(Icons.check) : null,
+                      onTap: () => Navigator.of(c).pop(r),
+                    ),
+                ],
+              ),
+            ),
+          ),
+    );
+
+    if (elegido == null || elegido == negocio.rubro) return;
+    try {
+      await ref
+          .read(negocioRepositoryProvider)
+          .actualizarAjustes(negocio.id, rubro: elegido);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -373,26 +419,14 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                               ),
                             ),
                             _Fila(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Rubro',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: context.libreta.textoMuted,
-                                    ),
-                                  ),
-                                  Text(
-                                    negocio.rubro.etiqueta,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: context.libreta.textoFuerte,
-                                    ),
-                                  ),
-                                ],
+                              onTap:
+                                  esDueno
+                                      ? () => _abrirSelectorRubro(negocio)
+                                      : null,
+                              child: _FilaSimple(
+                                icono: Icons.tune_outlined,
+                                texto: 'Tipo de negocio',
+                                valor: negocio.rubro.etiqueta,
                               ),
                             ),
                             _Fila(

@@ -154,6 +154,81 @@ invitaciones/{codigo}
 - Ícono de app (cuaderno + check) — versión con fondo y transparente
 - Documentos legales base: política de privacidad y términos de uso (en `/legal`, con placeholders de correo pendientes)
 
+## 8.b Perfiles de negocio (`lib/core/business/`)
+
+Capa de **configuración**, no de módulos: un solo core adaptado por un objeto.
+No se duplican pantallas por vertical, y ningún widget hace `switch` por rubro.
+
+- `business_profile.dart` — `BusinessProfile`, `Vocabulary`, `ExtraField`,
+  `HomeShortcut`.
+- `business_presets.dart` — `Map<Rubro, BusinessProfile>` con **una entrada por
+  rubro** y `perfilDe(Rubro)`. Único archivo con mapas/`switch` por rubro.
+  Agregar un rubro = 1 valor en el enum + 1 entrada aquí.
+- `business_profile_provider.dart` — `businessProfileProvider` (nunca async,
+  nunca lanza) y azúcar `ref.perfilNegocio` / `ref.vocab`.
+- El grid del Inicio dibuja `profile.atajosVisibles`, no `shortcuts`: los
+  atajos con `enabled: false` son los que aún no tienen pantalla.
+
+**De dónde sale el perfil.** Del `rubro`, 1:1, y de nada más. El onboarding hace
+una sola pregunta —la de rubro, la que ya existía— y en Ajustes → Negocio →
+"Tipo de negocio" se puede cambiar el rubro (solo el dueño), lo que cambia el
+perfil entero. No hay campo `perfilNegocio` ni override aparte: con un preset
+por rubro, un segundo eje solo sería otra cosa que mantener sincronizada.
+
+**Reparto entre `RubroConfig` y `BusinessProfile`.** El rubro describe el
+negocio hacia afuera: `id` (viaja al Worker de IA sin cambios), `etiqueta` y
+`categoriasSugeridas`. Todo lo que decide **cómo se captura** un producto vive
+en el perfil: `usaVariantes` + `etiquetasVariante`, `usaFechaVencimiento`,
+`usaUnidadMedida`, `usaReceta`, `usaSerial`, `vendePorPeso`, `fotoObligatoria`,
+unidades, vocabulario, atajos y `extraFields`.
+
+**`extraFields` es la única fuente de qué campos extra pinta el formulario.**
+`ExtraFieldsSection`
+(`lib/features/productos/presentation/widgets/extra_fields_section.dart`) itera
+`profile.extraFields` y no sabe qué rubro está activo. Agregar un campo a un
+rubro es agregar un `ExtraField` a su preset, sin tocar la pantalla. La bandera
+`usaFechaVencimiento` ya se eliminó por esto: el vencimiento es hoy un
+`ExtraField` de tipo fecha. Las banderas que quedan (`usaVariantes`,
+`usaReceta`, `usaSerial`, `vendePorPeso`, `fotoObligatoria`,
+`usaUnidadMedida`) **no** son expresables como `ExtraField`: encienden bloques
+enteros —un editor de variantes con stock por variante, una receta de insumos,
+un serial con garantía—, no un campo suelto. Ante una discrepancia manda
+`extraFields`.
+
+**Los valores viven en `producto.extras`** (`Map<String, dynamic>`, clave =
+`ExtraField.key`). `producto.unidad` guarda la unidad elegida entre
+`profile.allowedUnits`.
+
+**Regla del puente: todo `ExtraField` cuya clave tenga columna propia en
+`Producto` necesita un puente explícito en el formulario, y no se guarda en
+`extras`.** Sin eso el mismo dato queda escrito en dos sitios que pueden
+discrepar, y lo que ya lee la columna —alertas, catálogo, reportes— deja de
+ver lo que el usuario escribió. El puente son dos líneas en
+`nuevo_producto_screen.dart`: al abrir, la columna se sube al mapa
+(`_extras['clave'] = producto.columna`) para que la sección la pinte como un
+campo más; al guardar, sale del mapa hacia la columna y se elimina de `extras`
+(`extras: {..._extras}..remove('clave')`). Hoy el único caso es `vencimiento`
+→ `producto.fechaVencimiento`. Antes de declarar un `ExtraField` nuevo, revisa
+si `Producto` ya tiene esa columna: si la tiene, o pones el puente o no
+declares el campo.
+
+**Qué más consume el perfil hoy:** la barra inferior y la pantalla de
+inventario usan `vocab` (título, buscador, estado vacío, CTA), y el Inicio
+dibuja `GridAtajos`, que consume `atajosVisibles` menos `cobrar` (ya es el
+botón héroe).
+
+**`otro` es hoy el cajón de los negocios de servicio.** No hay rubro
+`servicios`: una barbería, un taller o un salón entran por "Otro", que por eso
+incluye `hora` entre sus unidades y el atajo `cotizar`. Ver `NOTAS.md`.
+
+**`Negocio.fromDoc` ignora `negocio.configuracion` del documento** y arma el
+`RubroConfig` entero desde el preset del rubro. Antes mezclaba las dos fuentes
+—tres banderas del doc, el resto del preset— y el doc perdía en cuanto el
+preset cambiaba, así que la mezcla solo aparentaba que el negocio guardaba una
+configuración propia. `configuracion` se sigue **escribiendo** por
+compatibilidad con los documentos existentes, pero nadie lo lee: lo único que
+el usuario edita es el `rubro`.
+
 ## 9. Primer objetivo para Claude Code
 
 Implementar la **Fase 1** completa (pantallas 1-7) con Firebase configurado, tema de marca aplicado, y las reglas de seguridad de Firestore desde el día uno — no como algo a "agregar después".

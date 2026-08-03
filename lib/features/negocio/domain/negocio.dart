@@ -29,6 +29,8 @@ class Negocio {
 
   final String id;
   final String nombre;
+  /// El rubro es la única fuente del perfil de negocio: `businessPresets` tiene
+  /// una entrada por rubro. No hay un segundo campo que mantener sincronizado.
   final Rubro rubro;
   final String moneda;
   final String? monedaSecundaria;
@@ -101,7 +103,6 @@ class Negocio {
   factory Negocio.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const {};
     final rubro = Rubro.fromId(data['rubro'] as String?);
-    final cfg = (data['configuracion'] as Map<String, dynamic>?) ?? const {};
     return Negocio(
       id: doc.id,
       nombre: (data['nombre'] as String?) ?? '',
@@ -123,17 +124,13 @@ class Negocio {
       metodosPago: MetodoPagoConfig.listaDesdeMapa(
         data['metodosPago'] as Map<String, dynamic>?,
       ),
-      configuracion: RubroConfig(
-        usaVariantes: (cfg['usaVariantes'] as bool?) ?? false,
-        usaFechaVencimiento: (cfg['usaFechaVencimiento'] as bool?) ?? false,
-        usaUnidadMedida: (cfg['usaUnidadMedida'] as bool?) ?? false,
-        usaReceta: rubro.config.usaReceta,
-        fotoObligatoria: rubro.config.fotoObligatoria,
-        etiquetasVariante: List<String>.from(
-          (cfg['etiquetasVariante'] as List?) ?? const [],
-        ),
-        categoriasSugeridas: rubro.config.categoriasSugeridas,
-      ),
+      // `configuracion` NO se lee del documento: sale entera del preset del
+      // rubro. Antes se mezclaban las dos fuentes —tres banderas del doc y el
+      // resto del preset— y el doc siempre perdía en cuanto el preset cambiaba,
+      // así que la mezcla solo servía para hacer creer que el negocio guardaba
+      // una configuración propia. Lo que sí es editable por el usuario es
+      // `perfilNegocio`, y eso vive en su propio campo.
+      configuracion: rubro.config,
     );
   }
 

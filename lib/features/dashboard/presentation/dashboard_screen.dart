@@ -22,6 +22,7 @@ import '../../productos/data/producto_repository.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
 import 'coachmark_primer_uso.dart';
+import 'widgets/grid_atajos.dart';
 import 'urgencias.dart';
 
 /// Inicio (`Lote P`).
@@ -148,6 +149,11 @@ class DashboardScreen extends ConsumerWidget {
                         ),
 
                         const CoachmarkPrimerUso(),
+
+                        // Atajos del perfil del negocio. Cobrar queda fuera:
+                        // ya es el botón héroe de arriba.
+                        const SizedBox(height: 12),
+                        const GridAtajos(),
 
                         if (hayVentas) ...[
                           const SizedBox(height: 16),

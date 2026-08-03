@@ -97,10 +97,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         case SesionEstado.error:
           return loc == Routes.sesionError ? null : Routes.sesionError;
         case SesionEstado.listo:
+          // `Routes.onboarding` NO está en esta lista a propósito: con sesión
+          // activa también se llega ahí para abrir otra sucursal desde "Mis
+          // negocios". Mientras estuvo aquí, ese botón empujaba a /onboarding
+          // y el redirect lo devolvía al Dashboard en el mismo frame — nadie
+          // pudo crear un segundo negocio nunca.
+          //
+          // A cambio, la pantalla de rubro ya no puede confiar en este
+          // redirect para salir al terminar: navega ella misma (ver
+          // `_crearNegocio`).
           const soloFueraDeSesion = {
             Routes.splash,
             Routes.login,
-            Routes.onboarding,
             Routes.sesionError,
           };
           return soloFueraDeSesion.contains(loc) ? Routes.dashboard : null;
@@ -169,7 +177,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.cobrar,
-        pageBuilder: (_, s) => _pagina(s, const CobrarScreen()),
+        pageBuilder: (_, s) => _pagina(
+          s,
+          CobrarScreen(
+            iniciarEnCotizacion: s.uri.queryParameters['modo'] == 'cotizacion',
+            abrirEscaner: s.uri.queryParameters['escanear'] == '1',
+          ),
+        ),
       ),
       GoRoute(
         path: Routes.reportes,

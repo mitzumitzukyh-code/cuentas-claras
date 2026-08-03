@@ -85,12 +85,18 @@ class LectorEtiquetaService {
   final http.Client _cliente;
 
   /// Lee la etiqueta de un producto: nombre, presentación y categoría.
+  /// [rubro] es el `Rubro.id` del negocio. El Worker lo usa para elegir qué
+  /// mirar en la foto: en una bodega busca marca y gramaje, en ropa el tipo de
+  /// prenda y el color, en quincallería la medida. Sin él, una blusa volvía
+  /// con nombre genérico y una presentación inventada.
   Future<SugerenciaEtiqueta> leer(
     File foto, {
     List<String> categorias = const [],
+    String rubro = '',
   }) async {
     final datos = await _llamar('/leer-etiqueta', foto, extras: {
       'categorias': categorias,
+      'rubro': rubro,
     });
     if (datos['reconocido'] != true) throw SinReconocer();
 

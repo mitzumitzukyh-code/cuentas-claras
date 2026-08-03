@@ -14,6 +14,7 @@ import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/presentation/permiso_requerido.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../../core/business/business_profile_provider.dart';
 import '../data/producto_repository.dart';
 import '../domain/producto.dart';
 import 'nuevo_producto_screen.dart';
@@ -94,6 +95,8 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
   @override
   Widget build(BuildContext context) {
     final productosAsync = ref.watch(productosProvider);
+    final perfil = ref.watch(businessProfileProvider);
+    final vocab = perfil.vocab;
     // Permiso, no rol: un vendedor con «editar inventario» activado también
     // puede cargar mercancía. El dueño lo cumple siempre.
     final puedeEditar = ref.watch(puedeProvider(Permisos.editarInventario));
@@ -121,7 +124,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'No se pudieron cargar los productos.\n$e',
+                      'No se pudo cargar tu ${vocab.inventoryLabel.toLowerCase()}.\n$e',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.libreta.textoMuted),
                     ),
@@ -157,7 +160,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Productos',
+                              vocab.inventoryLabel,
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
@@ -205,7 +208,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   const SizedBox(height: 16),
                   LibretaInput(
                     controller: _busqueda,
-                    hint: 'Buscar producto…',
+                    hint: 'Buscar ${vocab.itemSingular}…',
                     height: 46,
                     bordeVerde: true,
                     leading: const LibretaIcono(AppAssets.accBuscar,
@@ -226,7 +229,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${visibles.length} de ${productos.length} productos',
+                    '${visibles.length} de ${productos.length} ${vocab.itemPlural}',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -287,15 +290,15 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   if (productos.isEmpty)
                     LibretaEstadoVacio(
                       ilustracion: Ilustracion.sinProductos,
-                      titulo: 'Tu inventario está vacío',
+                      titulo: 'Tu ${vocab.inventoryLabel.toLowerCase()} está vacía',
                       detalle:
-                          'Agrega tus productos con foto, precio y '
+                          'Agrega ${vocab.itemPlural} con foto, precio y '
                           'stock para empezar a cobrar rápido.',
                       tagline: 'empieza a llenar tu cuaderno',
                       boton:
                           puedeEditar
                               ? LibretaButton(
-                                label: 'Agregar producto',
+                                label: vocab.addItemCta,
                                 icon: const Icon(
                                   Icons.add,
                                   size: 19,
@@ -311,9 +314,9 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                       ilustracion: Ilustracion.sinResultados,
                       titulo: 'Sin resultados',
                       detalle: texto.isNotEmpty
-                          ? 'No hay productos que coincidan con '
+                          ? 'No hay ${vocab.itemPlural} que coincidan con '
                               '«${_busqueda.text.trim()}».'
-                          : 'Ningún producto coincide con este filtro.',
+                          : 'Ningún ${vocab.itemSingular} coincide con este filtro.',
                       boton: LibretaSecondaryButton(
                         label: 'Limpiar filtros',
                         onPressed: () => setState(() {
@@ -330,6 +333,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                         child: _TarjetaProducto(
                           producto: p,
                           tasa: tasa,
+                          unidadPorDefecto: perfil.defaultUnit,
                           onTap:
                               puedeEditar
                                   ? () => Navigator.of(context).push(
@@ -455,11 +459,15 @@ class _TarjetaProducto extends StatelessWidget {
   const _TarjetaProducto({
     required this.producto,
     required this.tasa,
+    required this.unidadPorDefecto,
     this.onTap,
   });
 
   final Producto producto;
   final double? tasa;
+
+  /// La del perfil del negocio, para los productos que no traen la suya.
+  final String unidadPorDefecto;
   final VoidCallback? onTap;
 
   static const _colores = [
@@ -539,7 +547,7 @@ class _TarjetaProducto extends StatelessWidget {
                   Text(
                     [
                       if (producto.categoria.isNotEmpty) producto.categoria,
-                      'quedan ${producto.cantidadLabel}',
+                      'quedan ${producto.cantidadCon(unidadPorDefecto)}',
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

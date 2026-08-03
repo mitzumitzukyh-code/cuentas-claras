@@ -40,41 +40,54 @@ class FiadosScreen extends ConsumerWidget {
         child: SafeArea(
           child: clientesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No se pudo cargar los fiados.\n$e',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: context.libreta.textoMuted),
+            error:
+                (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'No se pudo cargar los fiados.\n$e',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: context.libreta.textoMuted),
+                    ),
+                  ),
                 ),
-              ),
-            ),
             data: (todos) {
               final conDeuda = todos.where((c) => c.saldoUSD > 0).toList();
               final total = conDeuda.fold<double>(0, (s, c) => s + c.saldoUSD);
 
-              final filtrados = busqueda.isEmpty
-                  ? conDeuda
-                  : conDeuda
-                      .where((c) => c.nombre
-                          .toLowerCase()
-                          .contains(busqueda.toLowerCase()))
-                      .toList();
+              final filtrados =
+                  busqueda.isEmpty
+                      ? conDeuda
+                      : conDeuda
+                          .where(
+                            (c) => c.nombre.toLowerCase().contains(
+                              busqueda.toLowerCase(),
+                            ),
+                          )
+                          .toList();
 
               return Stack(
                 children: [
                   ListView(
                     padding: const EdgeInsets.fromLTRB(24, 26, 24, 100),
                     children: [
-                      Text(
-                        'Fiados',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: context.libreta.textoFuerte,
-                          letterSpacing: -0.5,
-                        ),
+                      // Fiados no es una pestaña: se llega empujando desde
+                      // Más, Cobrar o una urgencia del Inicio. Sin este botón
+                      // la única salida era el gesto del sistema.
+                      Row(
+                        children: [
+                          const LibretaBackButton(oscuro: true),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Fiados',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: context.libreta.textoFuerte,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
                       const Align(
                         alignment: Alignment.centerLeft,
@@ -82,11 +95,17 @@ class FiadosScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 15,
+                        ),
                         decoration: BoxDecoration(
                           color: LibretaColors.tarjetaOscura,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: context.libreta.bordeHero, width: 1.5),
+                          border: Border.all(
+                            color: context.libreta.bordeHero,
+                            width: 1.5,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,12 +148,16 @@ class FiadosScreen extends ConsumerWidget {
                         LibretaEstadoVacio(
                           ilustracion: Ilustracion.sinFiados,
                           titulo: 'Nadie te debe… por ahora',
-                          detalle: 'Aquí verás a quién le fiaste, cuánto y '
+                          detalle:
+                              'Aquí verás a quién le fiaste, cuánto y '
                               'desde cuándo, para no perder la cuenta.',
                           tagline: 'cuentas claras, amistades largas',
                           boton: LibretaButton(
                             label: 'Anotar un fiado',
-onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', '')),
+                            onPressed:
+                                () => context.push(
+                                  Routes.fiadoMovimientoDe(),
+                                ),
                           ),
                         )
                       else ...[
@@ -167,7 +190,14 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
                               cliente: c,
                               hace: _hace(c.actualizadoEn),
                               tasa: tasa,
-                              onTap: () => context.push(Routes.fiadoDetalle.replaceAll(':clienteId', c.id), extra: c),
+                              onTap:
+                                  () => context.push(
+                                    Routes.fiadoDetalle.replaceAll(
+                                      ':clienteId',
+                                      c.id,
+                                    ),
+                                    extra: c,
+                                  ),
                             ),
                       ],
                     ],
@@ -178,8 +208,13 @@ onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', ''
                     bottom: 16,
                     child: LibretaButton(
                       label: 'Nuevo fiado',
-                      icon: const Icon(Icons.add, size: 19, color: Colors.white),
-                      onPressed: () => context.push(Routes.fiadoMovimiento.replaceAll(':clienteId', '')),
+                      icon: const Icon(
+                        Icons.add,
+                        size: 19,
+                        color: Colors.white,
+                      ),
+                      onPressed:
+                          () => context.push(Routes.fiadoMovimientoDe()),
                     ),
                   ),
                 ],
@@ -207,10 +242,14 @@ class _RecordatorioVencido extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ahora = DateTime.now();
-    final vencidos = clientes
-        .where((c) => ahora.difference(c.actualizadoEn).inDays >= _diasParaAvisar)
-        .toList()
-      ..sort((a, b) => a.actualizadoEn.compareTo(b.actualizadoEn));
+    final vencidos =
+        clientes
+            .where(
+              (c) =>
+                  ahora.difference(c.actualizadoEn).inDays >= _diasParaAvisar,
+            )
+            .toList()
+          ..sort((a, b) => a.actualizadoEn.compareTo(b.actualizadoEn));
     if (vencidos.isEmpty) return const SizedBox.shrink();
 
     final c = vencidos.first;
@@ -317,21 +356,25 @@ class _BuscadorFiados extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return TextField(
       onChanged: (v) => ref.read(_busquedaFiadosProvider.notifier).state = v,
-      style: TextStyle(
-        fontSize: 14,
-        color: context.libreta.textoFuerte,
-      ),
+      style: TextStyle(fontSize: 14, color: context.libreta.textoFuerte),
       decoration: InputDecoration(
         hintText: 'Buscar cliente…',
         hintStyle: TextStyle(color: context.libreta.textoMuted),
-        prefixIcon: LibretaIcono(AppAssets.accBuscar, size: 20, color: context.libreta.textoMuted),
+        prefixIcon: LibretaIcono(
+          AppAssets.accBuscar,
+          size: 20,
+          color: context.libreta.textoMuted,
+        ),
         filled: true,
         fillColor: context.libreta.superficie,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
       ),
     );
   }
@@ -370,9 +413,10 @@ class _FilaCliente extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: vieja
-                    ? LibretaColors.tarjetaOscura
-                    : context.libreta.textoFuerte.withValues(alpha: 0.1),
+                color:
+                    vieja
+                        ? LibretaColors.tarjetaOscura
+                        : context.libreta.textoFuerte.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -405,9 +449,10 @@ class _FilaCliente extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: vieja
-                          ? const Color(0xFFF2A93C)
-                          : context.libreta.textoMuted,
+                      color:
+                          vieja
+                              ? const Color(0xFFF2A93C)
+                              : context.libreta.textoMuted,
                     ),
                   ),
                 ],
@@ -426,8 +471,14 @@ class _FilaCliente extends StatelessWidget {
                 ),
                 if (tasa != null)
                   Text(
-                    MoneyFormatter.bs(MoneyFormatter.convertirABs(cliente.saldoUSD, tasa!)),
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.libreta.textoMuted),
+                    MoneyFormatter.bs(
+                      MoneyFormatter.convertirABs(cliente.saldoUSD, tasa!),
+                    ),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: context.libreta.textoMuted,
+                    ),
                   ),
               ],
             ),

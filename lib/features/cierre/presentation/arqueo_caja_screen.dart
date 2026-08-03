@@ -36,17 +36,40 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
     super.dispose();
   }
 
-  double? get _contadoValor => double.tryParse(_contado.text.replaceAll(',', '.'));
+  double? get _contadoValor =>
+      double.tryParse(_contado.text.replaceAll(',', '.'));
 
   bool _esHoy(DateTime f) {
     final ahora = DateTime.now();
     return f.year == ahora.year && f.month == ahora.month && f.day == ahora.day;
   }
 
-  static const _dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-  static const _meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  static const _dias = [
+    'lunes',
+    'martes',
+    'miércoles',
+    'jueves',
+    'viernes',
+    'sábado',
+    'domingo',
+  ];
+  static const _meses = [
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ];
 
-  String _fecha(DateTime f) => '${_dias[f.weekday - 1]} ${f.day} ${_meses[f.month - 1]}';
+  String _fecha(DateTime f) =>
+      '${_dias[f.weekday - 1]} ${f.day} ${_meses[f.month - 1]}';
 
   String _hora12(DateTime f) {
     final h = f.hour % 12 == 0 ? 12 : f.hour % 12;
@@ -81,15 +104,20 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
       cerradaEn: DateTime.now(),
     );
     try {
-      await ref.read(cierreCajaRepositoryProvider).crearCierre(membresia.negocioId, cierre);
+      await ref
+          .read(cierreCajaRepositoryProvider)
+          .crearCierre(membresia.negocioId, cierre);
       if (!mounted) return;
-      context.pushReplacement(Routes.resumenDia.replaceAll(':cierreId', cierre.id), extra: cierre);
+      context.pushReplacement(
+        Routes.resumenDia.replaceAll(':cierreId', cierre.id),
+        extra: cierre,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _cerrando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo cerrar la caja: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo cerrar la caja: $e')));
     }
   }
 
@@ -110,9 +138,10 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('$e')),
             data: (ventas) {
-              final gastos = (gastosAsync.valueOrNull ?? const [])
-                  .where((g) => _esHoy(g.fecha))
-                  .toList();
+              final gastos =
+                  (gastosAsync.valueOrNull ?? const [])
+                      .where((g) => _esHoy(g.fecha))
+                      .toList();
               final fiados = fiadosAsync.valueOrNull ?? const [];
 
               // Una venta fiada NO entra en lo esperado por método: esa plata
@@ -122,9 +151,13 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
               // mayor del cliente.
               final metodos = <String, double>{};
               for (final v in ventas.where((v) => !v.esFiada)) {
-                metodos[v.metodoPago.id] = (metodos[v.metodoPago.id] ?? 0) + v.totalUSD;
+                metodos[v.metodoPago.id] =
+                    (metodos[v.metodoPago.id] ?? 0) + v.totalUSD;
               }
-              final ventasTotal = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
+              final ventasTotal = ventas.fold<double>(
+                0,
+                (s, v) => s + v.totalUSD,
+              );
               final gastosTotal = gastos.fold<double>(0, (s, g) => s + g.monto);
               final fiadoOtorgado = fiados
                   .where((m) => m.tipo == TipoMovimientoFiado.fiado)
@@ -134,11 +167,15 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                   .fold<double>(0, (s, m) => s + m.montoUSD);
               final efectivoEsperado = metodos[MetodoPago.efectivo.id] ?? 0;
               final contado = _contadoValor;
-              final descuadre = contado == null ? null : contado - efectivoEsperado;
+              final descuadre =
+                  contado == null ? null : contado - efectivoEsperado;
               final activos = negocio?.metodosActivos ?? const [];
-              final primeraVenta = ventas.isEmpty
-                  ? null
-                  : ventas.map((v) => v.fecha).reduce((a, b) => a.isBefore(b) ? a : b);
+              final primeraVenta =
+                  ventas.isEmpty
+                      ? null
+                      : ventas
+                          .map((v) => v.fecha)
+                          .reduce((a, b) => a.isBefore(b) ? a : b);
 
               if (cierreHoy != null) {
                 return Center(
@@ -147,17 +184,32 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.check_circle_outline, size: 40, color: LibretaColors.verde),
+                        const Icon(
+                          Icons.check_circle_outline,
+                          size: 40,
+                          color: LibretaColors.verde,
+                        ),
                         const SizedBox(height: 14),
                         Text(
                           'Ya cerraste la caja de hoy',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: context.libreta.textoFuerte),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: context.libreta.textoFuerte,
+                          ),
                         ),
                         const SizedBox(height: 18),
                         LibretaButton(
                           label: 'Ver resumen del día',
-                          onPressed: () => context.pushReplacement(Routes.resumenDia.replaceAll(':cierreId', cierreHoy.id), extra: cierreHoy),
+                          onPressed:
+                              () => context.pushReplacement(
+                                Routes.resumenDia.replaceAll(
+                                  ':cierreId',
+                                  cierreHoy.id,
+                                ),
+                                extra: cierreHoy,
+                              ),
                         ),
                       ],
                     ),
@@ -170,14 +222,22 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                   ListView(
                     padding: const EdgeInsets.fromLTRB(24, 30, 22, 100),
                     children: [
-                      Text(
-                        'Cierre de caja',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: context.libreta.textoFuerte,
-                          letterSpacing: -0.5,
-                        ),
+                      // Se llega empujando desde Más o desde la urgencia de
+                      // "te falta cerrar la caja", nunca desde una pestaña.
+                      Row(
+                        children: [
+                          const LibretaBackButton(oscuro: true),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Cierre de caja',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: context.libreta.textoFuerte,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -193,7 +253,12 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                       const SizedBox(height: 14),
                       Text(
                         'ESPERADO SEGÚN EL SISTEMA',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: context.libreta.textoMuted,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
@@ -214,7 +279,12 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                             if (activos.isEmpty)
                               Padding(
                                 padding: EdgeInsets.all(16),
-                                child: Text('Configura tus métodos de pago para ver el arqueo.', style: TextStyle(color: context.libreta.textoMuted)),
+                                child: Text(
+                                  'Configura tus métodos de pago para ver el arqueo.',
+                                  style: TextStyle(
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -222,7 +292,12 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                       const SizedBox(height: 18),
                       Text(
                         'ARQUEO DE EFECTIVO',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: context.libreta.textoMuted,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
@@ -237,52 +312,79 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                           children: [
                             Text(
                               '¿Cuánto efectivo contaste?',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.libreta.textoMuted),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: context.libreta.textoMuted,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             LibretaInput(
                               controller: _contado,
                               hint: '0.00',
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               onChanged: (_) => setState(() {}),
                             ),
                             if (contado != null && tasa != null) ...[
                               const SizedBox(height: 6),
                               Text(
                                 MoneyFormatter.usdComoBs(contado, tasa),
-                                style: TextStyle(fontSize: 12, color: context.libreta.textoMuted),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: context.libreta.textoMuted,
+                                ),
                               ),
                             ],
                             if (descuadre != null) ...[
                               const SizedBox(height: 12),
-                              Container(height: 1, color: context.libreta.renglon),
+                              Container(
+                                height: 1,
+                                color: context.libreta.renglon,
+                              ),
                               const SizedBox(height: 12),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       'Esperado ${MoneyFormatter.usd(efectivoEsperado)} · '
                                       'contado ${MoneyFormatter.usd(contado!)}',
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: context.libreta.textoMuted),
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: context.libreta.textoMuted,
+                                      ),
                                     ),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: descuadre == 0 ? const Color(0x1F0E9F6E) : const Color(0x26F2A93C),
+                                      color:
+                                          descuadre == 0
+                                              ? const Color(0x1F0E9F6E)
+                                              : const Color(0x26F2A93C),
                                       borderRadius: BorderRadius.circular(100),
                                     ),
                                     child: Text(
                                       descuadre == 0
                                           ? 'cuadrado'
                                           : descuadre > 0
-                                              ? 'sobran ${MoneyFormatter.usd(descuadre)}'
-                                              : 'falta ${MoneyFormatter.usd(-descuadre)}',
+                                          ? 'sobran ${MoneyFormatter.usd(descuadre)}'
+                                          : 'falta ${MoneyFormatter.usd(-descuadre)}',
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w800,
-                                        color: descuadre == 0 ? LibretaColors.verde : LibretaColors.aviso,
+                                        color:
+                                            descuadre == 0
+                                                ? LibretaColors.verde
+                                                : LibretaColors.aviso,
                                       ),
                                     ),
                                   ),
@@ -301,10 +403,22 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                     child: LibretaButton(
                       label: 'Cerrar caja del día',
                       loading: _cerrando,
-                      icon: const LibretaIcono(AppAssets.navProductos, size: 19, color: Colors.white),
-                      onPressed: contado == null || _cerrando
-                          ? null
-                          : () => _cerrar(metodos, efectivoEsperado, gastosTotal, fiadoOtorgado, abonos, ventasTotal),
+                      icon: const LibretaIcono(
+                        AppAssets.navProductos,
+                        size: 19,
+                        color: Colors.white,
+                      ),
+                      onPressed:
+                          contado == null || _cerrando
+                              ? null
+                              : () => _cerrar(
+                                metodos,
+                                efectivoEsperado,
+                                gastosTotal,
+                                fiadoOtorgado,
+                                abonos,
+                                ventasTotal,
+                              ),
                     ),
                   ),
                 ],
@@ -317,10 +431,15 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
   }
 }
 
-String _sinEmoji(String etiqueta) => etiqueta.replaceFirst(RegExp(r'^\S+\s'), '');
+String _sinEmoji(String etiqueta) =>
+    etiqueta.replaceFirst(RegExp(r'^\S+\s'), '');
 
 class _FilaMetodo extends StatelessWidget {
-  const _FilaMetodo({required this.etiqueta, required this.monto, required this.ultima});
+  const _FilaMetodo({
+    required this.etiqueta,
+    required this.monto,
+    required this.ultima,
+  });
 
   final String etiqueta;
   final double monto;
@@ -331,15 +450,29 @@ class _FilaMetodo extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
-        border: ultima ? null : Border(bottom: BorderSide(color: context.libreta.renglon)),
+        border:
+            ultima
+                ? null
+                : Border(bottom: BorderSide(color: context.libreta.renglon)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(etiqueta, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.libreta.textoFuerte)),
+          Text(
+            etiqueta,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: context.libreta.textoFuerte,
+            ),
+          ),
           Text(
             MoneyFormatter.usd(monto),
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: context.libreta.textoFuerte),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: context.libreta.textoFuerte,
+            ),
           ),
         ],
       ),

@@ -35,6 +35,53 @@ sugiere:
 Si la foto no muestra un producto identificable (persona, paisaje, foto
 borrosa, etc.), indica esProducto=false y deja el resto vacío.`;
 
+/**
+ * Matices por rubro para el prompt de etiqueta.
+ *
+ * El prompt base está escrito para un producto empaquetado de bodega: busca
+ * marca, peso y volumen. Eso funciona con una harina y falla con una blusa,
+ * un tornillo o un cargador — no tienen "marca + gramaje" que leer, así que
+ * el modelo terminaba inventando una presentación o devolviendo un nombre
+ * genérico. Cada rubro dice aquí qué mirar en su lugar.
+ *
+ * Las claves son los `Rubro.id` de la app (`rubro.dart`). Los rubros que no
+ * aparecen —bodega, comida rápida, otro— se quedan con el prompt base, que ya
+ * describe su caso.
+ */
+export const MATICES_POR_RUBRO = {
+  ropa: `Esta tienda vende ROPA. Una prenda casi nunca trae marca ni gramaje
+legibles en la foto, así que no los busques: nómbrala por lo que se ve —tipo
+de prenda, corte y color—, como la anotaría el dueño en su cuaderno.
+Ejemplos: "Blusa manga corta negra", "Jean recto azul", "Franela cuello V
+blanca", "Chaqueta jean oversize".
+En presentacion pon la TALLA solo si se lee en la etiqueta o el empaque; si no
+se lee, déjala vacía. Nunca deduzcas la talla del tamaño aparente en la foto.`,
+
+  belleza: `Esta tienda vende productos de BELLEZA. Si el envase tiene marca y
+tono, úsalos ("Labial Vogue tono 24", "Base líquida beige"). Si es un producto
+sin marca visible, nómbralo por lo que es y su color o acabado. En
+presentacion va el contenido (ml, g) o el número de tono, solo si se lee.`,
+
+  quincalleria: `Esta tienda es una QUINCALLERÍA o ferretería. Lo que
+identifica a estos productos es el tipo y la MEDIDA, no la marca: "Tornillo
+autorroscante 1/2", "Bombillo LED 9W", "Cable #12", "Candado 40mm". En
+presentacion va la medida, el calibre o la potencia cuando se lea en la pieza
+o su empaque. Si vienen varias unidades en una bolsa, indícalo ("12 uds").`,
+
+  panaderia: `Esta tienda es una PANADERÍA o charcutería. Casi nada trae
+etiqueta: nombra la pieza por lo que es, como la canta el dueño en el
+mostrador. Ejemplos: "Pan canilla", "Pan de jamón", "Cachito de jamón",
+"Queso blanco duro", "Jamón de pierna". En presentacion va el peso solo si se
+lee en una etiqueta de balanza; si la pieza se vende por kilo y no hay
+etiqueta, déjala vacía. No inventes gramajes a ojo.`,
+
+  electronica: `Esta tienda vende ELECTRÓNICA. Lo que importa es MARCA +
+MODELO, y la capacidad cuando aplique: "Xiaomi Redmi 12 128GB", "Cargador tipo
+C 20W", "Audífonos inalámbricos negros". No confundas la capacidad de
+almacenamiento con el peso. En presentacion va la capacidad (GB), la potencia
+(W) o la longitud del cable, solo si se lee.`,
+};
+
 const ESQUEMA_ETIQUETA = {
   type: 'OBJECT',
   properties: {
@@ -46,6 +93,30 @@ const ESQUEMA_ETIQUETA = {
   },
   required: ['esProducto', 'nombreSugerido', 'confianza'],
 };
+
+/**
+ * Arma el prompt de etiqueta: base + matiz del rubro + categorías.
+ *
+ * El rubro se busca en [MATICES_POR_RUBRO] en lugar de concatenarse tal cual:
+ * el valor llega del cuerpo de la petición, y meter texto de fuera dentro de
+ * un prompt es exactamente como se le da la vuelta a un modelo. Un rubro
+ * desconocido simplemente no aporta matiz.
+ *
+ * Separada de la llamada de red para poder probarla sin pegarle a Gemini.
+ */
+export function armarPromptEtiqueta({ categorias = [], rubro = '' } = {}) {
+  const partes = [PROMPT_ETIQUETA];
+
+  const matiz = Object.hasOwn(MATICES_POR_RUBRO, rubro)
+    ? MATICES_POR_RUBRO[rubro]
+    : null;
+  if (matiz) partes.push(matiz);
+
+  if (categorias.length) {
+    partes.push(`Categorías de la tienda: ${categorias.join(', ')}`);
+  }
+  return partes.join('\n\n');
+}
 
 /**
  * Interpreta la respuesta cruda de Gemini y la reduce a lo que la app
@@ -92,10 +163,9 @@ export async function leerEtiqueta({
   imagenBase64,
   mimeType,
   categorias = [],
+  rubro = '',
 }) {
-  const prompt = categorias.length
-    ? `${PROMPT_ETIQUETA}\n\nCategorías de la tienda: ${categorias.join(', ')}`
-    : PROMPT_ETIQUETA;
+  const prompt = armarPromptEtiqueta({ categorias, rubro });
 
   const json = await llamarGemini({
     apiKey,

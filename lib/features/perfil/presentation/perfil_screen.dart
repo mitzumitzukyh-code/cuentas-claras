@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
+import '../../../core/business/business_profile_provider.dart';
 import '../../../core/providers/conectividad_provider.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/impresora/impresora_service.dart';
@@ -132,7 +133,7 @@ class PerfilScreen extends ConsumerWidget {
                 filas: [
                   // Solo los rubros que cocinan o arman lo que venden: en una
                   // bodega un renglón de "Insumos" no significa nada.
-                  if (negocio?.rubro.config.usaReceta ?? false)
+                  if (ref.watch(businessProfileProvider).usaReceta)
                     _Fila(
                       icono: Icons.blender_outlined,
                       etiqueta: 'Insumos',
