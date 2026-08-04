@@ -251,5 +251,26 @@ service cloud.firestore {
 
       allow delete: if esDueno(resource.data.negocioId);
     }
+
+    // ----- Suscripciones -----
+    //
+    // El plan de un usuario. **Solo lectura desde el cliente, siempre.**
+    //
+    // Si la app pudiera escribir aqui, cualquiera con el telefono en la mano
+    // se pondria Premium: no hace falta ni tocar el codigo, basta una consola
+    // de Firestore. Quien escribe este documento es la Cloud Function que
+    // verifica el recibo contra Google Play, y las funciones usan el Admin SDK,
+    // que se salta estas reglas.
+    //
+    // Sin documento, la app entiende plan gratis. Por eso la coleccion puede
+    // estar vacia sin que nada se rompa.
+    match /suscripciones/{usuarioId} {
+      // Cada quien lee el suyo, y ademas el de un dueno cuyo negocio comparte
+      // con el: un empleado necesita saber si el negocio donde trabaja es
+      // Premium para saber si el catalogo lleva marca de agua.
+      allow read: if estaAutenticado();
+
+      allow write: if false;
+    }
   }
 }

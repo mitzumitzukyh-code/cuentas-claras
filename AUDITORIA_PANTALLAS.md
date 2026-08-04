@@ -233,21 +233,40 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ---
 
-## No existe la capa de planes — pendiente de decisión
+## Capa de planes — construida menos la compra
 
-`lib/features/planes/` solo tiene `presentation/`: no hay provider de
-suscripción, ni estado premium, ni nada que consulte el plan. En consecuencia:
+`lib/features/planes/` ya tiene `domain/plan.dart` (los topes, en un solo
+sitio) y `data/plan_repository.dart` (de dónde sale el plan de cada quien).
 
-- La marca de agua del catálogo y del Estado está **siempre** puesta. Es el
-  lado seguro (todos ven el comportamiento gratis), pero significa que quien
-  pagara Premium no recibiría lo que compró.
-- Ningún límite del plan gratis se aplica: 1 negocio, 50 productos, historial
-  de 30 días, 1 usuario. Todos están documentados en CLAUDE.md §6 y ninguno
-  está en el código.
-- `in_app_purchase` está en `pubspec.yaml` y no se usa.
+**El plan es de la persona y el negocio hereda el del dueño.** Un empleado de
+un negocio Premium trabaja sin marca de agua sin pagar aparte.
 
-No es un defecto de estas pantallas: es una capa sin construir. Anotado aquí
-para que no se pierda.
+Aplicado hoy, siempre al crear y nunca sobre lo que ya existe:
+
+- **1 negocio** — al abrir otra sucursal desde el onboarding.
+- **50 productos** — al dar de alta, no al editar.
+- **1 usuario** — al generar el código de invitación.
+- **Marca de agua** — catálogo y Estado la llevan solo en gratis.
+
+`diasHistorial` está declarado pero **no aplicado a propósito**: a diferencia
+de los otros, no impediría crear algo nuevo sino que escondería ventas ya
+registradas. Queda en el modelo para el día que se decida aplicarlo con aviso.
+
+### Lo que falta, y por qué
+
+La **compra** no está. Necesita dos cosas que hoy no existen: los productos
+dados de alta en Google Play Console, y una Cloud Function que verifique el
+recibo. Sin la segunda, marcar Premium desde el cliente lo falsifica cualquiera
+con el teléfono en la mano — por eso `suscripciones/{usuarioId}` está en
+`allow write: if false` en las reglas: solo el Admin SDK de una función podrá
+escribir ahí.
+
+### Antes de que esto sirva
+
+**Hay que desplegar `firestore.rules`.** La regla de `suscripciones` está en el
+archivo pero no en el proyecto. Mientras tanto la lectura se deniega y todo el
+mundo sale `gratis`, que es el comportamiento correcto por defecto — pero un
+Premium real no se vería hasta desplegarlas.
 
 ## Los dos ámbares — resuelto
 

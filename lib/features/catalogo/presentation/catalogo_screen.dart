@@ -15,6 +15,7 @@ import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/utils/errores.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../planes/data/plan_repository.dart';
 import '../../negocio/domain/negocio.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
@@ -403,6 +404,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 negocio: negocio,
                 productos: elegidos,
                 tasa: tasa,
+                conMarcaDeAgua: ref.watch(planDelNegocioProvider).marcaDeAgua,
               ),
             ),
           ),
@@ -543,11 +545,16 @@ class _LienzoCatalogo extends StatelessWidget {
     required this.negocio,
     required this.productos,
     required this.tasa,
+    required this.conMarcaDeAgua,
   });
 
   final Negocio negocio;
   final List<Producto> productos;
   final double? tasa;
+
+  /// Si el pie con «Hecho con Cuenta Clara» va en la imagen. Lo decide el plan
+  /// del dueño del negocio (CLAUDE.md §6): en gratis va, en Plan Plus no.
+  final bool conMarcaDeAgua;
 
   static const _destacados = 6;
 
@@ -760,6 +767,7 @@ class _LienzoCatalogo extends StatelessWidget {
           ],
 
           // --- Pie con la marca (CLAUDE.md §6: marca de agua en gratis) ---
+          if (conMarcaDeAgua)
           Container(
             color: LibretaColors.tarjetaOscura,
             padding: const EdgeInsets.symmetric(vertical: 9),

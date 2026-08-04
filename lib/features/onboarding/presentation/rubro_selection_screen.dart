@@ -10,7 +10,10 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/errores.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../negocio/domain/membresia.dart';
 import '../../negocio/domain/modo_precio.dart';
+import '../../planes/data/plan_repository.dart';
+import '../../planes/domain/plan.dart';
 import '../domain/rubro.dart';
 import 'unirse_codigo_screen.dart';
 
@@ -54,6 +57,29 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
   Future<void> _crearNegocio() async {
     final user = ref.read(authStateProvider).valueOrNull;
     if (user == null || _rubro == null) return;
+
+    // Cuantos negocios puede tener lo decide el plan de la persona, no el de
+    // ningun negocio: por eso se mira `miPlanProvider` y no el del negocio
+    // activo. Se comprueba al crear, asi que quien ya tiene varios los
+    // conserva todos.
+    final limite = LimitePlan.cabeUnoMas(
+      actuales: ref.read(misMembresiasProvider).valueOrNull
+              ?.where((m) => m.rol == RolMembresia.dueno)
+              .length ??
+          0,
+      tope: ref.read(miPlanProvider).valueOrNull?.maxNegocios,
+      mensaje: 'El plan gratis incluye un negocio. Pásate a Plan Plus para '
+          'abrir otra sucursal.',
+    );
+    if (!limite.permitido) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(limite.mensaje!),
+          backgroundColor: LibretaColors.aviso,
+        ),
+      );
+      return;
+    }
 
     setState(() => _cargando = true);
     try {

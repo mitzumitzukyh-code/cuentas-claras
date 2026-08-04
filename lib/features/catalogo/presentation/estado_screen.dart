@@ -12,6 +12,7 @@ import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../planes/data/plan_repository.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
 import '../../ventas/data/venta_repository.dart';
@@ -233,6 +234,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
     );
     final telefono = negocio.telefonoParaCliente;
     final lienzo = _LienzoEstado(
+      conMarcaDeAgua: ref.watch(planDelNegocioProvider).marcaDeAgua,
       formato: _formato,
       negocioNombre: negocio.nombre,
       productos: _paraLienzo,
@@ -1364,6 +1366,7 @@ class _LienzoEstado extends StatelessWidget {
     required this.precioAnterior,
     this.telefono,
     this.delivery = false,
+    required this.conMarcaDeAgua,
   });
 
   final FormatoEstado formato;
@@ -1372,6 +1375,10 @@ class _LienzoEstado extends StatelessWidget {
   final Producto? destacado;
   final (Color, Color) colores;
   final double? tasa;
+
+  /// Si el pie con «Hecho con Cuenta Clara» va en la imagen. Lo decide el plan
+  /// del dueño del negocio (CLAUDE.md §6): en gratis va, en Plan Plus no.
+  final bool conMarcaDeAgua;
 
   /// "¡Oferta de hoy!" — solo aplica al formato flyer (`P4 · ESTADO EN
   /// WHATSAPP`).
@@ -1476,16 +1483,18 @@ class _LienzoEstado extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 12, color: Color(0xB3FFFFFF)),
             ),
-          const SizedBox(height: 8),
-          const Text(
-            'Hecho con Cuenta Clara',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0x80FFFFFF),
+          if (conMarcaDeAgua) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Hecho con Cuenta Clara',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0x80FFFFFF),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -7,6 +7,8 @@ import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/errores.dart';
+import '../../planes/data/plan_repository.dart';
+import '../../planes/domain/plan.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/negocio_repository.dart';
 import '../domain/invitacion.dart';
@@ -31,6 +33,20 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
     final membresia = ref.read(membresiaActivaProvider);
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
     if (membresia == null || negocio == null) return;
+
+    // El tope de personas es del plan del dueño del negocio, y se cuenta
+    // incluyéndolo a él. En gratis eso deja sitio para uno solo, así que no
+    // hay invitación que generar.
+    final limite = LimitePlan.cabeUnoMas(
+      actuales: ref.read(miembrosNegocioProvider).valueOrNull?.length ?? 1,
+      tope: ref.read(planDelNegocioProvider).maxUsuarios,
+      mensaje: 'El plan gratis es para una sola persona. Pásate a Plan Plus '
+          'para sumar a tu equipo.',
+    );
+    if (!limite.permitido) {
+      _mostrar(limite.mensaje!);
+      return;
+    }
 
     setState(() => _generando = true);
     try {

@@ -17,6 +17,8 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/errores.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../onboarding/domain/rubro.dart';
+import '../../planes/data/plan_repository.dart';
+import '../../planes/domain/plan.dart';
 import '../data/insumo_repository.dart';
 import '../data/producto_repository.dart';
 import '../domain/insumo.dart';
@@ -286,6 +288,24 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     if (perfil.fotoObligatoria && faltaFoto) {
       _mostrar('La foto es obligatoria para este rubro.');
       return;
+    }
+
+    // El tope del plan se mira al dar de alta, nunca al editar: un negocio que
+    // ya tiene más productos de los que el plan gratis permite los conserva
+    // todos y los puede seguir corrigiendo. Lo único que no puede es sumar uno
+    // más.
+    if (!_editando) {
+      final limite = LimitePlan.cabeUnoMas(
+        actuales: ref.read(productosProvider).valueOrNull?.length ?? 0,
+        tope: ref.read(planDelNegocioProvider).maxProductos,
+        mensaje: 'El plan gratis llega hasta '
+            '${Plan.gratis.maxProductos} productos. Pásate a Plan Plus para '
+            'seguir cargando.',
+      );
+      if (!limite.permitido) {
+        _mostrar(limite.mensaje!);
+        return;
+      }
     }
 
     final membresia = ref.read(membresiaActivaProvider);

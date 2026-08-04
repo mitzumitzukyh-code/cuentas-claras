@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../data/plan_repository.dart';
+import '../domain/plan.dart';
 
 /// Un plan del catálogo comercial (CLAUDE.md §6).
 class _Plan {
@@ -42,8 +44,13 @@ class _Plan {
 class PlanesScreen extends ConsumerWidget {
   const PlanesScreen({super.key});
 
-  static const _planes = [
+  /// Las dos tarjetas, con la insignia de "tu plan actual" en la que toca.
+  ///
+  /// Antes `actual: true` estaba fijo en la tarjeta gratuita: a un usuario
+  /// Premium la pantalla le habría dicho que su plan era el gratis.
+  static List<_Plan> _tarjetas(Plan activo) => [
     _Plan(
+      actual: activo.esPremium,
       nombre: 'Cuenta Clara Plus',
       precio: '\$5',
       periodo: '/mes',
@@ -117,7 +124,7 @@ class PlanesScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 18),
 
-              for (final plan in _planes)
+              for (final plan in _tarjetas(ref.watch(miPlanProvider).valueOrNull ?? Plan.gratis))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: _TarjetaPlan(plan: plan),
