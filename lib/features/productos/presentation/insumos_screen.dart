@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/numero_ve.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/insumo_repository.dart';
 import '../domain/insumo.dart';
@@ -29,13 +32,26 @@ class InsumosScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => _HojaInsumo(insumo: insumo),
     );
-    if (resultado == null) return;
+    if (resultado == null || !context.mounted) return;
 
-    final repo = ref.read(insumoRepositoryProvider);
-    if (insumo == null) {
-      await repo.crear(membresia.negocioId, resultado);
-    } else {
-      await repo.actualizar(membresia.negocioId, resultado);
+    // Con `try`: sin él, un rechazo de Firestore o una caída de red se iban al
+    // vacío con la hoja ya cerrada, y el dueño se quedaba creyendo que su
+    // insumo estaba guardado.
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      final repo = ref.read(insumoRepositoryProvider);
+      if (insumo == null) {
+        await repo.crear(membresia.negocioId, resultado);
+      } else {
+        await repo.actualizar(membresia.negocioId, resultado);
+      }
+    } catch (e) {
+      mensajero.showSnackBar(
+        SnackBar(
+          content: Text(mensajeDeError(e, accion: 'guardar el insumo')),
+          backgroundColor: LibretaColors.peligro,
+        ),
+      );
     }
   }
 
@@ -68,16 +84,31 @@ class InsumosScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (seguro != true) return;
-    await ref
-        .read(insumoRepositoryProvider)
-        .eliminar(membresia.negocioId, insumo.id);
+    if (seguro != true || !context.mounted) return;
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(insumoRepositoryProvider)
+          .eliminar(membresia.negocioId, insumo.id);
+    } catch (e) {
+      mensajero.showSnackBar(
+        SnackBar(
+          content: Text(mensajeDeError(e, accion: 'eliminar el insumo')),
+          backgroundColor: LibretaColors.peligro,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
-    final insumos = ref.watch(insumosProvider).valueOrNull ?? const <Insumo>[];
+    // Cargando, error y vacío son tres estados distintos. Con
+    // `valueOrNull ?? const []` un fallo de permisos o de red pintaba
+    // "Todavía no cargas insumos" con su botón de agregar: el dueño tiene sus
+    // insumos y la pantalla le dice que no, invitándolo a cargarlos otra vez.
+    final insumosAsync = ref.watch(insumosProvider);
+    final insumos = insumosAsync.valueOrNull ?? const <Insumo>[];
     final bajos = insumos.where((i) => i.stockBajo).length;
 
     return Scaffold(
@@ -114,11 +145,16 @@ class InsumosScreen extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          insumos.isEmpty
+                          // Mientras carga o si falló, el subtítulo no cuenta
+                          // insumos: contaría cero, que es justo lo que no se
+                          // sabe.
+                          !insumosAsync.hasValue
                               ? 'lo que gastan tus recetas'
-                              : bajos > 0
-                                  ? '${insumos.length} insumos · $bajos por acabarse'
-                                  : '${insumos.length} insumos',
+                              : insumos.isEmpty
+                                  ? 'lo que gastan tus recetas'
+                                  : bajos > 0
+                                      ? '${insumos.length} insumos · $bajos por acabarse'
+                                      : '${insumos.length} insumos',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -132,26 +168,40 @@ class InsumosScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
 
-              if (insumos.isEmpty)
-                LibretaEstadoVacio(
-                  ilustracion: Ilustracion.sinProductos,
-                  titulo: 'Todavía no cargas insumos',
-                  detalle: 'Carga la harina, los huevos, el aceite… Después los '
-                      'pones en la receta de cada producto y se descuentan '
-                      'solos al vender.',
-                  tagline: 'lo que se gasta también se cuenta',
-                  boton: LibretaButton(
-                    label: 'Agregar insumo',
-                    onPressed: () => _editar(context, ref),
+              ...insumosAsync.when(
+                loading: () => const [LibretaCargando()],
+                error: (e, _) => [
+                  LibretaErrorCarga(
+                    mensaje: mensajeDeError(e, accion: 'cargar tus insumos'),
+                    detalleTecnico: e,
+                    onReintentar: () => ref.invalidate(insumosProvider),
                   ),
-                )
-              else
-                for (final i in insumos)
-                  _FilaInsumo(
-                    insumo: i,
-                    onEditar: () => _editar(context, ref, insumo: i),
-                    onEliminar: () => _eliminar(context, ref, i),
-                  ),
+                ],
+                data: (lista) => lista.isEmpty
+                    ? [
+                        LibretaEstadoVacio(
+                          ilustracion: Ilustracion.sinProductos,
+                          titulo: 'Todavía no cargas insumos',
+                          detalle:
+                              'Carga la harina, los huevos, el aceite… Después '
+                              'los pones en la receta de cada producto y se '
+                              'descuentan solos al vender.',
+                          tagline: 'lo que se gasta también se cuenta',
+                          boton: LibretaButton(
+                            label: 'Agregar insumo',
+                            onPressed: () => _editar(context, ref),
+                          ),
+                        ),
+                      ]
+                    : [
+                        for (final i in lista)
+                          _FilaInsumo(
+                            insumo: i,
+                            onEditar: () => _editar(context, ref, insumo: i),
+                            onEliminar: () => _eliminar(context, ref, i),
+                          ),
+                      ],
+              ),
             ],
           ),
         ),
@@ -210,7 +260,7 @@ class _FilaInsumo extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0x26F2A93C),
+                  color: LibretaColors.ambarSuperficie.withValues(alpha: .15),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
@@ -268,17 +318,24 @@ class _HojaInsumoState extends State<_HojaInsumo> {
     super.dispose();
   }
 
+  /// `true` cuando hay nombre y una cantidad legible.
+  bool get _valido =>
+      _nombre.text.trim().isNotEmpty && normalizarNumeroVE(_cantidad.text) != null;
+
   void _guardar() {
-    final nombre = _nombre.text.trim();
-    final cantidad = double.tryParse(_cantidad.text.replaceAll(',', '.'));
-    if (nombre.isEmpty || cantidad == null) return;
+    final cantidad = normalizarNumeroVE(_cantidad.text);
+    if (!_valido || cantidad == null) return;
     Navigator.of(context).pop(
       Insumo(
         id: widget.insumo?.id ?? '',
-        nombre: nombre,
+        nombre: _nombre.text.trim(),
         cantidad: cantidad,
         unidad: _unidad,
-        alertaEn: double.tryParse(_alerta.text.replaceAll(',', '.')),
+        // Por `normalizarNumeroVE` y no por `replaceAll(',', '.')`: con el
+        // apaño viejo, "1.500" gramos de harina se leían como 1,5 —el punto se
+        // tomaba por decimal— y el insumo quedaba con mil veces menos, sin que
+        // nada fallara ni avisara.
+        alertaEn: normalizarNumeroVE(_alerta.text),
       ),
     );
   }
@@ -318,7 +375,11 @@ class _HojaInsumoState extends State<_HojaInsumo> {
               ),
             ),
             const SizedBox(height: 16),
-            LibretaInput(controller: _nombre, hint: 'Nombre (harina, huevos…)'),
+            LibretaInput(
+              controller: _nombre,
+              hint: 'Nombre (harina, huevos…)',
+              onChanged: (_) => setState(() {}),
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -328,6 +389,7 @@ class _HojaInsumoState extends State<_HojaInsumo> {
                     hint: 'Cantidad',
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -370,7 +432,13 @@ class _HojaInsumoState extends State<_HojaInsumo> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 18),
-            LibretaButton(label: 'Guardar', onPressed: _guardar),
+            // Deshabilitado mientras falte algo, en vez de aceptar el toque y
+            // no hacer nada: `_guardar` volvía en silencio si el nombre estaba
+            // vacío o la cantidad no se podía leer, y el botón parecía roto.
+            LibretaButton(
+              label: 'Guardar',
+              onPressed: _valido ? _guardar : null,
+            ),
           ],
         ),
       ),
