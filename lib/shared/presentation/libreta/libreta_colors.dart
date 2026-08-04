@@ -50,11 +50,11 @@ abstract final class LibretaColors {
   /// bordes. Es el brillante, y sobre papel no tiene contraste suficiente
   /// para texto — para eso está [aviso].
   ///
-  /// Estaba escrito a mano 43 veces en 22 archivos. Se recoge aquí con su
-  /// valor tal cual para no mover ningún píxel; ojo, el brief de marca dice
-  /// `#F2A93B` y todo el código usa `#F2A93C` — un dígito de diferencia que
-  /// nadie ha decidido conscientemente.
-  static const Color ambarSuperficie = Color(0xFFF2A93C);
+  /// Estaba escrito a mano 43 veces en 22 archivos, siempre como `#F2A93C`.
+  /// El brief de marca dice `#F2A93B`: un dígito de diferencia que nadie
+  /// decidió, y que aquí se resuelve a favor del brief. La diferencia es de
+  /// 1/255 en el canal azul, o sea invisible.
+  static const Color ambarSuperficie = Color(0xFFF2A93B);
 
   /// Fondo de las tarjetas "hero" oscuras (total por cobrar, total de
   /// fiados/proveedores…). Es un color fijo — NO el texto fuerte del tema:

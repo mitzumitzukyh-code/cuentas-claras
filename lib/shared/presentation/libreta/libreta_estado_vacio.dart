@@ -414,7 +414,7 @@ class _HojaPainter extends CustomPainter {
       canvas.save();
       canvas.translate(82, 82);
       canvas.rotate(38 * 3.14159 / 180);
-      final lapiz = Paint()..color = const Color(0xFFF2A93C);
+      final lapiz = Paint()..color = LibretaColors.ambarSuperficie;
       final lapizTrazo = Paint()
         ..color = colorTexto
         ..style = PaintingStyle.stroke

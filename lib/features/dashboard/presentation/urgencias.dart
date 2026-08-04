@@ -254,7 +254,7 @@ class TarjetaUrgencia extends StatelessWidget {
             Row(
               children: [
                 LibretaIcono(urgencia.icono,
-                    size: 18, color: const Color(0xFFF2A93C)),
+                    size: 18, color: LibretaColors.ambarSuperficie),
                 const SizedBox(width: 9),
                 const Text(
                   'ANTES DE CERRAR',
@@ -262,7 +262,7 @@ class TarjetaUrgencia extends StatelessWidget {
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.9,
-                    color: Color(0xFFF2A93C),
+                    color: LibretaColors.ambarSuperficie,
                   ),
                 ),
               ],
@@ -296,7 +296,7 @@ class TarjetaUrgencia extends StatelessWidget {
                   height: 48,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF2A93C),
+                    color: LibretaColors.ambarSuperficie,
                     borderRadius: BorderRadius.circular(13),
                   ),
                   child: Text(
@@ -400,7 +400,7 @@ class _TarjetaTasaVencidaState extends ConsumerState<TarjetaTasaVencida> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         decoration: BoxDecoration(
           color: t.superficie,
-          border: Border.all(color: const Color(0x80F2A93C), width: 1.5),
+          border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .50), width: 1.5),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -413,7 +413,7 @@ class _TarjetaTasaVencidaState extends ConsumerState<TarjetaTasaVencida> {
                   height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0x2EF2A93C),
+                    color: LibretaColors.ambarSuperficie.withValues(alpha: .18),
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: const LibretaIcono(
@@ -599,7 +599,7 @@ class _FilaPendiente extends StatelessWidget {
           decoration: BoxDecoration(
             color: t.superficie,
             border: Border.all(
-              color: grave ? const Color(0x73F2A93C) : t.renglon,
+              color: grave ? LibretaColors.ambarSuperficie.withValues(alpha: .45) : t.renglon,
               width: grave ? 1.5 : 1,
             ),
             borderRadius: BorderRadius.circular(14),
@@ -612,7 +612,7 @@ class _FilaPendiente extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: grave
-                      ? const Color(0x29F2A93C)
+                      ? LibretaColors.ambarSuperficie.withValues(alpha: .16)
                       : t.textoFuerte.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(11),
                 ),

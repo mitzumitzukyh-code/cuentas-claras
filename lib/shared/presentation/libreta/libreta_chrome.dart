@@ -152,8 +152,8 @@ class LibretaAvisoOfflineCompacto extends ConsumerWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0x24F2A93C),
-        border: Border.all(color: const Color(0x59F2A93C)),
+        color: LibretaColors.ambarSuperficie.withValues(alpha: .14),
+        border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .35)),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(

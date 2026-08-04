@@ -884,7 +884,7 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0x24F2A93C),
+                                color: LibretaColors.ambarSuperficie.withValues(alpha: .14),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1118,7 +1118,7 @@ class _ZonaFoto extends StatelessWidget {
           border: Border.all(
             color:
                 obligatoria && foto == null
-                    ? const Color(0xFFF2A93C)
+                    ? LibretaColors.ambarSuperficie
                     : const Color(0x381E2A38),
             width: 1.5,
           ),

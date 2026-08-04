@@ -45,8 +45,7 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
       copy del botón, estado «Enviado» sin salida)
 - [x] **Sesión expirada** — `/sesion-expirada` · [sesion_expirada_screen.dart](lib/features/auth/presentation/sesion_expirada_screen.dart)
       · 3 arreglados (ancho del botón, color a mano, adorno sin excluir).
-      **Pendiente de decisión:** el copy «Por seguridad cerramos tu sesión» no
-      describe la causa real (credenciales que dejaron de servir)
+      · el copy ya describe la causa real: «Tus datos de acceso cambiaron»
 - [x] **Error de sesión** — `/sesion-error` · [sesion_error_screen.dart](lib/shared/presentation/sesion_error_screen.dart)
       · 5 arreglados (mensaje de reglas de Firestore al usuario, detección por
       `toString()`, cierre de sesión sin esperar, cuarto ámbar a mano, texto
@@ -71,8 +70,7 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 - [x] **Selección de rubro** — `/onboarding` (también crea sucursal nueva) · [rubro_selection_screen.dart](lib/features/onboarding/presentation/rubro_selection_screen.dart)
       · 6 arreglados. El gordo: **el paso 2 no guardaba la moneda** —
       `crearNegocio` no tenía el parámetro, así que siempre se escribía `USD`.
-      **Pendiente de decisión:** `ModoPrecio` sigue sin consumidores, así que
-      la elección se persiste pero todavía no cambia cómo se pintan los precios
+      · `ModoPrecio` quedó cableado después en 9 superficies
 - [x] **Unirse con código** — `/perfil/unirse-codigo` · [unirse_codigo_screen.dart](lib/features/onboarding/presentation/unirse_codigo_screen.dart)
       · 5 arreglados (desbordaba con el teclado por un `Spacer`, banner
       duplicado, `catch` que culpaba a la red, sin mayúsculas ni tecla de
@@ -112,8 +110,8 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
       · 5 arreglados: `valueOrNull ?? const []` (el antipatrón que CLAUDE.md
       nombra), «1.500 gramos» se guardaban como 1,5, guardar y eliminar sin
       `try`, el botón «Guardar» que no hacía nada, y un color a mano.
-      **Pendiente:** eliminar sigue siendo solo pulsación larga, sin ninguna
-      pista visual — cambiarlo toca el diseño de la fila
+      · la fila ya tiene su papelera visible (la pulsación larga sigue
+      funcionando)
 - [x] **Contar inventario (arqueo)** — `/productos/contar` · [arqueo_inventario_screen.dart](lib/features/productos/presentation/arqueo_inventario_screen.dart)
       · 4 arreglados (`valueOrNull ?? const []`, «1.500» contado como 1,5,
       `Text('$e')` crudo, color a mano)
@@ -251,20 +249,16 @@ suscripción, ni estado premium, ni nada que consulte el plan. En consecuencia:
 No es un defecto de estas pantallas: es una capa sin construir. Anotado aquí
 para que no se pierda.
 
-## Dos ámbares conviviendo — pendiente de tu decisión
+## Los dos ámbares — resuelto
 
-`#F2A93C` está escrito a mano **43 veces en 22 archivos** para halos, fondos de
-aviso y bordes. `LibretaColors.aviso` es `#B07D1E`, mucho más oscuro, y se usa
-para texto e iconos. Son dos tonos distintos y con sentido —el brillante no
-tiene contraste para texto sobre papel— pero solo uno era un token.
+`LibretaColors.aviso` (`#B07D1E`) es para **texto e iconos**; el nuevo
+`LibretaColors.ambarSuperficie` es para **superficies** —halos, fondos de
+aviso, bordes—. Son dos tonos distintos a propósito: el brillante no tiene
+contraste suficiente para texto sobre papel.
 
-Añadí `LibretaColors.ambarSuperficie` con el valor tal cual (`#F2A93C`), sin
-mover ningún píxel. Quedan dos cosas para ti:
-
-1. El brief de marca dice **`#F2A93B`** y todo el código usa **`#F2A93C`**. Un
-   dígito. Nadie lo decidió.
-2. Migrar los 43 usos al token es un cambio mecánico de 22 archivos: mejor en
-   un commit propio que mezclado con la auditoría.
+Las 43 apariciones a mano ya están migradas al token, y el valor se alineó al
+brief (`#F2A93B`, no el `#F2A93C` que usaba el código). La diferencia es de
+1/255 en el canal azul: invisible.
 
 ## Widgets compartidos que salieron de la auditoría
 

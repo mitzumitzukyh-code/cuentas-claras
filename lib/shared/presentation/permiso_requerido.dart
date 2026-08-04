@@ -81,8 +81,9 @@ class PermisoRequerido extends ConsumerWidget {
                           width: 62,
                           height: 62,
                           alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: Color(0x24F2A93C),
+                          decoration: BoxDecoration(
+                            color: LibretaColors.ambarSuperficie
+                                .withValues(alpha: .14),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(

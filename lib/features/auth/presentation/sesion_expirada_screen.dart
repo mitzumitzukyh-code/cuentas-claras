@@ -120,8 +120,15 @@ class _SesionExpiradaScreenState extends ConsumerState<SesionExpiradaScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
+                // El texto describe la causa real. Esta pantalla solo aparece
+                // cuando las credenciales guardadas dejaron de servir
+                // -contraseña cambiada en otro lado, cuenta deshabilitada; ver
+                // el conjunto `invalidas` de `restaurarSesion`-. Decir "por
+                // seguridad cerramos tu sesión" sonaba a caducidad rutinaria y
+                // no orientaba a quien acababa de cambiar su contraseña en
+                // otro teléfono.
                 Text(
-                  'Tu sesión expiró',
+                  'Entra otra vez',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,
@@ -134,8 +141,9 @@ class _SesionExpiradaScreenState extends ConsumerState<SesionExpiradaScreen>
                 SizedBox(
                   width: 280,
                   child: Text(
-                    'Por seguridad cerramos tu sesión. Vuelve a entrar, aquí '
-                    'seguimos.',
+                    'Tus datos de acceso cambiaron, así que necesitamos que '
+                    'entres de nuevo con tu contraseña actual. Tu negocio '
+                    'sigue intacto.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,

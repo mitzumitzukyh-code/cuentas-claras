@@ -281,6 +281,27 @@ class _FilaInsumo extends StatelessWidget {
                   color: t.textoMuted,
                 ),
               ),
+            // Eliminar era solo pulsación larga sobre la fila: nada en
+            // pantalla decía que se pudiera hacer, así que en la práctica no
+            // se podía quitar un insumo. La pulsación larga sigue funcionando
+            // para quien ya la conocía.
+            Semantics(
+              button: true,
+              label: 'Eliminar ${insumo.nombre}',
+              child: GestureDetector(
+                onTap: onEliminar,
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  width: 44,
+                  height: 48,
+                  child: Icon(
+                    Icons.delete_outline_rounded,
+                    size: 19,
+                    color: t.textoMuted,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

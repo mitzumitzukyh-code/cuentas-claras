@@ -1185,11 +1185,11 @@ class _VistaCombo extends StatelessWidget {
         mainAxisSpacing: 6,
         crossAxisSpacing: 6,
         children: [
-          for (final c in const [
-            Color(0x240E9F6E),
-            Color(0x240E9F6E),
-            Color(0x1A1E2A38),
-            Color(0x4DF2A93C),
+          for (final c in [
+            const Color(0x240E9F6E),
+            const Color(0x240E9F6E),
+            const Color(0x1A1E2A38),
+            LibretaColors.ambarSuperficie.withValues(alpha: .30),
           ])
             DecoratedBox(
               decoration: BoxDecoration(
@@ -1226,7 +1226,7 @@ class _VistaNuevo extends StatelessWidget {
             child: const Icon(
               Icons.card_giftcard_rounded,
               size: 22,
-              color: Color(0xFFF2A93C),
+              color: LibretaColors.ambarSuperficie,
             ),
           ),
           const SizedBox(height: 8),
@@ -1320,7 +1320,7 @@ class _VistaOferta extends StatelessWidget {
             height: 9,
             width: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFFF2A93C),
+              color: LibretaColors.ambarSuperficie,
               borderRadius: BorderRadius.circular(100),
             ),
           ),
@@ -1419,7 +1419,7 @@ class _LienzoEstado extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF2A93C),
+                  color: LibretaColors.ambarSuperficie,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: const Text(
@@ -1805,7 +1805,7 @@ class _LlegoNuevo extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0xFFF2A93C),
+            color: LibretaColors.ambarSuperficie,
             borderRadius: BorderRadius.circular(100),
           ),
           child: const Text(
