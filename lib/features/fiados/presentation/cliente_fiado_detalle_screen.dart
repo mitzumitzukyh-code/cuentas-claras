@@ -11,6 +11,7 @@ import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import 'widgets/overlay_cuenta_saldada.dart';
 import '../../../shared/utils/errores.dart';
 
 /// Detalle de un cliente con fiado (réplica visual de `P1 · DETALLE
@@ -20,7 +21,7 @@ import '../../../shared/utils/errores.dart';
 /// manda directo a WhatsApp con `wa.me` (igual que el resto de la app),
 /// dejando que el dueño lo revise y edite ahí antes de enviarlo — las
 /// pantallas de "chat" del mockup (P3) son solo la ilustración de eso.
-class ClienteFiadoDetalleScreen extends ConsumerWidget {
+class ClienteFiadoDetalleScreen extends ConsumerStatefulWidget {
   const ClienteFiadoDetalleScreen({super.key, required this.clienteInicial});
 
   /// El cliente tal como venía en el `extra` de la ruta: una foto del momento
@@ -28,6 +29,20 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
   /// cliente vivo de [clienteFiadoPorIdProvider], porque el saldo cambia sin
   /// salir de esta pantalla (se anota un abono y se vuelve aquí).
   final ClienteFiado clienteInicial;
+
+  @override
+  ConsumerState<ClienteFiadoDetalleScreen> createState() =>
+      _ClienteFiadoDetalleScreenState();
+}
+
+class _ClienteFiadoDetalleScreenState
+    extends ConsumerState<ClienteFiadoDetalleScreen> {
+  /// `true` mientras se muestra la celebración de cuenta saldada.
+  bool _celebrando = false;
+
+  /// Si la cuenta ya estaba en cero al abrir, no se celebra: la celebración es
+  /// por el abono que la salda, no por entrar a mirar una cuenta vieja.
+  late bool _estabaSaldada = widget.clienteInicial.saldada;
 
   String _fechaCorta(DateTime f) {
     const meses = [
@@ -64,13 +79,27 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cliente =
-        ref.watch(clienteFiadoPorIdProvider(clienteInicial.id)) ?? clienteInicial;
+        ref.watch(clienteFiadoPorIdProvider(widget.clienteInicial.id)) ??
+            widget.clienteInicial;
+
+    // El cruce de "debe" a "no debe" es el momento que se celebra. Se mira en
+    // build y no con un listener aparte porque el saldo llega por el stream de
+    // la lista: cuando el abono se escribe, este widget ya se está
+    // reconstruyendo con el valor nuevo.
+    if (!_estabaSaldada && cliente.saldada) {
+      _estabaSaldada = true;
+      _celebrando = true;
+    } else if (!cliente.saldada) {
+      _estabaSaldada = false;
+    }
     final movimientosAsync = ref.watch(movimientosClienteProvider(cliente.id));
     final tasa = ref.watch(tasaActivaValorProvider);
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       backgroundColor: context.libreta.papel,
       body: LibretaPageBackground(
         child: SafeArea(
@@ -143,27 +172,47 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Text(
-                      'SALDO PENDIENTE',
+                      cliente.aFavor
+                          ? 'SALDO A FAVOR'
+                          : cliente.saldada
+                              ? 'CUENTA AL DÍA'
+                              : 'SALDO PENDIENTE',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        color: context.libreta.textoMuted,
+                        color: cliente.saldada
+                            ? LibretaColors.verde
+                            : context.libreta.textoMuted,
                       ),
                     ),
+                    // "A favor" se muestra en positivo. Una deuda negativa
+                    // (−$3,00) se lee como un error de la app, no como crédito.
                     Text(
-                      MoneyFormatter.usd(cliente.saldoUSD),
+                      MoneyFormatter.usd(
+                        cliente.aFavor
+                            ? cliente.saldoAFavorUSD
+                            : cliente.saldada
+                                ? 0
+                                : cliente.saldoUSD,
+                      ),
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
-                        color: context.libreta.textoFuerte,
+                        color: cliente.saldada
+                            ? LibretaColors.verde
+                            : context.libreta.textoFuerte,
                         letterSpacing: -0.6,
                       ),
                     ),
                     Text(
-                      tasa == null
-                          ? '—'
-                          : '${MoneyFormatter.usdComoBs(cliente.saldoUSD, tasa)} · a la tasa de hoy',
+                      cliente.aFavor
+                          ? 'a cuenta de su próxima compra'
+                          : cliente.saldada
+                              ? 'no te debe nada'
+                              : tasa == null
+                                  ? '—'
+                                  : '${MoneyFormatter.usdComoBs(cliente.saldoUSD, tasa)} · a la tasa de hoy',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -286,6 +335,60 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
           ),
         ),
       ),
+        ),
+        if (_celebrando)
+          OverlayCuentaSaldada(
+            nombre: cliente.nombre.split(' ').first,
+            saldoAFavorUSD: cliente.saldoAFavorUSD,
+            onAvisar: () {
+              setState(() => _celebrando = false);
+              _avisarSaldada(context, cliente);
+            },
+            onCerrar: () => setState(() => _celebrando = false),
+          ),
+      ],
     );
   }
+
+  /// El comprobante de que la cuenta quedó en cero.
+  ///
+  /// Va por el mismo `wa.me` que el resto: al chat directo, esté o no el
+  /// cliente en la agenda. Sin teléfono guardado no hay a quién escribirle y se
+  /// dice, en vez de abrir el selector de contactos.
+  Future<void> _avisarSaldada(BuildContext context, ClienteFiado cliente) async {
+    final negocio = ref.read(negocioActivoProvider).valueOrNull;
+    final hoy = DateTime.now();
+    final fecha = '${hoy.day} de ${_mesesLargos[hoy.month - 1]} de ${hoy.year}';
+
+    final extra = cliente.aFavor
+        ? ' Además le quedan ${MoneyFormatter.usd(cliente.saldoAFavorUSD)} a '
+            'favor para su próxima compra.'
+        : '';
+    final texto =
+        'Hola ${cliente.nombre.split(' ').first} 👋 Su cuenta en '
+        '${negocio?.nombre ?? "nuestro negocio"} quedó en CERO hoy, $fecha. '
+        '¡Gracias por su pago!$extra';
+
+    if ((cliente.telefono ?? '').trim().isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Este cliente no tiene teléfono guardado.'),
+        ),
+      );
+      return;
+    }
+
+    final r = await abrirWhatsApp(texto: texto, telefono: cliente.telefono);
+    final aviso = avisoDe(r);
+    if (aviso != null && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(aviso)));
+    }
+  }
 }
+
+const _mesesLargos = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];

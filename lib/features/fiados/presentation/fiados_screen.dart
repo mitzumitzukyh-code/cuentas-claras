@@ -53,19 +53,23 @@ class FiadosScreen extends ConsumerWidget {
                   ),
                 ),
             data: (todos) {
-              final conDeuda = todos.where((c) => c.saldoUSD > 0).toList();
+              final conDeuda = todos.where((c) => !c.saldada).toList();
               final total = conDeuda.fold<double>(0, (s, c) => s + c.saldoUSD);
 
-              final filtrados =
-                  busqueda.isEmpty
-                      ? conDeuda
-                      : conDeuda
-                          .where(
-                            (c) => c.nombre.toLowerCase().contains(
-                              busqueda.toLowerCase(),
-                            ),
-                          )
-                          .toList();
+              // Los que ya pagaron van al final, no desaparecen: el dueño
+              // necesita poder abrirlos para mandar el comprobante o para ver
+              // qué le pagaron, y antes se esfumaban de la pantalla al llegar
+              // a cero. El total sigue contando solo la deuda viva.
+              final saldados = todos.where((c) => c.saldada).toList();
+
+              bool coincide(ClienteFiado c) =>
+                  busqueda.isEmpty ||
+                  c.nombre.toLowerCase().contains(busqueda.toLowerCase());
+
+              final filtrados = [
+                ...conDeuda.where(coincide),
+                ...saldados.where(coincide),
+              ];
 
               return Stack(
                 children: [
@@ -467,15 +471,42 @@ class _FilaCliente extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  MoneyFormatter.usd(cliente.saldoUSD),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: context.libreta.textoFuerte,
+                if (cliente.saldada)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: LibretaColors.verde.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: const Text(
+                      'Al día',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: LibretaColors.verde,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    MoneyFormatter.usd(cliente.saldoUSD),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: context.libreta.textoFuerte,
+                    ),
                   ),
-                ),
-                if (tasa != null)
+                if (cliente.aFavor)
+                  Text(
+                    '${MoneyFormatter.usd(cliente.saldoAFavorUSD)} a favor',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: LibretaColors.verde,
+                    ),
+                  )
+                else if (!cliente.saldada && tasa != null)
                   Text(
                     MoneyFormatter.bs(
                       MoneyFormatter.convertirABs(cliente.saldoUSD, tasa!),

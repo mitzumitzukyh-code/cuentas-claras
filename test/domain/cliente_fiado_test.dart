@@ -104,6 +104,40 @@ void main() {
       expect(m.negocioId, '');
     });
   });
+
+  group('ClienteFiado · saldada y a favor', () {
+    ClienteFiado con(double saldo) => ClienteFiado(
+          id: 'c1',
+          nombre: 'Jose',
+          saldoUSD: saldo,
+          actualizadoEn: _fecha,
+        );
+
+    test('con deuda no está saldada', () {
+      expect(con(20).saldada, false);
+      expect(con(20).aFavor, false);
+      expect(con(20).saldoAFavorUSD, 0);
+    });
+
+    test('en cero está saldada y no tiene saldo a favor', () {
+      expect(con(0).saldada, true);
+      expect(con(0).aFavor, false);
+      expect(con(0).saldoAFavorUSD, 0);
+    });
+
+    test('un residuo de coma flotante cuenta como saldada', () {
+      // 25 − 5 − 20 no siempre da 0 exacto en double.
+      final residuo = 25.0 - 5.0 - 20.0 + 0.0000001;
+      expect(con(residuo).saldada, true);
+    });
+
+    test('abonó de más: a favor, y el monto se muestra en positivo', () {
+      final c = con(-3);
+      expect(c.saldada, true);
+      expect(c.aFavor, true);
+      expect(c.saldoAFavorUSD, 3);
+    });
+  });
 }
 
 final _fecha = DateTime(2026, 7, 26);

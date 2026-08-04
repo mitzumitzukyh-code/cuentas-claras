@@ -23,6 +23,24 @@ class ClienteFiado {
   final DateTime actualizadoEn;
 
   /// Iniciales para el avatar, máximo dos letras.
+  /// Céntimo de tolerancia: `saldoUSD` sale de sumar y restar `double`s, y
+  /// una cuenta que quedó en cero puede guardarse como 0,0000001. Comparar
+  /// contra 0 exacto dejaría cuentas "casi saldadas" que nunca se celebran.
+  static const double _tolerancia = 0.005;
+
+  /// La cuenta está al día: no debe nada.
+  bool get saldada => saldoUSD < _tolerancia;
+
+  /// Abonó de más y le queda crédito a favor.
+  ///
+  /// Se distingue de [saldada] porque no es lo mismo "no me debes" que "te
+  /// debo": mostrarlo como una deuda negativa (−$3,00) es la forma más rápida
+  /// de que el dueño crea que la app se equivocó.
+  bool get aFavor => saldoUSD < -_tolerancia;
+
+  /// Cuánto tiene a favor, en positivo. `0` si no tiene.
+  double get saldoAFavorUSD => aFavor ? -saldoUSD : 0;
+
   String get iniciales {
     final partes = nombre.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
     if (partes.isEmpty) return '?';
