@@ -9,10 +9,12 @@ import '../../../app/router/routes.dart';
 import '../../../core/business/business_profile.dart';
 import '../../../core/business/business_profile_provider.dart';
 import '../../../core/theme/app_assets.dart';
+import '../../../core/utils/numero_ve.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../onboarding/domain/rubro.dart';
 import '../data/insumo_repository.dart';
@@ -85,7 +87,11 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     final p = widget.producto;
     if (p == null) return;
     _nombre.text = p.nombre;
-    _precio.text = p.precio.toString();
+    // `precio` es nulable, y `toString()` sobre un nulo escribe la palabra
+    // "null" en la casilla. Con eso el precio no parseaba, el boton de guardar
+    // se quedaba apagado y no habia forma de editar un producto sin precio
+    // -que es justo a lo que invita la lista con "ponle precio para venderlo"-.
+    _precio.text = p.precio?.toString() ?? '';
     _costo.text = p.costo?.toString() ?? '';
     _cantidad.text = p.cantidad.toString();
     _alertaEn.text = (p.alertaEn ?? 5).toString();
@@ -250,12 +256,24 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
               : 'Con variantes',
       };
 
+  /// Lo escrito en una casilla de cifras, leído a la venezolana.
+  ///
+  /// Por `normalizarNumeroVE` y no por `replaceAll(',', '.')`: con el apaño
+  /// viejo, un precio escrito como `1.250,50` se convertía en `1.250.50`, que
+  /// no parsea — el botón de guardar se apagaba y nada decía por qué. El mismo
+  /// número leído de una foto sí entraba, porque el importador ya usaba este
+  /// lector.
+  double? _cifra(TextEditingController campo) =>
+      normalizarNumeroVE(campo.text);
+
   bool _puedeGuardar(BusinessProfile perfil) {
-    final precio = double.tryParse(_precio.text.replaceAll(',', '.'));
-    final stockOk =
-        perfil.usaVariantes
-            ? _variantes.isNotEmpty
-            : int.tryParse(_cantidad.text) != null;
+    final precio = _cifra(_precio);
+    // La cantidad se valida como decimal porque así se guarda: con
+    // `int.tryParse` un producto vendido por peso no se podía guardar con
+    // «1,5» y el botón quedaba apagado sin motivo visible.
+    final stockOk = perfil.usaVariantes
+        ? _variantes.isNotEmpty
+        : _cifra(_cantidad) != null;
     return _nombre.text.trim().isNotEmpty &&
         _categoria != null &&
         precio != null &&
@@ -304,20 +322,20 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
         }
       }
 
-      final cantidadTotal =
-          _variantes.isEmpty
-              ? double.parse(_cantidad.text.replaceAll(',', '.'))
-              : _variantes.fold<int>(0, (s, v) => s + v.cantidad).toDouble();
+      // Los mismos lectores que valida `_puedeGuardar`, y sin `parse` a pelo:
+      // una excepción aquí caía en el catch de abajo y terminaba enseñándole
+      // un `FormatException` al dueño.
+      final cantidadTotal = _variantes.isEmpty
+          ? (_cifra(_cantidad) ?? 0)
+          : _variantes.fold<int>(0, (s, v) => s + v.cantidad).toDouble();
 
-      final precioAnteriorValor = double.tryParse(
-        _precioAnterior.text.replaceAll(',', '.'),
-      );
+      final precioAnteriorValor = _cifra(_precioAnterior);
       final producto = Producto(
         id: widget.producto?.id ?? '',
         nombre: _nombre.text.trim(),
         categoria: _categoria ?? '',
-        precio: double.parse(_precio.text.replaceAll(',', '.')),
-        costo: double.tryParse(_costo.text.replaceAll(',', '.')),
+        precio: _cifra(_precio),
+        costo: _cifra(_costo),
         cantidad: cantidadTotal,
         fotoUrl: fotoUrl ?? widget.producto?.fotoUrl,
         variantes: _variantes,
@@ -353,16 +371,22 @@ class _NuevoProductoScreenState extends ConsumerState<NuevoProductoScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      _mostrar('No se pudo guardar: $e');
+      _mostrar(mensajeDeError(e, accion: 'guardar el producto'));
     }
   }
 
   /// Ajuste rápido de stock del modo edición (merma / reposición).
   void _ajustarStock(int delta) {
-    final actual = int.tryParse(_cantidad.text) ?? 0;
-    setState(
-      () => _cantidad.text = (actual + delta).clamp(0, 999999).toString(),
-    );
+    // En decimal, como se guarda. Con `int.tryParse` un producto de 1,5 kg
+    // caía a 0 al tocar +/−: la cantidad no se leía y se partía de cero.
+    final actual = _cifra(_cantidad) ?? 0;
+    final nuevo = (actual + delta).clamp(0, 999999).toDouble();
+    setState(() {
+      // Sin `.0` de adorno cuando el resultado es entero, que es lo normal.
+      _cantidad.text = nuevo == nuevo.roundToDouble()
+          ? nuevo.toInt().toString()
+          : nuevo.toString();
+    });
   }
 
   Future<void> _eliminar() async {

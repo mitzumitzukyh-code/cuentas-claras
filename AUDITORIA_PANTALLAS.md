@@ -101,7 +101,13 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
       mano, sin código de país), y el CSV exportado se partía con un nombre
       con comillas. El escapado de CSV sale de `RespaldoService` a
       `shared/utils/csv.dart`, con pruebas
-- [ ] **Nuevo producto** — `/productos/nuevo` · [nuevo_producto_screen.dart](lib/features/productos/presentation/nuevo_producto_screen.dart)
+- [x] **Nuevo producto** — `/productos/nuevo` · [nuevo_producto_screen.dart](lib/features/productos/presentation/nuevo_producto_screen.dart)
+      · 4 arreglados, tres de ellos dejaban el botón de guardar muerto sin
+      decir por qué: un producto sin precio abría con la palabra «null» en la
+      casilla, un precio escrito `1.250,50` no parseaba, y una cantidad
+      decimal tampoco (validaba con `int` y guardaba con `double`). Las cifras
+      pasan por `normalizarNumeroVE`, el mismo lector que ya usaba el
+      importador de fotos
 - [ ] **Insumos** — `/productos/insumos` · [insumos_screen.dart](lib/features/productos/presentation/insumos_screen.dart)
 - [ ] **Contar inventario (arqueo)** — `/productos/contar` · [arqueo_inventario_screen.dart](lib/features/productos/presentation/arqueo_inventario_screen.dart)
 - [ ] **Importar inventario (foto / Excel)** — `/productos/importar` · [importar_inventario_screen.dart](lib/features/productos/presentation/importar_inventario_screen.dart)
