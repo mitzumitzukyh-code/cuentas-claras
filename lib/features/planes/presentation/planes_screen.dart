@@ -71,7 +71,7 @@ class PlanesScreen extends ConsumerWidget {
       nombre: 'Plan gratis',
       precio: '\$0',
       periodo: '',
-      actual: true,
+      actual: !activo.esPremium,
       beneficios: [
         'Ventas, gastos e inventario',
         'Fiados con recordatorio manual',
@@ -124,6 +124,48 @@ class PlanesScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 18),
 
+              // Solo aparece en una compilación hecha con
+              // `--dart-define=PREMIUM_FORZADO=true`. En cualquier otra, esta
+              // rama no existe en el binario. Se pinta para que nadie confunda
+              // un Premium de pruebas con uno real.
+              if (premiumForzado) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: LibretaColors.peligro.withValues(alpha: .10),
+                    border: Border.all(
+                      color: LibretaColors.peligro.withValues(alpha: .35),
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.science_outlined,
+                        size: 18,
+                        color: LibretaColors.peligro,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Premium forzado — compilación de pruebas. Nadie '
+                          'ha pagado nada.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: context.libreta.textoFuerte,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               for (final plan in _tarjetas(ref.watch(miPlanProvider).valueOrNull ?? Plan.gratis))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
@@ -140,10 +182,12 @@ class PlanesScreen extends ConsumerWidget {
                   border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .35)),
                   borderRadius: BorderRadius.circular(14),
                 ),
+                // Decía «sin límites aplicados», y desde que existe la capa de
+                // planes eso es mentira: los topes del plan gratis se aplican.
                 child: const Text(
                   'El cobro todavía no está activo: falta dar de alta las '
                   'suscripciones en Google Play Console. Hasta entonces sigues '
-                  'en el plan Gratis sin límites aplicados.',
+                  'en el plan gratis, con sus límites.',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
@@ -320,7 +364,7 @@ class _TarjetaPlan extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         color: context.libreta.superficie,
-        border: Border.all(color: const Color(0x1A1E2A38)),
+        border: Border.all(color: context.libreta.renglon),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -328,9 +372,12 @@ class _TarjetaPlan extends StatelessWidget {
         children: [
           Row(
             children: [
+              // Del modelo, no a mano: el nombre, la insignia y el subtítulo
+              // estaban escritos fijos aquí, así que esta tarjeta se
+              // proclamaba «tu plan actual» aunque el usuario fuera Premium.
               Expanded(
                 child: Text(
-                  'Plan gratis',
+                  plan.nombre,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -338,28 +385,29 @@ class _TarjetaPlan extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: LibretaColors.verde.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text(
-                  'ACTIVO',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: LibretaColors.verde,
+              if (plan.actual)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: LibretaColors.verde.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: const Text(
+                    'ACTIVO',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: LibretaColors.verde,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           Text(
-            'Tu plan actual',
+            plan.actual ? 'Tu plan actual' : 'Si dejas Plan Plus, vuelves aquí',
             style: TextStyle(
               fontSize: 13,
               color: context.libreta.textoMuted,

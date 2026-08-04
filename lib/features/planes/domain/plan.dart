@@ -1,3 +1,23 @@
+/// Fuerza [Plan.premium] en una compilación marcada para pruebas.
+///
+/// ```
+/// flutter build apk --release --dart-define=PREMIUM_FORZADO=true
+/// ```
+///
+/// **No es un ajuste ni un interruptor de la app: es de tiempo de
+/// compilación.** Un APK compilado sin esa bandera no contiene el camino —
+/// `bool.fromEnvironment` se resuelve al compilar y el `if` desaparece del
+/// binario—, así que no hay nada que activar desde el teléfono ni que
+/// descubrir hurgando. El de Play Store nunca lo llevará.
+///
+/// Existe porque los topes del plan gratis bloquean cosas que hay que poder
+/// probar —invitar empleados, abrir una segunda sucursal, el catálogo sin
+/// marca de agua— y la alternativa era escribir a mano en Firestore.
+///
+/// Cuando está puesto, la app lo dice en la pantalla de planes. Un override
+/// que no se ve es un override que se olvida.
+const bool premiumForzado = bool.fromEnvironment('PREMIUM_FORZADO');
+
 /// El plan de un usuario y lo que le deja hacer (CLAUDE.md §6).
 ///
 /// **El plan es de la persona, no del negocio.** Quien paga es un usuario, y

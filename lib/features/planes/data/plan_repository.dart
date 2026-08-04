@@ -22,6 +22,11 @@ class PlanRepository {
 
   /// El plan del usuario. Sin documento, [Plan.gratis].
   Stream<Plan> planDe(String usuarioId) {
+    // Ni siquiera se consulta Firestore: así el interruptor de pruebas
+    // funciona aunque las reglas de `suscripciones` todavía no estén
+    // desplegadas, que es justo el caso en que hace falta.
+    if (premiumForzado) return Stream.value(Plan.premium);
+
     return _db.collection('suscripciones').doc(usuarioId).snapshots().map((d) {
       if (!d.exists) return Plan.gratis;
       final datos = d.data();

@@ -2,6 +2,15 @@ import 'package:cuentaclara/features/planes/domain/plan.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('premiumForzado', () {
+    test('está apagado salvo que se compile con la bandera', () {
+      // Si esto falla en CI o en un build normal, alguien dejó
+      // `--dart-define=PREMIUM_FORZADO=true` puesto donde no debía y todo el
+      // mundo tendría Premium gratis.
+      expect(premiumForzado, isFalse);
+    });
+  });
+
   group('Plan.fromId', () {
     test('reconoce los dos planes', () {
       expect(Plan.fromId('gratis'), Plan.gratis);

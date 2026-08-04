@@ -261,6 +261,18 @@ con el teléfono en la mano — por eso `suscripciones/{usuarioId}` está en
 `allow write: if false` en las reglas: solo el Admin SDK de una función podrá
 escribir ahí.
 
+### Interruptor de pruebas
+
+Para probar los caminos Premium sin tocar Firestore ni desplegar reglas:
+
+
+Running Gradle task 'assembleRelease'...                           17.7s
+√ Built buildpp\outputslutter-apkpp-release.apk (90.1MB)
+
+Es de tiempo de compilación: un APK sin esa bandera no contiene el código, así
+que no hay nada que activar desde el teléfono. La pantalla de planes avisa en
+rojo cuando está puesto. Hay un test que falla si alguien lo deja encendido.
+
 ### Antes de que esto sirva
 
 **Hay que desplegar `firestore.rules`.** La regla de `suscripciones` está en el
