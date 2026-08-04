@@ -13,6 +13,7 @@ import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/entrada_animada.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/binance/binance_p2p_service.dart';
 import '../../../services/notificaciones/push_service.dart';
@@ -64,9 +65,11 @@ class DashboardScreen extends ConsumerWidget {
     final conectado = ref.watch(hayConexionProvider).valueOrNull ?? true;
     final pendientes = ref.watch(ventasPendientesProvider);
 
-    final falloDatos = ref.watch(negocioActivoProvider).hasError ||
-        ref.watch(ventasDelDiaProvider).hasError ||
-        ref.watch(productosProvider).hasError;
+    // El primer error que haya, para poder decir qué pasó de verdad en vez de
+    // mandar siempre a revisar la conexión.
+    final errorDatos = ref.watch(negocioActivoProvider).error ??
+        ref.watch(ventasDelDiaProvider).error ??
+        ref.watch(productosProvider).error;
 
     final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
     final hayVentas = ventas.isNotEmpty;
@@ -114,12 +117,19 @@ class DashboardScreen extends ConsumerWidget {
                     onRefresh: () async {
                       ref.invalidate(bcvRateProvider);
                       ref.invalidate(binanceP2PRateProvider);
+                      // También los datos del negocio: si el banner de arriba
+                      // está avisando de un fallo, tirar hacia abajo es
+                      // exactamente lo que uno hace para reintentar, y antes
+                      // solo se refrescaban las tasas.
+                      ref.invalidate(negocioActivoProvider);
+                      ref.invalidate(ventasDelDiaProvider);
+                      ref.invalidate(productosProvider);
                     },
                     child: ListView(
                       padding: EdgeInsets.fromLTRB(20, conectado ? 26 : 16, 20, 18),
                       children: [
-                        if (falloDatos) ...[
-                          const _BannerSinPermiso(),
+                        if (errorDatos != null) ...[
+                          _BannerSinPermiso(error: errorDatos),
                           const SizedBox(height: 16),
                         ],
 
@@ -208,7 +218,7 @@ class _BarraSinConexion extends StatelessWidget {
             const Icon(
               Icons.wifi_off_rounded,
               size: 14,
-              color: Color(0xFFF2A93C),
+              color: LibretaColors.ambarSuperficie,
             ),
             const SizedBox(width: 7),
             Text(
@@ -375,7 +385,7 @@ class _CampanaNotificaciones extends StatelessWidget {
                   width: 9,
                   height: 9,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFC1503A),
+                    color: LibretaColors.margenCoral.withValues(alpha: 1),
                     shape: BoxShape.circle,
                     border: Border.all(color: t.papel, width: 1.5),
                   ),
@@ -408,7 +418,7 @@ class _PastillaRacha extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(8, 6, 13, 6),
         decoration: BoxDecoration(
-          color: const Color(0x1A0E9F6E),
+          color: LibretaColors.verde.withValues(alpha: .10),
           borderRadius: BorderRadius.circular(100),
         ),
         child: Row(
@@ -535,7 +545,7 @@ class _BotonCobrarHero extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18),
           decoration: BoxDecoration(
             color: t.superficie,
-            border: Border.all(color: const Color(0x590E9F6E), width: 1.5),
+            border: Border.all(color: LibretaColors.verde.withValues(alpha: .35), width: 1.5),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -545,7 +555,7 @@ class _BotonCobrarHero extends ConsumerWidget {
                 height: 46,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color(0x210E9F6E),
+                  color: LibretaColors.verde.withValues(alpha: .13),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const LibretaIcono(
@@ -602,10 +612,10 @@ class _BotonCobrarHero extends ConsumerWidget {
         decoration: BoxDecoration(
           color: LibretaColors.verde,
           borderRadius: BorderRadius.circular(22),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x520E9F6E),
-              offset: Offset(0, 16),
+              color: LibretaColors.verde.withValues(alpha: .32),
+              offset: const Offset(0, 16),
               blurRadius: 32,
             ),
           ],
@@ -682,7 +692,6 @@ class _TarjetaVentasDeHoy extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
     final ventas = ref.watch(ventasDelDiaProvider).valueOrNull ?? const <Venta>[];
-    final tasa = ref.watch(tasaActivaValorProvider);
     final pendientes = ref.watch(ventasPendientesProvider).length;
     final total = ventas.fold<double>(0, (s, v) => s + v.totalUSD);
 
@@ -735,26 +744,22 @@ class _TarjetaVentasDeHoy extends ConsumerWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                MoneyFormatter.usd(total),
-                style: TextStyle(
+              child: LibretaMonto(
+                usd: total,
+                estiloPrincipal: TextStyle(
                   fontSize: 38,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -1.2,
                   height: 1.05,
                   color: t.textoFuerte,
                 ),
-              ),
-            ),
-            if (tasa != null)
-              Text(
-                MoneyFormatter.usdComoBs(total, tasa),
-                style: TextStyle(
+                estiloSecundario: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: t.textoMuted,
                 ),
               ),
+            ),
             if (ayerHastaAhora > 0 || pendientes > 0) ...[
               const SizedBox(height: 11),
               Container(
@@ -925,7 +930,13 @@ class _LibretaPainter extends CustomPainter {
 // ---------------------------------------------------------------------------
 
 class _BannerSinPermiso extends StatelessWidget {
-  const _BannerSinPermiso();
+  const _BannerSinPermiso({required this.error});
+
+  /// El fallo real. La pantalla se llama "sin permiso" porque ese es el caso
+  /// frecuente, pero aquí cae cualquier error de carga — y el texto decía
+  /// siempre "revisa tu conexión", que para un `permission-denied` es
+  /// mentira y no orienta a nada.
+  final Object error;
 
   @override
   Widget build(BuildContext context) {
@@ -933,8 +944,10 @@ class _BannerSinPermiso extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0x1FF2A93C),
-        border: Border.all(color: const Color(0x59F2A93C)),
+        color: LibretaColors.ambarSuperficie.withValues(alpha: .12),
+        border: Border.all(
+          color: LibretaColors.ambarSuperficie.withValues(alpha: .35),
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -944,7 +957,7 @@ class _BannerSinPermiso extends StatelessWidget {
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'No pudimos cargar algunos datos. Revisa tu conexión.',
+              mensajeDeError(error, accion: 'cargar todos tus datos'),
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,

@@ -65,12 +65,19 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
   Future<void> _desbloquear() async {
     if (_pidiendo) return;
     _pidiendo = true;
-    final ok = await ref
-        .read(biometriaServiceProvider)
-        .pedir(motivo: 'Desbloquea Cuenta Clara');
-    _pidiendo = false;
-    if (!mounted) return;
-    if (ok) setState(() => _bloqueado = false);
+    try {
+      final ok = await ref
+          .read(biometriaServiceProvider)
+          .pedir(motivo: 'Desbloquea Cuenta Clara');
+      if (!mounted) return;
+      if (ok) setState(() => _bloqueado = false);
+    } finally {
+      // En `finally` y no en línea recta: `BiometriaService.pedir` captura
+      // `PlatformException`, pero cualquier otra excepción dejaba la bandera
+      // en `true` para siempre. A partir de ahí "Desbloquear" no hacía nada
+      // y, con el candado puesto, la app quedaba inservible hasta reiniciarla.
+      _pidiendo = false;
+    }
   }
 
   @override
@@ -86,7 +93,11 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
     });
     return Stack(
       children: [
-        widget.child,
+        // El candado tapa la app en pantalla, pero en un `Stack` lo de debajo
+        // sigue en el árbol de semántica: con el bloqueo puesto, un lector de
+        // pantalla podía ir leyendo el Dashboard de atrás. Es exactamente lo
+        // que esta pantalla existe para esconder.
+        ExcludeSemantics(excluding: _bloqueado, child: widget.child),
         if (_bloqueado)
           Positioned.fill(
             child: _Pantalla(onReintentar: _desbloquear),
@@ -116,8 +127,8 @@ class _Pantalla extends StatelessWidget {
                 width: 76,
                 height: 76,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: Color(0x140E9F6E),
+                decoration: BoxDecoration(
+                  color: LibretaColors.verde.withValues(alpha: .08),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

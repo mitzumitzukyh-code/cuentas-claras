@@ -7,11 +7,12 @@ import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../negocio/domain/modo_precio.dart';
 import '../domain/rubro.dart';
 import 'unirse_codigo_screen.dart';
-import '../../../shared/utils/errores.dart';
 
 /// Pantalla 3 — Onboarding (réplica visual de `P0 · RUBRO`, `Lote F ·
 /// Onboarding y Sistema`).
@@ -32,7 +33,7 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
 
   int _paso = 0;
   Rubro? _rubro;
-  String _moneda = 'USD';
+  ModoPrecio _modoPrecio = ModoPrecio.usd;
   bool _cargando = false;
 
   static const _totalPasos = 3;
@@ -62,6 +63,7 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
             usuarioId: user.uid,
             nombre: _nombre.text.trim(),
             rubro: _rubro!,
+            modoPrecio: _modoPrecio,
             nombreUsuario: user.displayName,
             correoUsuario: user.email,
           );
@@ -124,14 +126,14 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
                       onSiguiente: _siguiente,
                     ),
                     1 => _PasoMoneda(
-                      moneda: _moneda,
-                      onMoneda: (m) => setState(() => _moneda = m),
+                      modo: _modoPrecio,
+                      onModo: (m) => setState(() => _modoPrecio = m),
                       onSiguiente: _siguiente,
                     ),
                     _ => _PasoResumen(
                       nombreNegocio: _nombre.text.trim(),
                       rubro: _rubro,
-                      moneda: _moneda,
+                      modo: _modoPrecio,
                       cargando: _cargando,
                       onEmpezar: _crearNegocio,
                     ),
@@ -289,6 +291,11 @@ class _PasoNegocio extends StatelessWidget {
                   controller: nombre,
                   hint: 'Ej: Abasto La Esquina',
                   height: 52,
+                  // Este nombre va al título del paso 3, a los recibos y al
+                  // catálogo. Sin tope, solo se validaba que no estuviera
+                  // vacío.
+                  maxLength: 40,
+                  textInputAction: TextInputAction.done,
                   onChanged: (_) => onCambio(),
                 ),
                 const SizedBox(height: 22),
@@ -344,52 +351,67 @@ class _TarjetaRubro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color:
-              seleccionado
-                  ? const Color(0x0F0E9F6E)
+    // La etiqueta la pone el propio texto de la tarjeta y la acción de toque
+    // el `GestureDetector`; aquí solo se añaden el rol y el estado, y se funde
+    // todo en un nodo. Sin esto, un lector de pantalla recorría la cuadrícula
+    // sin decir nunca cuál rubro está elegido.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: seleccionado,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: seleccionado
+                  ? LibretaColors.verde.withValues(alpha: .06)
                   : context.libreta.superficie,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color:
-                seleccionado ? LibretaColors.verde : context.libreta.bordeSuave,
-            width: seleccionado ? 2 : 1.5,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: seleccionado
+                    ? LibretaColors.verde
+                    : context.libreta.bordeSuave,
+                width: seleccionado ? 2 : 1.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Pastilla con el color propio del rubro: la cuadrícula se
+                // recorre por color antes que por texto.
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: rubro.color,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: LibretaIcono(
+                    rubro.icono,
+                    size: 24,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  rubro.etiqueta,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: context.libreta.textoFuerte,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Pastilla con el color propio del rubro: la cuadrícula se
-            // recorre por color antes que por texto.
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: rubro.color,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: LibretaIcono(rubro.icono, size: 24, color: Colors.white),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              rubro.etiqueta,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: context.libreta.textoFuerte,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -399,14 +421,19 @@ class _TarjetaRubro extends StatelessWidget {
 /// Paso 2 — moneda base y tasa BCV del día.
 class _PasoMoneda extends ConsumerWidget {
   const _PasoMoneda({
-    required this.moneda,
-    required this.onMoneda,
+    required this.modo,
+    required this.onModo,
     required this.onSiguiente,
   });
 
-  final String moneda;
-  final ValueChanged<String> onMoneda;
+  final ModoPrecio modo;
+  final ValueChanged<ModoPrecio> onModo;
   final VoidCallback onSiguiente;
+
+  /// Las dos opciones que pinta este paso. `ModoPrecio.ambas` existe pero no
+  /// entra aquí: el diseño del onboarding plantea una elección binaria, y ese
+  /// tercer modo está pensado para Ajustes.
+  static const _opciones = [ModoPrecio.usd, ModoPrecio.ves];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -426,19 +453,18 @@ class _PasoMoneda extends ConsumerWidget {
                   subtitulo: 'Podrás cobrar y ver todo en ambas monedas.',
                 ),
                 const SizedBox(height: 22),
-                _OpcionMoneda(
-                  titulo: 'Dólares (USD)',
-                  detalle: 'Precios base en \$, conversión automática',
-                  seleccionado: moneda == 'USD',
-                  onTap: () => onMoneda('USD'),
-                ),
-                const SizedBox(height: 10),
-                _OpcionMoneda(
-                  titulo: 'Bolívares (Bs)',
-                  detalle: 'Precios base en Bs, referencia en \$',
-                  seleccionado: moneda == 'Bs',
-                  onTap: () => onMoneda('Bs'),
-                ),
+                // Los textos salen del enum y no de literales copiados aquí:
+                // eran los mismos, y así Ajustes y el onboarding no pueden
+                // acabar describiendo lo mismo con palabras distintas.
+                for (final opcion in _opciones) ...[
+                  if (opcion != _opciones.first) const SizedBox(height: 10),
+                  _OpcionMoneda(
+                    titulo: opcion.etiqueta,
+                    detalle: opcion.detalle,
+                    seleccionado: modo == opcion,
+                    onTap: () => onModo(opcion),
+                  ),
+                ],
                 const SizedBox(height: 22),
                 _TarjetaTasa(
                   tasaAsync: tasaAsync,
@@ -470,17 +496,23 @@ class _OpcionMoneda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // `inMutuallyExclusiveGroup`: son opciones excluyentes, y así el lector de
+    // pantalla las anuncia como el grupo de radio que son en vez de como dos
+    // botones sueltos.
+    return MergeSemantics(
+      child: Semantics(
+        inMutuallyExclusiveGroup: true,
+        selected: seleccionado,
+        child: GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color:
-              seleccionado
-                  ? const Color(0x0F0E9F6E)
-                  : context.libreta.superficie,
+          color: seleccionado
+              ? LibretaColors.verde.withValues(alpha: .06)
+              : context.libreta.superficie,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color:
@@ -527,12 +559,17 @@ class _OpcionMoneda extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              child:
-                  seleccionado
-                      ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
-                      : null,
+              child: seleccionado
+                  ? const LibretaIcono(
+                      AppAssets.accConfirmar,
+                      size: 13,
+                      color: Colors.white,
+                    )
+                  : null,
             ),
           ],
+        ),
+      ),
         ),
       ),
     );
@@ -552,7 +589,7 @@ class _TarjetaTasa extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: context.libreta.superficie,
-        border: Border.all(color: const Color(0x141E2A38)),
+        border: Border.all(color: context.libreta.renglon),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -569,12 +606,26 @@ class _TarjetaTasa extends StatelessWidget {
                   color: context.libreta.textoMuted,
                 ),
               ),
-              GestureDetector(
-                onTap: onRefrescar,
-                child: Icon(
-                  Icons.refresh,
-                  size: 18,
-                  color: context.libreta.textoMuted,
+              // Icono de 18 px con caja de 48: crece lo que se puede pulsar,
+              // no lo que se ve. El `centerRight` lo deja en su sitio.
+              Semantics(
+                button: true,
+                label: 'Actualizar la tasa',
+                child: GestureDetector(
+                  onTap: onRefrescar,
+                  behavior: HitTestBehavior.opaque,
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(
+                        Icons.refresh,
+                        size: 18,
+                        color: context.libreta.textoMuted,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -647,14 +698,14 @@ class _PasoResumen extends ConsumerWidget {
   const _PasoResumen({
     required this.nombreNegocio,
     required this.rubro,
-    required this.moneda,
+    required this.modo,
     required this.cargando,
     required this.onEmpezar,
   });
 
   final String nombreNegocio;
   final Rubro? rubro;
-  final String moneda;
+  final ModoPrecio modo;
   final bool cargando;
   final VoidCallback onEmpezar;
 
@@ -673,8 +724,8 @@ class _PasoResumen extends ConsumerWidget {
                 Container(
                   width: 88,
                   height: 88,
-                  decoration: const BoxDecoration(
-                    color: Color(0x1F0E9F6E),
+                  decoration: BoxDecoration(
+                    color: LibretaColors.verde.withValues(alpha: .12),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -718,7 +769,7 @@ class _PasoResumen extends ConsumerWidget {
                 Container(
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
+                    border: Border.all(color: context.libreta.renglon),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   clipBehavior: Clip.antiAlias,
@@ -728,7 +779,10 @@ class _PasoResumen extends ConsumerWidget {
                         etiqueta: 'Rubro',
                         valor: rubro?.etiqueta ?? '—',
                       ),
-                      _FilaResumen(etiqueta: 'Moneda principal', valor: moneda),
+                      _FilaResumen(
+                        etiqueta: 'Moneda principal',
+                        valor: modo.etiquetaCorta,
+                      ),
                       _FilaResumen(
                         etiqueta: 'Tasa BCV',
                         valor:

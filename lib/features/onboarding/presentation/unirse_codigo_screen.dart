@@ -56,9 +56,9 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
       } else {
         setState(() => _encontrada = inv);
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _error = 'No pudimos verificar. Revisa tu internet.');
+        setState(() => _error = mensajeDeError(e, accion: 'verificar el código'));
       }
     } finally {
       if (mounted) setState(() => _verificando = false);
@@ -108,110 +108,119 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: const Color(0x1A0E9F6E),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                alignment: Alignment.center,
-                child: const LibretaIcono(AppAssets.navClientes, size: 30, color: LibretaColors.verde),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Unirme a un negocio',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: context.libreta.textoFuerte,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Pídele al dueño el código de invitación que aparece en su app.',
-                style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
-              ),
-              const SizedBox(height: 22),
-
-              LibretaInput(
-                controller: _codigo,
-                hint: 'ABC123',
-                height: 56,
-                maxLength: 6,
-                textAlign: TextAlign.center,
-                onChanged: (_) => setState(() {
-                  _encontrada = null;
-                  _error = null;
-                }),
-              ),
-
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: LibretaColors.peligro.withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      color: LibretaColors.peligro,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-
-              // Confirmación antes de aceptar: que sepa a dónde entra.
-              if (inv != null) ...[
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
+              // Solo el contenido scrollea y el botón queda anclado abajo. Con
+              // un `Spacer()` al final, al abrirse el teclado el Scaffold
+              // encoge el cuerpo, el Spacer se colapsa a cero y lo que sobra
+              // desborda — con la tarjeta de confirmación a la vista, unos
+              // 180 px de sobra. Es el mismo fallo que ya se corrigió en la
+              // pantalla de rubro.
+              Expanded(
+                child: SingleChildScrollView(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Container(
                         width: 64,
                         height: 64,
-                        decoration: const BoxDecoration(
-                          color: Color(0x1A0E9F6E),
-                          shape: BoxShape.circle,
+                        decoration: BoxDecoration(
+                          color: LibretaColors.verde.withValues(alpha: .10),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                         alignment: Alignment.center,
-                        child: const LibretaIcono(AppAssets.catBodega,
-                          size: 28,
-                          color: LibretaColors.verde,
-                        ),
+                        child: const LibretaIcono(AppAssets.navClientes, size: 30, color: LibretaColors.verde),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Text(
-                        inv.negocioNombre,
-                        textAlign: TextAlign.center,
+                        'Unirme a un negocio',
                         style: TextStyle(
-                          fontSize: 17,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
                           color: context.libreta.textoFuerte,
+                          letterSpacing: -0.4,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
-                        'Entrarás como ${inv.rol.etiqueta.toLowerCase()}',
-                        style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                        'Pídele al dueño el código de invitación que aparece en su app.',
+                        style: TextStyle(fontSize: 14, color: context.libreta.textoMuted),
                       ),
+                      const SizedBox(height: 22),
+
+                      LibretaInput(
+                        controller: _codigo,
+                        hint: 'ABC123',
+                        height: 56,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        // El código se guarda en mayúsculas y la pista las enseña; sin
+                        // esto se escribía en minúsculas y no coincidía con lo que el
+                        // dueño está leyendo en su pantalla. La búsqueda ya normaliza,
+                        // así que es cosa de que se vea igual.
+                        textCapitalization: TextCapitalization.characters,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) {
+                          if (_codigo.text.trim().length == 6) _verificar();
+                        },
+                        onChanged: (_) => setState(() {
+                          _encontrada = null;
+                          _error = null;
+                        }),
+                      ),
+
+                      if (_error != null) ...[
+                        const SizedBox(height: 14),
+                        LibretaBannerError(mensaje: _error!),
+                      ],
+
+                      // Confirmación antes de aceptar: que sepa a dónde entra.
+                      if (inv != null) ...[
+                        const SizedBox(height: 18),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: context.libreta.superficie,
+                            border: Border.all(color: context.libreta.renglon),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: LibretaColors.verde.withValues(alpha: .10),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: const LibretaIcono(AppAssets.catBodega,
+                                  size: 28,
+                                  color: LibretaColors.verde,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                inv.negocioNombre,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: context.libreta.textoFuerte,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Entrarás como ${inv.rol.etiqueta.toLowerCase()}',
+                                style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ],
-
-              const Spacer(),
+              ),
+              const SizedBox(height: 18),
               if (inv == null)
                 LibretaButton(
                   label: 'Verificar código',

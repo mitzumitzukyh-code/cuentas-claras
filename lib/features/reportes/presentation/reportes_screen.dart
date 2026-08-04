@@ -423,7 +423,6 @@ class _BalanceAcumulado extends ConsumerWidget {
     if (balance == null || balance.vacio) return const SizedBox.shrink();
 
     final t = context.libreta;
-    final tasa = ref.watch(tasaActivaValorProvider);
     final positivo = balance.balanceUSD >= 0;
 
     return Container(
@@ -466,23 +465,20 @@ class _BalanceAcumulado extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                MoneyFormatter.usd(balance.balanceUSD),
-                style: TextStyle(
+              LibretaMonto(
+                usd: balance.balanceUSD,
+                alineacion: CrossAxisAlignment.end,
+                estiloPrincipal: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: positivo ? Colors.white : const Color(0xFFF2A93C),
+                  color: positivo ? Colors.white : LibretaColors.aviso,
+                ),
+                estiloSecundario: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0x99FFFFFF),
                 ),
               ),
-              if (tasa != null)
-                Text(
-                  MoneyFormatter.usdComoBs(balance.balanceUSD, tasa),
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0x99FFFFFF),
-                  ),
-                ),
             ],
           ),
         ],

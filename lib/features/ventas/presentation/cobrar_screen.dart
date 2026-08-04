@@ -949,6 +949,9 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final productosVisibles = _filtrarYOrdenar(productos, frecuencia);
     final total = _totalDe(carrito);
     final piezas = _piezasDe(carrito);
+    // El orden de los dos montos lo decide la moneda que el negocio eligió en
+    // el onboarding, no la pantalla.
+    final (principalTotal, secundarioTotal) = montosDelNegocio(ref, total);
     // Cuántas unidades lleva cada producto, sumando sus variantes: es lo que
     // pinta el badge de la ficha. Al vaciar el carrito el mapa queda vacío y
     // todas las fichas vuelven solas a su estado normal.
@@ -1047,11 +1050,15 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                             etiqueta: esCotizacion
                                 ? 'TOTAL A COTIZAR'
                                 : 'TOTAL A COBRAR',
-                            totalUSD: total,
-                            enBs: tasa == null
-                                ? '${tipoTasa.etiqueta} no disponible'
-                                : '${MoneyFormatter.usdComoBs(total, tasa)}'
-                                    ' · ${tipoTasa.etiqueta}',
+                            principal: principalTotal,
+                            // La segunda línea siempre dice de qué tasa se
+                            // trata. Con el modo "ambas" no hay segundo monto
+                            // —van los dos arriba— y queda solo la etiqueta.
+                            secundario: secundarioTotal != null
+                                ? '$secundarioTotal · ${tipoTasa.etiqueta}'
+                                : tasa == null
+                                    ? '${tipoTasa.etiqueta} no disponible'
+                                    : tipoTasa.etiqueta,
                             piezas: piezas,
                             onTapPie: _abrirCarrito,
                           ),
@@ -1581,15 +1588,19 @@ class _Avatar extends StatelessWidget {
 class _TarjetaTotal extends StatelessWidget {
   const _TarjetaTotal({
     required this.etiqueta,
-    required this.totalUSD,
-    required this.enBs,
+    required this.principal,
+    required this.secundario,
     required this.piezas,
     required this.onTapPie,
   });
 
   final String etiqueta;
-  final double totalUSD;
-  final String enBs;
+
+  /// El monto grande, ya en la moneda que manda según el modo del negocio.
+  final String principal;
+
+  /// La línea de referencia: el otro monto y de qué tasa sale.
+  final String secundario;
   final int piezas;
   final VoidCallback onTapPie;
 
@@ -1620,14 +1631,14 @@ class _TarjetaTotal extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              MoneyFormatter.usd(totalUSD),
+              principal,
               style: AppTypography.money(fontSize: 44, color: Colors.white)
                   .copyWith(letterSpacing: -1, height: 1),
             ),
           ),
           const SizedBox(height: 3),
           Text(
-            enBs,
+            secundario,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,

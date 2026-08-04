@@ -641,23 +641,19 @@ class _LienzoCatalogo extends StatelessWidget {
                                   color: Color(0xFF1E2A38),
                                 ),
                               ),
-                              Text(
-                                MoneyFormatter.usd(p.precio!),
-                                style: const TextStyle(
+                              LibretaMonto(
+                                usd: p.precio!,
+                                estiloPrincipal: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   color: AppColors.marca,
                                 ),
-                              ),
-                              if (tasa != null)
-                                Text(
-                                  MoneyFormatter.usdComoBs(p.precio!, tasa!),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF8A9A96),
-                                  ),
+                                estiloSecundario: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: LibretaColors.textoMuted,
                                 ),
+                              ),
                             ],
                           ),
                         ),

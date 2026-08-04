@@ -24,6 +24,7 @@ class LibretaInput extends StatelessWidget {
     this.textInputAction,
     this.textAlign = TextAlign.start,
     this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final TextEditingController? controller;
@@ -45,6 +46,10 @@ class LibretaInput extends StatelessWidget {
   final TextInputAction? textInputAction;
   final TextAlign textAlign;
   final int? maxLength;
+
+  /// Mayúsculas automáticas del teclado. `characters` para los códigos, que se
+  /// guardan y se enseñan siempre en mayúscula.
+  final TextCapitalization textCapitalization;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +81,7 @@ class LibretaInput extends StatelessWidget {
                 textInputAction: textInputAction,
                 textAlign: textAlign,
                 maxLength: maxLength,
+                textCapitalization: textCapitalization,
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -127,6 +133,49 @@ class LibretaInput extends StatelessWidget {
         ),
         campo,
       ],
+    );
+  }
+}
+
+/// Ojo de mostrar/ocultar contraseña, para el [LibretaInput.suffix].
+///
+/// El icono mide 20 px y acertarle era cuestión de puntería. La caja da los 48
+/// hacia la izquierda y el `centerRight` deja el ojo exactamente donde estaba,
+/// así que crece el área pulsable sin mover nada de sitio.
+class LibretaOjoContrasena extends StatelessWidget {
+  const LibretaOjoContrasena({
+    super.key,
+    required this.visible,
+    required this.onTap,
+  });
+
+  /// `true` cuando la contraseña se está viendo en claro.
+  final bool visible;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: visible ? 'Ocultar contraseña' : 'Mostrar contraseña',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Icon(
+              visible
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 20,
+              color: context.libreta.textoMuted,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

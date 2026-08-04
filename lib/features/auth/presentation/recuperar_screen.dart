@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../data/auth_repository.dart';
 
 /// Recuperar contraseña (réplica visual de `P3 · RECUPERAR`,
@@ -33,7 +34,14 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
     super.dispose();
   }
 
+  /// Reevalúa si se puede enviar y borra el aviso al corregir el correo.
+  void _alEscribir() {
+    setState(() => _error = null);
+  }
+
   Future<void> _enviar() async {
+    if (_enviando) return;
+
     setState(() {
       _enviando = true;
       _error = null;
@@ -42,15 +50,41 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
       await ref.read(authRepositoryProvider).enviarRecuperacion(_correo.text);
       if (mounted) setState(() => _enviado = true);
     } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        setState(() => _error = e.code == 'invalid-email'
-            ? 'Ese correo no parece válido.'
-            : 'No pudimos enviar el enlace. Intenta de nuevo.');
+      if (!mounted) return;
+      // `user-not-found` se trata como envío correcto a propósito. Antes caía
+      // en el mensaje genérico, así que quien se equivocaba de correo
+      // reintentaba con el mismo error para siempre, sin nada que le apuntara
+      // al correo. Y responder distinto según la cuenta exista o no permite
+      // averiguar quién está registrado. La pantalla de confirmación está
+      // redactada para no mentir en este caso ("si ese correo tiene una
+      // cuenta…").
+      if (e.code == 'user-not-found') {
+        setState(() => _enviado = true);
+        return;
       }
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Sin conexión. Revisa tu internet.');
+      setState(() => _error = _mensajeDe(e));
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = mensajeDeError(e, accion: 'enviar el enlace'));
+      }
     } finally {
       if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  String _mensajeDe(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Ese correo no parece válido.';
+      // Sin este caso el mensaje era "Intenta de nuevo", que es justo lo que
+      // no hay que hacer cuando Firebase te está frenando por insistir.
+      case 'too-many-requests':
+        return 'Pediste el enlace varias veces seguidas. Espera unos minutos '
+            'antes de volver a intentarlo.';
+      case 'network-request-failed':
+        return 'Sin conexión. Revisa tu internet.';
+      default:
+        return mensajeDeError(e, accion: 'enviar el enlace');
     }
   }
 
@@ -85,7 +119,10 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
                 child: SingleChildScrollView(
                   child: _enviado
-                      ? _Enviado(correo: _correo.text.trim())
+                      ? _Enviado(
+                          correo: _correo.text.trim(),
+                          onOtroCorreo: () => setState(() => _enviado = false),
+                        )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -148,18 +185,16 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
                               label: 'Correo',
                               hint: 'tu@negocio.com',
                               keyboardType: TextInputType.emailAddress,
-                              onChanged: (_) => setState(() {}),
+                              autofillHints: const [AutofillHints.username],
+                              textInputAction: TextInputAction.done,
+                              onChanged: (_) => _alEscribir(),
+                              onSubmitted: (_) {
+                                if (puedeEnviar) _enviar();
+                              },
                             ),
                             if (_error != null) ...[
                               const SizedBox(height: 12),
-                              Text(
-                                _error!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: LibretaColors.peligro,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              LibretaBannerError(mensaje: _error!),
                             ],
                             const SizedBox(height: 18),
                             LibretaButton(
@@ -167,18 +202,13 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
                               loading: _enviando,
                               onPressed: puedeEnviar ? _enviar : null,
                             ),
-                            const SizedBox(height: 8),
                             Center(
-                              child: GestureDetector(
+                              child: LibretaEnlace(
+                                texto: '¿Lo recordaste? Volver a entrar',
+                                tamano: 13,
+                                grosor: FontWeight.w600,
+                                color: LibretaColors.textoMuted,
                                 onTap: () => Navigator.of(context).pop(),
-                                child: const Text(
-                                  '¿Lo recordaste? Volver a entrar',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: LibretaColors.textoMuted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                               ),
                             ),
                           ],
@@ -194,10 +224,19 @@ class _RecuperarScreenState extends ConsumerState<RecuperarScreen> {
 }
 
 /// Confirmación tras enviar el enlace.
+///
+/// El texto está redactado en condicional ("si … tiene una cuenta") porque
+/// aquí también se aterriza cuando el correo no existe: la pantalla no puede
+/// prometer un envío que quizá no ocurrió, pero tampoco delatar qué correos
+/// están registrados.
 class _Enviado extends StatelessWidget {
-  const _Enviado({required this.correo});
+  const _Enviado({required this.correo, required this.onOtroCorreo});
 
   final String correo;
+
+  /// Vuelve al formulario. Sin esto, quien se equivocaba de correo o no veía
+  /// llegar nada solo podía salir de la pantalla y empezar de cero.
+  final VoidCallback onOtroCorreo;
 
   @override
   Widget build(BuildContext context) {
@@ -228,15 +267,29 @@ class _Enviado extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Revisa $correo para restablecer tu contraseña.',
+          'Si $correo tiene una cuenta, ahí llega el enlace para restablecer '
+          'tu contraseña.',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 14, color: LibretaColors.textoMuted),
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 8),
+        const Text(
+          'Si no lo ves, revisa la carpeta de spam.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: LibretaColors.textoMuted),
+        ),
+        const SizedBox(height: 22),
         LibretaButton(
-          label: 'Volver al inicio',
+          label: 'Volver a iniciar sesión',
           height: 48,
           onPressed: () => Navigator.of(context).pop(),
+        ),
+        LibretaEnlace(
+          texto: 'Probar con otro correo',
+          tamano: 13,
+          grosor: FontWeight.w600,
+          color: LibretaColors.textoMuted,
+          onTap: onOtroCorreo,
         ),
       ],
     );

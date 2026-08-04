@@ -42,8 +42,19 @@ abstract final class LibretaColors {
   /// Rojo destructivo (eliminar, vaciar) — igual al de `AppColors.peligro`.
   static const Color peligro = Color(0xFFC74A3A);
 
-  /// Ámbar de aviso (stock bajo, advertencias, vencimientos próximos).
+  /// Ámbar de aviso para **texto e iconos** (stock bajo, advertencias,
+  /// vencimientos próximos). Es el tono oscuro, el que se lee sobre papel.
   static const Color aviso = Color(0xFFB07D1E);
+
+  /// Ámbar de marca para **superficies**: halos, fondos de tarjeta de aviso,
+  /// bordes. Es el brillante, y sobre papel no tiene contraste suficiente
+  /// para texto — para eso está [aviso].
+  ///
+  /// Estaba escrito a mano 43 veces en 22 archivos. Se recoge aquí con su
+  /// valor tal cual para no mover ningún píxel; ojo, el brief de marca dice
+  /// `#F2A93B` y todo el código usa `#F2A93C` — un dígito de diferencia que
+  /// nadie ha decidido conscientemente.
+  static const Color ambarSuperficie = Color(0xFFF2A93C);
 
   /// Fondo de las tarjetas "hero" oscuras (total por cobrar, total de
   /// fiados/proveedores…). Es un color fijo — NO el texto fuerte del tema:

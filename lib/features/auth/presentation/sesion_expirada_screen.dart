@@ -70,47 +70,53 @@ class _SesionExpiradaScreenState extends ConsumerState<SesionExpiradaScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 // El anillo que late: la sesión se cerró, no se rompió nada.
-                SizedBox(
-                  width: 90,
-                  height: 90,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AnimatedBuilder(
-                        animation: _controlador,
-                        builder: (context, _) {
-                          final v = _controlador.value;
-                          return Opacity(
-                            opacity: (1 - v).clamp(0.0, 1.0) * 0.6,
-                            child: Container(
-                              width: 60 + 30 * v,
-                              height: 60 + 30 * v,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0x660E9F6E),
-                                  width: 2,
+                // `ExcludeSemantics` porque es puro adorno — el lector de
+                // pantalla tiene que llegar directo al título.
+                ExcludeSemantics(
+                  child: SizedBox(
+                    width: 90,
+                    height: 90,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _controlador,
+                          builder: (context, _) {
+                            final v = _controlador.value;
+                            return Opacity(
+                              opacity: (1 - v).clamp(0.0, 1.0) * 0.6,
+                              child: Container(
+                                width: 60 + 30 * v,
+                                height: 60 + 30 * v,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: LibretaColors.verde.withValues(
+                                      alpha: .4,
+                                    ),
+                                    width: 2,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          color: t.bordeSuave,
-                          borderRadius: BorderRadius.circular(16),
+                            );
+                          },
                         ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.lock_clock_outlined,
-                          size: 28,
-                          color: t.textoFuerte,
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: t.bordeSuave,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.lock_clock_outlined,
+                            size: 28,
+                            color: t.textoFuerte,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -148,10 +154,17 @@ class _SesionExpiradaScreenState extends ConsumerState<SesionExpiradaScreen>
                   ),
                 ),
                 const SizedBox(height: 20),
-                LibretaButton(
-                  label: 'Volver a entrar',
-                  height: 50,
-                  onPressed: _volverAEntrar,
+                // A todo el ancho, como en [SesionErrorScreen], que es réplica
+                // del mismo bloque del diseño. `LibretaButton` solo fija el
+                // alto, así que en un Column centrado se encogía al ancho de su
+                // texto y las dos pantallas del mismo lote no se parecían.
+                SizedBox(
+                  width: double.infinity,
+                  child: LibretaButton(
+                    label: 'Volver a entrar',
+                    height: 50,
+                    onPressed: _volverAEntrar,
+                  ),
                 ),
               ],
             ),

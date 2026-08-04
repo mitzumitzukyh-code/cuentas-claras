@@ -1,9 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
+import '../../perfil/presentation/legal_screen.dart';
 import '../data/auth_repository.dart';
 
 /// Crear cuenta (réplica visual de `P2 · REGISTRO`, `Lote A · Identidad`).
@@ -29,11 +33,28 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
 
   static const _minimo = 6;
 
+  /// Los dos enlaces del pie tienen que poder abrirse: la frase de encima dice
+  /// que al continuar se aceptan, y hasta ahora estaban pintados de verde y
+  /// negrita sin hacer nada al tocarlos.
+  late final TapGestureRecognizer _tocarTerminos;
+  late final TapGestureRecognizer _tocarPrivacidad;
+
+  @override
+  void initState() {
+    super.initState();
+    _tocarTerminos = TapGestureRecognizer()
+      ..onTap = () => LegalScreen.abrir(context, DocumentoLegal.terminos);
+    _tocarPrivacidad = TapGestureRecognizer()
+      ..onTap = () => LegalScreen.abrir(context, DocumentoLegal.privacidad);
+  }
+
   @override
   void dispose() {
     _correo.dispose();
     _contrasena.dispose();
     _confirmacion.dispose();
+    _tocarTerminos.dispose();
+    _tocarPrivacidad.dispose();
     super.dispose();
   }
 
@@ -45,7 +66,16 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
       _contrasena.text.length >= _minimo &&
       _coinciden;
 
+  /// Reevalúa `_puedeContinuar` y borra el aviso en cuanto se corrige algo.
+  void _alEscribir() {
+    setState(() => _error = null);
+  }
+
   Future<void> _crearCuenta() async {
+    // `onSubmitted` del último campo entra por aquí igual que el botón: sin la
+    // guarda, pulsar "Listo" dos veces creaba dos intentos de registro.
+    if (_creando) return;
+
     setState(() {
       _creando = true;
       _error = null;
@@ -54,12 +84,21 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
       await ref
           .read(authRepositoryProvider)
           .registrarConCorreo(_correo.text, _contrasena.text);
+      // Le dice al gestor de contraseñas que la cuenta se creó, para que
+      // ofrezca guardarla. Es el único momento en que eso importa: el usuario
+      // acaba de inventarse una contraseña y no la tiene apuntada en ningún
+      // lado.
+      TextInput.finishAutofillContext();
       // El router detecta la sesión nueva sin negocio y salta al onboarding.
     } on FirebaseAuthException catch (e) {
       if (mounted) setState(() => _error = _mensajeDe(e));
-    } catch (_) {
+    } catch (e) {
+      // `registrarConCorreo` también escribe la sesión en el almacenamiento
+      // seguro, así que no todo lo que falla aquí es la red: decir siempre
+      // "revisa tu internet" mandaba a mirar la conexión a alguien que ya
+      // tenía la cuenta creada.
       if (mounted) {
-        setState(() => _error = 'No pudimos conectar. Revisa tu internet.');
+        setState(() => _error = mensajeDeError(e, accion: 'crear la cuenta'));
       }
     } finally {
       if (mounted) setState(() => _creando = false);
@@ -79,7 +118,9 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
       case 'operation-not-allowed':
         return 'El registro por correo no está habilitado en Firebase.';
       default:
-        return e.message ?? 'No se pudo crear la cuenta.';
+        // `e.message` viene de Firebase, en inglés y con el código técnico
+        // dentro. Eso va a la consola; al usuario se le dice algo legible.
+        return mensajeDeError(e, accion: 'crear la cuenta');
     }
   }
 
@@ -117,7 +158,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFFFAF8F3),
+                        color: LibretaColors.crema,
                       ),
                     ),
                     Text(
@@ -133,185 +174,165 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
               ),
               LibretaPaperCard(
                 child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 6),
-                      LibretaInput(
-                        controller: _correo,
-                        label: 'Correo',
-                        hint: 'tu@negocio.com',
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 16),
-                      LibretaInput(
-                        controller: _contrasena,
-                        label: 'Crea una contraseña',
-                        hint: '••••••••',
-                        obscure: !_verContrasena,
-                        autofillHints: const [AutofillHints.newPassword],
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                        suffix: _OjoContrasena(
-                          visible: _verContrasena,
-                          onTap: () =>
-                              setState(() => _verContrasena = !_verContrasena),
+                  // `AutofillGroup`: sin él los `autofillHints` no arman ningún
+                  // contexto y Android nunca ofrece guardar la contraseña
+                  // recién creada — que es el único momento en que hace falta.
+                  child: AutofillGroup(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 6),
+                        LibretaInput(
+                          controller: _correo,
+                          label: 'Correo',
+                          hint: 'tu@negocio.com',
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
+                          textInputAction: TextInputAction.next,
+                          onChanged: (_) => _alEscribir(),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Mínimo $_minimo caracteres.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: LibretaColors.textoMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      LibretaInput(
-                        controller: _confirmacion,
-                        label: 'Confirma tu contraseña',
-                        hint: '••••••••',
-                        obscure: !_verConfirmacion,
-                        textInputAction: TextInputAction.done,
-                        onChanged: (_) => setState(() {}),
-                        onSubmitted: (_) {
-                          if (_puedeContinuar) _crearCuenta();
-                        },
-                        suffix: _OjoContrasena(
-                          visible: _verConfirmacion,
-                          onTap: () => setState(
-                            () => _verConfirmacion = !_verConfirmacion,
+                        const SizedBox(height: 6),
+                        // El correo era el único requisito sin pista: con uno
+                        // mal escrito, "Crear cuenta" se quedaba gris y nada en
+                        // pantalla decía por qué.
+                        Text(
+                          _correo.text.isEmpty ||
+                                  _correo.text.trim().contains('@')
+                              ? ''
+                              : 'Escribe el correo completo, con arroba.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: LibretaColors.peligro,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _confirmacion.text.isEmpty
-                            ? ''
-                            : _coinciden
-                                ? 'Las contraseñas coinciden ✓'
-                                : 'Las contraseñas no coinciden',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _coinciden
-                              ? LibretaColors.verde
-                              : LibretaColors.peligro,
-                        ),
-                      ),
-
-                      if (_error != null) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: LibretaColors.peligro.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: TextStyle(
-                              color: LibretaColors.peligro,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                        const SizedBox(height: 10),
+                        LibretaInput(
+                          controller: _contrasena,
+                          label: 'Crea una contraseña',
+                          hint: '••••••••',
+                          obscure: !_verContrasena,
+                          autofillHints: const [AutofillHints.newPassword],
+                          textInputAction: TextInputAction.next,
+                          onChanged: (_) => _alEscribir(),
+                          suffix: LibretaOjoContrasena(
+                            visible: _verContrasena,
+                            onTap: () => setState(
+                              () => _verContrasena = !_verContrasena,
                             ),
                           ),
                         ),
-                      ],
-
-                      const SizedBox(height: 18),
-                      LibretaButton(
-                        label: 'Crear cuenta',
-                        loading: _creando,
-                        onPressed: _puedeContinuar ? _crearCuenta : null,
-                      ),
-                      const SizedBox(height: 12),
-                      Text.rich(
-                        TextSpan(
-                          text: 'Al continuar aceptas los ',
+                        const SizedBox(height: 6),
+                        Text(
+                          'Mínimo $_minimo caracteres.',
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: LibretaColors.textoMuted,
                           ),
-                          children: const [
-                            TextSpan(
-                              text: 'Términos',
-                              style: TextStyle(
-                                color: LibretaColors.verde,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            TextSpan(text: ' y la '),
-                            TextSpan(
-                              text: 'Privacidad',
-                              style: TextStyle(
-                                color: LibretaColors.verde,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-                      Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              '¿Ya tienes cuenta? ',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: LibretaColors.textoMuted,
-                              ),
+                        const SizedBox(height: 12),
+                        LibretaInput(
+                          controller: _confirmacion,
+                          label: 'Confirma tu contraseña',
+                          hint: '••••••••',
+                          obscure: !_verConfirmacion,
+                          autofillHints: const [AutofillHints.newPassword],
+                          textInputAction: TextInputAction.done,
+                          onChanged: (_) => _alEscribir(),
+                          onSubmitted: (_) {
+                            if (_puedeContinuar) _crearCuenta();
+                          },
+                          suffix: LibretaOjoContrasena(
+                            visible: _verConfirmacion,
+                            onTap: () => setState(
+                              () => _verConfirmacion = !_verConfirmacion,
                             ),
-                            GestureDetector(
-                              onTap: () => Navigator.of(context).pop(),
-                              child: const Text(
-                                'Inicia sesión',
-                                style: TextStyle(
-                                  fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _confirmacion.text.isEmpty
+                              ? ''
+                              : _coinciden
+                                  ? 'Las contraseñas coinciden ✓'
+                                  : 'Las contraseñas no coinciden',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _coinciden
+                                ? LibretaColors.verde
+                                : LibretaColors.peligro,
+                          ),
+                        ),
+
+                        if (_error != null) ...[
+                          const SizedBox(height: 12),
+                          LibretaBannerError(mensaje: _error!),
+                        ],
+
+                        const SizedBox(height: 18),
+                        LibretaButton(
+                          label: 'Crear cuenta',
+                          loading: _creando,
+                          onPressed: _puedeContinuar ? _crearCuenta : null,
+                        ),
+                        const SizedBox(height: 12),
+                        Text.rich(
+                          TextSpan(
+                            text: 'Al continuar aceptas los ',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: LibretaColors.textoMuted,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'Términos',
+                                recognizer: _tocarTerminos,
+                                style: const TextStyle(
                                   color: LibretaColors.verde,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                            ),
-                          ],
+                              const TextSpan(text: ' y la '),
+                              TextSpan(
+                                text: 'Privacidad',
+                                recognizer: _tocarPrivacidad,
+                                style: const TextStyle(
+                                  color: LibretaColors.verde,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                        const SizedBox(height: 6),
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '¿Ya tienes cuenta? ',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: LibretaColors.textoMuted,
+                                ),
+                              ),
+                              LibretaEnlace(
+                                texto: 'Inicia sesión',
+                                tamano: 13,
+                                onTap: () => Navigator.of(context).pop(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Icono de mostrar/ocultar contraseña.
-class _OjoContrasena extends StatelessWidget {
-  const _OjoContrasena({required this.visible, required this.onTap});
-
-  final bool visible;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Icon(
-        visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-        size: 20,
-        color: LibretaColors.textoMuted,
       ),
     );
   }

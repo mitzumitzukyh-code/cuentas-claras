@@ -66,24 +66,31 @@ class _ConexionErrorScreenState extends State<ConexionErrorScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedBuilder(
-                  animation: _controlador,
-                  builder: (context, child) {
-                    final angulo = math.sin(_controlador.value * 2 * math.pi) * 0.10;
-                    return Transform.rotate(angle: angulo, child: child);
-                  },
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: const Color(0x24F2A93C),
-                      borderRadius: BorderRadius.circular(26),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.wifi_off_rounded,
-                      size: 44,
-                      color: LibretaColors.aviso,
+                // Adorno: `ExcludeSemantics` para que el lector de pantalla
+                // entre directo al título.
+                ExcludeSemantics(
+                  child: AnimatedBuilder(
+                    animation: _controlador,
+                    builder: (context, child) {
+                      final angulo =
+                          math.sin(_controlador.value * 2 * math.pi) * 0.10;
+                      return Transform.rotate(angle: angulo, child: child);
+                    },
+                    child: Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        // Halo en el ámbar de superficie, icono en el de
+                        // texto: dos tonos distintos a propósito.
+                        color: LibretaColors.ambarSuperficie.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.wifi_off_rounded,
+                        size: 44,
+                        color: LibretaColors.aviso,
+                      ),
                     ),
                   ),
                 ),
@@ -118,11 +125,23 @@ class _ConexionErrorScreenState extends State<ConexionErrorScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
-                LibretaButton(
-                  label: 'Reintentar',
-                  height: 50,
-                  icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
-                  onPressed: widget.onReintentar,
+                // A todo el ancho, como en [SesionErrorScreen] — que es quien
+                // renderiza esta pantalla. `LibretaButton` solo fija el alto,
+                // así que en un Column centrado se encogía al ancho de su
+                // texto y el mismo botón se veía de dos tamaños según por
+                // dónde entraras.
+                SizedBox(
+                  width: double.infinity,
+                  child: LibretaButton(
+                    label: 'Reintentar',
+                    height: 50,
+                    icon: const Icon(
+                      Icons.refresh,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    onPressed: widget.onReintentar,
+                  ),
                 ),
               ],
             ),

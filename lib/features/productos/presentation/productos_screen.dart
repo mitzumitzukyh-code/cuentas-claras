@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
@@ -571,30 +570,36 @@ class _TarjetaProducto extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  producto.precioLabel,
-                  style: AppTypography.money(
-                    fontSize: 14,
-                    color: producto.precio == null
-                        ? LibretaColors.aviso
-                        : context.libreta.textoFuerte,
-                  ),
-                ),
-                if (tasa != null && producto.precio != null)
+                // Un producto sin precio no lleva conversión ni jerarquía de
+                // moneda: lleva un aviso. Lo demás lo ordena `LibretaMonto`
+                // según la moneda que el negocio eligió.
+                if (producto.precio == null) ...[
                   Text(
-                    MoneyFormatter.usdComoBs(producto.precio!, tasa!),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.libreta.textoMuted,
+                    producto.precioLabel,
+                    style: AppTypography.money(
+                      fontSize: 14,
+                      color: LibretaColors.aviso,
                     ),
-                  )
-                else if (producto.precio == null)
+                  ),
                   Text(
                     'ponle precio para venderlo',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
                       color: LibretaColors.aviso,
+                    ),
+                  ),
+                ] else
+                  LibretaMonto(
+                    usd: producto.precio!,
+                    alineacion: CrossAxisAlignment.end,
+                    estiloPrincipal: AppTypography.money(
+                      fontSize: 14,
+                      color: context.libreta.textoFuerte,
+                    ),
+                    estiloSecundario: TextStyle(
+                      fontSize: 11,
+                      color: context.libreta.textoMuted,
                     ),
                   ),
               ],

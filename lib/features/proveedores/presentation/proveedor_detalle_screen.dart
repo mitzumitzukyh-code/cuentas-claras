@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/routes.dart';
-import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -44,7 +43,9 @@ class ProveedorDetalleScreen extends ConsumerWidget {
         ref.watch(proveedorPorIdProvider(proveedorInicial.id)) ??
             proveedorInicial;
     final movimientosAsync = ref.watch(movimientosProveedorProvider(proveedor.id));
-    final tasa = ref.watch(tasaActivaValorProvider);
+    // El orden de las dos monedas lo decide el negocio, no la pantalla.
+    final (principalSaldo, secundarioSaldo) =
+        montosDelNegocio(ref, proveedor.saldoUSD);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -84,11 +85,11 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                   children: [
                     Text('SALDO POR PAGAR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted)),
                     Text(
-                      MoneyFormatter.usd(proveedor.saldoUSD),
+                      principalSaldo,
                       style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: context.libreta.textoFuerte, letterSpacing: -0.6),
                     ),
                     Text(
-                      '${tasa == null ? "—" : MoneyFormatter.usdComoBs(proveedor.saldoUSD, tasa)}${_vence(proveedor.proximoVencimiento)}',
+                      '${secundarioSaldo ?? "—"}${_vence(proveedor.proximoVencimiento)}',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.libreta.textoFuerte),
                     ),
                   ],

@@ -95,7 +95,15 @@ class _ClienteFiadoDetalleScreenState
       _estabaSaldada = false;
     }
     final movimientosAsync = ref.watch(movimientosClienteProvider(cliente.id));
-    final tasa = ref.watch(tasaActivaValorProvider);
+    // El orden de las dos monedas lo decide el negocio, no la pantalla.
+    final (principalSaldo, secundarioSaldo) = montosDelNegocio(
+      ref,
+      cliente.aFavor
+          ? cliente.saldoAFavorUSD
+          : cliente.saldada
+              ? 0
+              : cliente.saldoUSD,
+    );
 
     return Stack(
       children: [
@@ -189,13 +197,7 @@ class _ClienteFiadoDetalleScreenState
                     // "A favor" se muestra en positivo. Una deuda negativa
                     // (−$3,00) se lee como un error de la app, no como crédito.
                     Text(
-                      MoneyFormatter.usd(
-                        cliente.aFavor
-                            ? cliente.saldoAFavorUSD
-                            : cliente.saldada
-                                ? 0
-                                : cliente.saldoUSD,
-                      ),
+                      principalSaldo,
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
@@ -210,9 +212,9 @@ class _ClienteFiadoDetalleScreenState
                           ? 'a cuenta de su próxima compra'
                           : cliente.saldada
                               ? 'no te debe nada'
-                              : tasa == null
+                              : secundarioSaldo == null
                                   ? '—'
-                                  : '${MoneyFormatter.usdComoBs(cliente.saldoUSD, tasa)} · a la tasa de hoy',
+                                  : '$secundarioSaldo · a la tasa de hoy',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

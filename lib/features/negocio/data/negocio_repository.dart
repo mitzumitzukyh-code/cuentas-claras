@@ -9,6 +9,7 @@ import '../../onboarding/domain/rubro.dart';
 import '../domain/invitacion.dart';
 import '../domain/membresia.dart';
 import '../domain/metodo_pago_config.dart';
+import '../domain/modo_precio.dart';
 import '../domain/negocio.dart';
 
 /// Repositorio de negocios y membresías (CLAUDE.md §4).
@@ -238,6 +239,7 @@ class NegocioRepository {
     required String usuarioId,
     required String nombre,
     required Rubro rubro,
+    ModoPrecio modoPrecio = ModoPrecio.usd,
     String? nombreUsuario,
     String? correoUsuario,
   }) async {
@@ -246,6 +248,11 @@ class NegocioRepository {
       id: negocioRef.id,
       nombre: nombre,
       rubro: rubro,
+      // El paso 2 del onboarding pregunta esto y antes no llegaba hasta aquí:
+      // el parámetro no existía, así que `moneda` se quedaba siempre en su
+      // valor por defecto. Quien elegía bolívares veía "Moneda principal: Bs"
+      // en el resumen y se le guardaba USD.
+      moneda: modoPrecio.id,
       configuracion: rubro.config,
       creadoPor: usuarioId,
     );
@@ -332,6 +339,16 @@ final negocioActivoProvider = StreamProvider<Negocio?>((ref) {
   return ref
       .watch(negocioRepositoryProvider)
       .negocioStream(membresia.negocioId);
+});
+
+/// En qué moneda maneja sus precios el negocio activo.
+///
+/// Nunca es `null` ni lanza: mientras el negocio carga, o si el documento trae
+/// un valor desconocido, cae en [ModoPrecio.usd] — que es el aspecto que la app
+/// tuvo siempre, así que un parpadeo durante la carga no cambia nada de sitio.
+final modoPrecioProvider = Provider<ModoPrecio>((ref) {
+  final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+  return ModoPrecio.fromId(negocio?.moneda);
 });
 
 /// Un negocio cualquiera por id — usado por el selector de "Más" para

@@ -44,7 +44,24 @@ class TutorialScreen extends ConsumerStatefulWidget {
 }
 
 class _TutorialScreenState extends ConsumerState<TutorialScreen> {
+  /// Los puntos de abajo dibujan un carrusel, así que la pantalla tiene que
+  /// comportarse como uno: se desliza con el dedo y se puede volver atrás. Con
+  /// solo el botón "Siguiente", pasarse de largo no tenía vuelta.
+  final _controlador = PageController();
   int _paso = 0;
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  void _avanzar() {
+    _controlador.nextPage(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   static const List<_Paso> _pasos = [
     (
@@ -84,7 +101,6 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final paso = _pasos[_paso];
     final ultimo = _paso == _pasos.length - 1;
 
     return Scaffold(
@@ -105,72 +121,21 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
               children: [
                 Align(
                   alignment: Alignment.centerRight,
-                  child: GestureDetector(
+                  child: LibretaEnlace(
+                    texto: 'Saltar',
+                    tamano: 13,
+                    grosor: FontWeight.w600,
+                    color: Colors.white70,
                     onTap: _salir,
-                        child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Text(
-                        'Saltar',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ),
                   ),
                 ),
 
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        child: LibretaIcono(paso.icono, size: 42, color: Colors.white),
-                      ),
-                      const SizedBox(height: 22),
-                      Text(
-                        paso.tagline,
-                        style: GoogleFonts.caveat(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: LibretaColors.tagline,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        width: 280,
-                        child: Text(
-                          paso.titulo,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: 280,
-                        child: Text(
-                          paso.detalle,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            height: 1.55,
-                            color: Colors.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: PageView.builder(
+                    controller: _controlador,
+                    itemCount: _pasos.length,
+                    onPageChanged: (i) => setState(() => _paso = i),
+                    itemBuilder: (context, i) => _Paso3Vista(paso: _pasos[i]),
                   ),
                 ),
 
@@ -196,7 +161,7 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
                 SizedBox(
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: ultimo ? _salir : () => setState(() => _paso++),
+                    onPressed: ultimo ? _salir : _avanzar,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: LibretaColors.papel,
                       foregroundColor: LibretaColors.degradadoMarca[0],
@@ -215,6 +180,67 @@ class _TutorialScreenState extends ConsumerState<TutorialScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Una lámina del carrusel: icono, tagline, título y detalle.
+class _Paso3Vista extends StatelessWidget {
+  const _Paso3Vista({required this.paso});
+
+  final _Paso paso;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: LibretaIcono(paso.icono, size: 42, color: Colors.white),
+        ),
+        const SizedBox(height: 22),
+        Text(
+          paso.tagline,
+          style: GoogleFonts.caveat(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: LibretaColors.tagline,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 280,
+          child: Text(
+            paso.titulo,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.4,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: 280,
+          child: Text(
+            paso.detalle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.55,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

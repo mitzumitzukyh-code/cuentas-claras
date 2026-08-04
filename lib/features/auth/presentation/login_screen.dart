@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../data/auth_repository.dart';
 import 'recuperar_screen.dart';
 import 'registro_screen.dart';
@@ -70,7 +71,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Borra el aviso en cuanto el usuario corrige algo.
+  ///
+  /// Antes solo se limpiaba al reintentar, así que "Correo o contraseña
+  /// incorrectos" seguía en rojo mientras se escribía la corrección.
+  void _limpiarError() {
+    if (_error != null) setState(() => _error = null);
+  }
+
   Future<void> _iniciarSesion() async {
+    // La guarda va aquí y no solo en el botón: `onSubmitted` del campo de
+    // contraseña entra por este mismo camino, y pulsar "Listo" dos veces
+    // seguidas lanzaba dos inicios de sesión — camino directo al
+    // `too-many-requests` de Firebase.
+    if (_entrando || _google) return;
+
     final correo = _correo.text.trim();
     final contrasena = _contrasena.text;
 
@@ -95,9 +110,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // El router redirige solo al cambiar `authState`.
     } on FirebaseAuthException catch (e) {
       if (mounted) setState(() => _error = _mensajeDe(e));
-    } catch (_) {
+    } catch (e) {
+      // No todo lo que falla aquí es la red: `iniciarSesionConCorreo` también
+      // escribe la sesión en el almacenamiento seguro. Cuando esto decía
+      // siempre "revisa tu internet", un fallo al guardar mandaba a revisar la
+      // conexión a alguien que ya había entrado.
       if (mounted) {
-        setState(() => _error = 'No pudimos conectar. Revisa tu internet.');
+        setState(() => _error = mensajeDeError(e, accion: 'iniciar sesión'));
       }
     } finally {
       if (mounted) setState(() => _entrando = false);
@@ -116,12 +135,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (cred == null && mounted) setState(() => _google = false);
     } on PlatformException catch (e) {
       if (!mounted) return;
+      // ApiException: 10 = falta registrar el SHA-1 del APK en Firebase. Ese
+      // dato es para quien compila, no para el dueño de la bodega: antes se le
+      // pintaba en pantalla "falta el SHA-1 en Firebase, ver README_SETUP", y
+      // ese texto viajaba dentro del APK de producción.
+      debugPrint('[error] Google Sign-In → ${e.code} · ${e.message}');
       setState(() {
         _google = false;
-        // ApiException: 10 = falta registrar el SHA-1 del APK en Firebase.
         _error = e.code == 'sign_in_failed'
-            ? 'Google Sign-In aún no está configurado (falta el SHA-1 en '
-                'Firebase). Ver README_SETUP.'
+            ? 'Entrar con Google no está disponible por ahora. Usa tu correo '
+                'y tu contraseña.'
             : 'No se pudo iniciar sesión con Google.';
       });
     } on FirebaseAuthException catch (e) {
@@ -130,11 +153,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _google = false;
         _error = _mensajeDe(e);
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _google = false;
-          _error = 'No se pudo iniciar sesión. Revisa tu conexión.';
+          _error = mensajeDeError(e, accion: 'iniciar sesión con Google');
         });
       }
     }
@@ -158,7 +181,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       case 'operation-not-allowed':
         return 'El acceso por correo no está habilitado en Firebase.';
       default:
-        return e.message ?? 'No se pudo iniciar sesión.';
+        // `e.message` es el texto de Firebase, en inglés y con el código
+        // técnico dentro: «An internal error has occurred.
+        // [ INVALID_LOGIN_CREDENTIALS ]». Eso se manda a la consola; al dueño
+        // se le dice algo que pueda leer.
+        return mensajeDeError(e, accion: 'iniciar sesión');
     }
   }
 
@@ -189,7 +216,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFFFAF8F3),
+                        color: LibretaColors.crema,
                       ),
                     ),
                   ],
@@ -209,6 +236,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.username],
                           textInputAction: TextInputAction.next,
+                          onChanged: (_) => _limpiarError(),
                         ),
                         const SizedBox(height: 16),
                         LibretaInput(
@@ -218,17 +246,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           obscure: !_verContrasena,
                           autofillHints: const [AutofillHints.password],
                           textInputAction: TextInputAction.done,
+                          onChanged: (_) => _limpiarError(),
                           onSubmitted: (_) => _iniciarSesion(),
-                          suffix: GestureDetector(
+                          suffix: LibretaOjoContrasena(
+                            visible: _verContrasena,
                             onTap: () => setState(
                               () => _verContrasena = !_verContrasena,
-                            ),
-                            child: Icon(
-                              _verContrasena
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 20,
-                              color: LibretaColors.textoMuted,
                             ),
                           ),
                         ),
@@ -240,7 +263,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         if (_error != null) ...[
                           const SizedBox(height: 14),
-                          _BannerError(mensaje: _error!),
+                          LibretaBannerError(mensaje: _error!),
                         ],
 
                         const SizedBox(height: 20),
@@ -269,7 +292,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               : const _LogoGoogle(),
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 6),
                         Center(
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -281,43 +304,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   color: LibretaColors.textoMuted,
                                 ),
                               ),
-                              GestureDetector(
+                              LibretaEnlace(
+                                texto: 'Regístrate',
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) => const RegistroScreen(),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Regístrate',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: LibretaColors.verde,
-                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
                         Center(
-                          child: GestureDetector(
+                          child: LibretaEnlace(
+                            texto: '¿Olvidaste tu contraseña?',
+                            tamano: 13,
+                            grosor: FontWeight.w700,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) => const RecuperarScreen(),
                               ),
                             ),
-                            child: const Text(
-                              '¿Olvidaste tu contraseña?',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: LibretaColors.verde,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
                       ],
                     ),
                   ),
@@ -340,57 +350,46 @@ class _Recordarme extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!valor),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: valor ? LibretaColors.verde : LibretaColors.superficie,
-              borderRadius: BorderRadius.circular(6),
-              border: valor
-                  ? null
-                  : Border.all(color: LibretaColors.bordeSuave, width: 1.5),
-            ),
-            child: valor
-                ? const LibretaIcono(AppAssets.accConfirmar, size: 13, color: Colors.white)
-                : null,
+    // La etiqueta la pone el texto de la fila y la acción de toque, el
+    // `GestureDetector`; aquí solo se añade el estado marcado y se funden en un
+    // nodo. Excluir la semántica de dentro habría dejado una casilla que se
+    // anuncia pero no se puede activar.
+    return MergeSemantics(
+      child: Semantics(
+        checked: valor,
+        child: GestureDetector(
+          onTap: () => onChanged(!valor),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: valor
+                      ? LibretaColors.verde
+                      : LibretaColors.superficie,
+                  borderRadius: BorderRadius.circular(6),
+                  border: valor
+                      ? null
+                      : Border.all(color: LibretaColors.bordeSuave, width: 1.5),
+                ),
+                child: valor
+                    ? const LibretaIcono(
+                        AppAssets.accConfirmar,
+                        size: 13,
+                        color: Colors.white,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Recordar usuario y contraseña',
+                style: TextStyle(fontSize: 13, color: LibretaColors.textoMuted),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'Recordar usuario y contraseña',
-            style: TextStyle(fontSize: 13, color: LibretaColors.textoMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Banner rojo suave de error de credenciales.
-class _BannerError extends StatelessWidget {
-  const _BannerError({required this.mensaje});
-
-  final String mensaje;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: LibretaColors.peligro.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        mensaje,
-        style: TextStyle(
-          color: LibretaColors.peligro,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -425,8 +424,6 @@ class _Separador extends StatelessWidget {
   }
 }
 
-/// "G" de Google. Para producción, sustituir por el logo oficial según las
-/// guías de marca de Google.
 /// La "G" multicolor oficial de Google, dibujada a mano.
 ///
 /// Antes era una "G" tipográfica azul dentro de un círculo — funcional, pero

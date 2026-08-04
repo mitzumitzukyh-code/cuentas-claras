@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/session/sesion_provider.dart';
 import 'libreta/libreta.dart';
 
 /// Pantalla de carga mientras se resuelve el estado de sesión.
@@ -10,21 +13,27 @@ import 'libreta/libreta.dart';
 /// Réplica del bloque `P0 · SPLASH` de `Lote A · Identidad`: tapa de cuaderno
 /// que se abre sobre un degradado vinotinto→verde, con el check dibujándose
 /// a mano y el tagline en Caveat. La navegación real la decide el router
-/// (según [sesionProvider]); esta pantalla es puramente decorativa mientras
-/// tanto.
-class SplashScreen extends StatefulWidget {
+/// (según [sesionProvider]); aquí solo se mira [sesionResueltaProvider] para
+/// saber cuándo se puede empezar a fundir la salida.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
+  static const Duration _duracionSalida = Duration(milliseconds: 600);
+
   late final AnimationController _intro;
   late final AnimationController _loop;
   late final AnimationController _salida;
+  Timer? _relojSalida;
   bool _reducirMovimiento = false;
+
+  /// El fundido de salida ya se puede empezar (venció la antesala).
+  bool _horaDeIrse = false;
 
   @override
   void initState() {
@@ -37,14 +46,32 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 4400),
     );
-    _salida = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    // Inicia la salida 600ms antes del redirect para fundir a negro suavemente
-    Future.delayed(const Duration(milliseconds: 2900), () {
-      if (mounted) _salida.forward();
+    _salida = AnimationController(vsync: this, duration: _duracionSalida);
+
+    // El fundido termina justo cuando el router nos saca. La cuenta sale de
+    // [splashMinimo], no de una constante copiada aquí: cuando eran dos
+    // números sueltos en dos archivos, cambiar el mínimo descuadraba la salida
+    // sin que nada avisara.
+    final antesala = splashMinimo() - _duracionSalida;
+    _relojSalida = Timer(antesala.isNegative ? Duration.zero : antesala, () {
+      _horaDeIrse = true;
+      _fundirSalida();
     });
+  }
+
+  /// Empieza el fundido de salida, pero solo si lo único que falta para salir
+  /// del splash es que se cumpla el mínimo en pantalla.
+  ///
+  /// Antes se disparaba a ciegas por temporizador. Si la sesión tardaba más
+  /// —una lectura lenta de las membresías, que es lo normal con mala señal— el
+  /// contenido se quedaba en opacidad 0 y no volvía: el arranque se veía como
+  /// una pantalla vacía, sin logo ni spinner ni texto, hasta que resolviera.
+  /// Justo en el caso en que más falta hace decirle al dueño que algo está
+  /// pasando.
+  void _fundirSalida() {
+    if (!mounted || !_horaDeIrse) return;
+    if (ref.read(sesionResueltaProvider) == SesionEstado.cargando) return;
+    _salida.forward();
   }
 
   @override
@@ -65,6 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _relojSalida?.cancel();
     _intro.dispose();
     _loop.dispose();
     _salida.dispose();
@@ -73,59 +101,84 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // La regla de la pantalla: mientras se esté cargando, siempre hay algo a
+    // la vista. Si el estado se resuelve y vuelve a "cargando" —auth puede
+    // parpadear— el contenido reaparece en vez de dejar el fondo pelado.
+    ref.listen(sesionResueltaProvider, (_, estado) {
+      if (estado == SesionEstado.cargando) {
+        _salida.reverse();
+      } else {
+        _fundirSalida();
+      }
+    });
+
+    // Una sola etiqueta para todo el arranque: leído pieza por pieza, el
+    // lector de pantalla recitaba el logo, el tagline y el spinner sueltos.
     return Scaffold(
-      body: FadeTransition(
-        opacity: _salida.drive(Tween(begin: 1, end: 0)),
-        child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: LibretaColors.degradadoMarca,
-            stops: [0, 0.46, 1],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Renglones de cuaderno sobre el degradado, al 9%: es lo que hace
-            // que la portada se lea como papel y no como un fondo de color.
-            const Positioned.fill(
-              child: CustomPaint(painter: _RenglonesPainter()),
-            ),
-            Positioned(
-              // Debajo de la barra de estado: pegados al notch, los huecos de
-              // espiral se confundían con los íconos de batería/wifi/señal.
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 0,
-              right: 0,
-              child: const LibretaSpiralStrip(
-                height: 16,
-                color: Color(0x8CFFFFFF),
+      body: Semantics(
+        container: true,
+        label: 'Cuenta Clara. Abriendo tu libreta…',
+        child: ExcludeSemantics(
+          child: FadeTransition(
+            opacity: _salida.drive(Tween(begin: 1, end: 0)),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: LibretaColors.degradadoMarca,
+                  stops: [0, 0.46, 1],
+                ),
               ),
-            ),
-            if (!_reducirMovimiento)
-              AnimatedBuilder(
-                animation: _loop,
-                builder: (context, _) => _Resplandor(t: _loop.value),
-              )
-            else
-              const _Resplandor(t: 0.5),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  _Tapa(intro: _intro, loop: _loop, quieto: _reducirMovimiento),
-                  const SizedBox(height: 26),
-                  _Titulo(intro: _intro, quieto: _reducirMovimiento),
-                  const SizedBox(height: 46),
-                  _Cargando(intro: _intro, quieto: _reducirMovimiento),
+                  // Renglones de cuaderno sobre el degradado, al 9%: es lo que
+                  // hace que la portada se lea como papel y no como un fondo
+                  // de color.
+                  const Positioned.fill(
+                    child: CustomPaint(painter: _RenglonesPainter()),
+                  ),
+                  Positioned(
+                    // Debajo de la barra de estado: pegados al notch, los
+                    // huecos de espiral se confundían con los íconos de
+                    // batería/wifi/señal.
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 0,
+                    right: 0,
+                    child: const LibretaSpiralStrip(
+                      height: 16,
+                      color: Color(0x8CFFFFFF),
+                    ),
+                  ),
+                  if (!_reducirMovimiento)
+                    AnimatedBuilder(
+                      animation: _loop,
+                      builder: (context, _) => _Resplandor(t: _loop.value),
+                    )
+                  else
+                    const _Resplandor(t: 0.5),
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _Tapa(
+                          intro: _intro,
+                          loop: _loop,
+                          quieto: _reducirMovimiento,
+                        ),
+                        const SizedBox(height: 26),
+                        _Titulo(intro: _intro),
+                        const SizedBox(height: 46),
+                        _Cargando(intro: _intro),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -153,11 +206,14 @@ class _Resplandor extends StatelessWidget {
           child: Container(
             width: 300,
             height: 300,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [Color(0x73F7E7C6), Colors.transparent],
-                stops: [0, 0.62],
+                colors: [
+                  LibretaColors.tagline.withValues(alpha: .45),
+                  Colors.transparent,
+                ],
+                stops: const [0, 0.62],
               ),
             ),
           ),
@@ -242,9 +298,9 @@ class _CheckAnimadoPainter extends CustomPainter {
     canvas.save();
     canvas.scale(s, s);
 
-    final tapa = Paint()..color = const Color(0xFFFAF8F3);
+    final tapa = Paint()..color = LibretaColors.papel;
     final trazo = Paint()
-      ..color = const Color(0xFF1E2A38)
+      ..color = LibretaColors.textoFuerte
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     final rect = RRect.fromRectAndRadius(
@@ -258,13 +314,13 @@ class _CheckAnimadoPainter extends CustomPainter {
       const Offset(20, 10),
       const Offset(20, 54),
       Paint()
-        ..color = const Color(0x99C1503A)
+        ..color = LibretaColors.margenCoral.withValues(alpha: .6)
         ..strokeWidth = 2,
     );
 
-    final anillo = Paint()..color = const Color(0xFFFAF8F3);
+    final anillo = Paint()..color = LibretaColors.papel;
     final anilloTrazo = Paint()
-      ..color = const Color(0xFF1E2A38)
+      ..color = LibretaColors.textoFuerte
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     for (final cx in [20.0, 29.0, 38.0, 47.0]) {
@@ -282,7 +338,7 @@ class _CheckAnimadoPainter extends CustomPainter {
       canvas.drawPath(
         parcial,
         Paint()
-          ..color = const Color(0xFF0E9F6E)
+          ..color = LibretaColors.verde
           ..style = PaintingStyle.stroke
           ..strokeWidth = 5.5
           ..strokeCap = StrokeCap.round
@@ -300,10 +356,9 @@ class _CheckAnimadoPainter extends CustomPainter {
 
 /// "Cuenta Clara" + tagline en Caveat con el subrayado dibujándose.
 class _Titulo extends StatelessWidget {
-  const _Titulo({required this.intro, required this.quieto});
+  const _Titulo({required this.intro});
 
   final AnimationController intro;
-  final bool quieto;
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +385,7 @@ class _Titulo extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFFFAF8F3),
+                    color: LibretaColors.crema,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -391,10 +446,9 @@ class _SubrayadoPainter extends CustomPainter {
 
 /// Spinner + "abriendo tu libreta…" al pie de la pantalla.
 class _Cargando extends StatelessWidget {
-  const _Cargando({required this.intro, required this.quieto});
+  const _Cargando({required this.intro});
 
   final AnimationController intro;
-  final bool quieto;
 
   @override
   Widget build(BuildContext context) {
@@ -414,7 +468,7 @@ class _Cargando extends StatelessWidget {
               height: 34,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                color: Color(0xFFFAF8F3),
+                color: LibretaColors.crema,
                 backgroundColor: Color(0x4DFFFFFF),
               ),
             ),
