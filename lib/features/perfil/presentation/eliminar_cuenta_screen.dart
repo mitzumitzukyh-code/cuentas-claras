@@ -8,6 +8,7 @@ import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Eliminar cuenta (réplica visual de `P5 · ELIMINAR CUENTA`, `Lote E ·
 /// Negocio y Perfil`).
@@ -86,7 +87,7 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
           return 'No se pudo confirmar: ${e.message ?? e.code}';
       }
     }
-    return 'No se pudo eliminar la cuenta: $e';
+    return mensajeDeError(e, accion: 'eliminar la cuenta');
   }
 
   @override

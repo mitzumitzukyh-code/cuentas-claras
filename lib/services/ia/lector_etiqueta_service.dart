@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/providers/firebase_providers.dart';
+import '../../shared/utils/errores.dart';
 
 const String _baseUrl = 'https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev';
 
@@ -157,20 +158,24 @@ class LectorEtiquetaService {
       _ => 'image/jpeg',
     };
 
-    final respuesta = await _cliente
-        .post(
-          Uri.parse('$_baseUrl$ruta'),
-          headers: {
-            'Authorization': 'Bearer $idToken',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'imagenBase64': base64Encode(bytes),
-            'mimeType': mimeType,
-            ...extras,
-          }),
-        )
-        .timeout(const Duration(seconds: 30));
+    // Mismo criterio que la subida de fotos: un bache de red no puede costarle
+    // al dueño volver a tomar la foto.
+    final respuesta = await conReintentos(
+      () => _cliente
+          .post(
+            Uri.parse('$_baseUrl$ruta'),
+            headers: {
+              'Authorization': 'Bearer $idToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'imagenBase64': base64Encode(bytes),
+              'mimeType': mimeType,
+              ...extras,
+            }),
+          )
+          .timeout(const Duration(seconds: 30)),
+    );
 
     if (respuesta.statusCode == 429) throw LimiteDiarioIA();
     if (respuesta.statusCode != 200) {

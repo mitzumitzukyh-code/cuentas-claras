@@ -11,6 +11,7 @@ import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import '../../../shared/utils/errores.dart';
 
 final _busquedaFiadosProvider = StateProvider<String>((_) => '');
 
@@ -45,7 +46,7 @@ class FiadosScreen extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'No se pudo cargar los fiados.\n$e',
+                      mensajeDeError(e, accion: 'cargar tus fiados'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.libreta.textoMuted),
                     ),

@@ -18,6 +18,7 @@ import '../../../core/business/business_profile_provider.dart';
 import '../data/producto_repository.dart';
 import '../domain/producto.dart';
 import 'nuevo_producto_screen.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Pantalla 5 — Productos (réplica visual de `P2 · PRODUCTOS`,
 /// `Lote C · Gastos y Productos`).
@@ -124,7 +125,7 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'No se pudo cargar tu ${vocab.inventoryLabel.toLowerCase()}.\n$e',
+                      mensajeDeError(e, accion: 'cargar tu ${vocab.inventoryLabel.toLowerCase()}'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.libreta.textoMuted),
                     ),

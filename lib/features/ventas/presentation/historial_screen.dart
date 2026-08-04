@@ -12,6 +12,7 @@ import '../data/venta_repository.dart';
 import '../domain/filtro_ventas.dart';
 import '../domain/venta.dart';
 import 'filtro_ventas_screen.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Historial de ventas (réplica visual de `P1 · HISTORIAL`, `Lote B ·
 /// Ventas`, con el filtro de `P1 · FILTROS`, `Lote L · Búsqueda y Datos`).
@@ -85,7 +86,7 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No se pudo cargar el historial.\n$e',
+                  mensajeDeError(e, accion: 'cargar el historial'),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: context.libreta.textoMuted),
                 ),

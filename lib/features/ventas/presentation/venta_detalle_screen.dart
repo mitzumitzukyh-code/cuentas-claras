@@ -16,6 +16,7 @@ import '../../negocio/data/auditoria_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/venta_repository.dart';
 import '../domain/venta.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Detalle de una venta (réplica visual de `P2 · DETALLE`, `Lote B · Ventas`).
 ///
@@ -128,7 +129,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
     } on ImpresoraException catch (e) {
       if (mounted) _aviso(e.mensaje);
     } catch (e) {
-      if (mounted) _aviso('No se pudo imprimir: $e');
+      if (mounted) _aviso(mensajeDeError(e, accion: 'imprimir el recibo'));
     } finally {
       if (mounted) setState(() => _imprimiendo = false);
     }
@@ -191,7 +192,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo anular: $e'),
+          content: Text(mensajeDeError(e, accion: 'anular la venta')),
           backgroundColor: AppColors.peligro,
         ),
       );

@@ -13,6 +13,7 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
 import '../domain/gasto.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Pantalla 9 — Registrar gasto (réplica visual de `P1 · REGISTRAR GASTO`,
 /// `Lote C · Gastos y Productos`).
@@ -158,7 +159,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _leyendoIA = false);
-      _mostrar('No se pudo leer el recibo: $e');
+      _mostrar(mensajeDeError(e, accion: 'leer el recibo'));
     }
   }
 
@@ -264,7 +265,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      _mostrar('No se pudo guardar: $e');
+      _mostrar(mensajeDeError(e, accion: 'guardar el gasto'));
     }
   }
 

@@ -11,6 +11,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../domain/rubro.dart';
 import 'unirse_codigo_screen.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Pantalla 3 — Onboarding (réplica visual de `P0 · RUBRO`, `Lote F ·
 /// Onboarding y Sistema`).
@@ -82,7 +83,7 @@ class _RubroSelectionScreenState extends ConsumerState<RubroSelectionScreen> {
       setState(() => _cargando = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo crear el negocio: $e'),
+          content: Text(mensajeDeError(e, accion: 'crear el negocio')),
           backgroundColor: LibretaColors.peligro,
         ),
       );

@@ -10,6 +10,7 @@ import '../../negocio/data/negocio_repository.dart';
 import '../../ventas/data/venta_repository.dart';
 import '../data/exportador_reporte.dart';
 import '../domain/periodo_reporte.dart';
+import '../../../shared/utils/errores.dart';
 
 enum _PeriodoExportar {
   semana,
@@ -147,7 +148,7 @@ class _ExportarReporteScreenState extends ConsumerState<ExportarReporteScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo crear el archivo: $e')),
+        SnackBar(content: Text(mensajeDeError(e, accion: 'crear el archivo'))),
       );
     } finally {
       if (mounted) setState(() => _generando = false);

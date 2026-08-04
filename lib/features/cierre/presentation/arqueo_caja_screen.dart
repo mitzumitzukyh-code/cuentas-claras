@@ -16,6 +16,7 @@ import '../../ventas/data/venta_repository.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/cierre_repository.dart';
 import '../domain/cierre_caja.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Cierre de caja — arqueo (réplica visual de `P0 · CIERRE DE CAJA`,
 /// `Lote H · Cierre y Proveedores`).
@@ -117,7 +118,7 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
       setState(() => _cerrando = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('No se pudo cerrar la caja: $e')));
+      ).showSnackBar(SnackBar(content: Text(mensajeDeError(e, accion: 'cerrar la caja'))));
     }
   }
 

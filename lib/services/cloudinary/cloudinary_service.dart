@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/providers/firebase_providers.dart';
+import '../../shared/utils/errores.dart';
 
 const String _baseUrl = 'https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev';
 
@@ -46,22 +48,29 @@ class CloudinaryService {
 
     final http.Response respuesta;
     try {
-      respuesta = await _cliente
-          .post(
-            Uri.parse('$_baseUrl/subir-foto'),
-            headers: {
-              'Authorization': 'Bearer $idToken',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'imagenBase64': base64Encode(bytes),
-              'mimeType': mimeType,
-              'carpeta': carpeta,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+      // Tres intentos con esperas crecientes: subir una foto de recibo por
+      // datos móviles en Venezuela falla por baches de segundos, y perder el
+      // trabajo del dueño por eso es peor que esperar.
+      respuesta = await conReintentos(
+        () => _cliente
+            .post(
+              Uri.parse('$_baseUrl/subir-foto'),
+              headers: {
+                'Authorization': 'Bearer $idToken',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'imagenBase64': base64Encode(bytes),
+                'mimeType': mimeType,
+                'carpeta': carpeta,
+              }),
+            )
+            .timeout(const Duration(seconds: 30)),
+      );
     } on SocketException {
       throw const CloudinaryException('Sin conexión para subir la foto.');
+    } on TimeoutException {
+      throw const CloudinaryException('La subida tardó demasiado.');
     }
 
     if (respuesta.statusCode != 200) {

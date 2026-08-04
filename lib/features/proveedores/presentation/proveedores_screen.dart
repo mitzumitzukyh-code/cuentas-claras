@@ -10,6 +10,7 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/proveedor_repository.dart';
 import '../domain/proveedor.dart';
 import 'anotar_movimiento_proveedor_screen.dart';
+import '../../../shared/utils/errores.dart';
 
 final _busquedaProveedorProvider = StateProvider<String>((_) => '');
 
@@ -43,7 +44,7 @@ class ProveedoresScreen extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'No se pudo cargar: $e',
+                      mensajeDeError(e, accion: 'cargar tus proveedores'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.libreta.textoMuted),
                     ),

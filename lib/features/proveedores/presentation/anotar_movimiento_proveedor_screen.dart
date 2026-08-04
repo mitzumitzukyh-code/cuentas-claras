@@ -8,6 +8,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/proveedor_repository.dart';
 import '../domain/proveedor.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Anotar compra a crédito o pago a un proveedor (réplica visual de
 /// `P2/P3 · NUEVA DEUDA / REGISTRAR PAGO`, `Lote H · Cierre y Proveedores`).
@@ -99,7 +100,7 @@ class _AnotarMovimientoProveedorScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo guardar: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensajeDeError(e, accion: 'guardar'))));
     }
   }
 

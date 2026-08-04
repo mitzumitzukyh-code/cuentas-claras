@@ -14,6 +14,7 @@ import '../../negocio/data/negocio_repository.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
 import '../../ventas/data/venta_repository.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Formato de la imagen para el Estado de WhatsApp (`Lote O · P0`).
 enum FormatoEstado {
@@ -177,7 +178,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No se pudo generar la imagen: $e')),
+          SnackBar(content: Text(mensajeDeError(e, accion: 'generar la imagen'))),
         );
       }
     } finally {

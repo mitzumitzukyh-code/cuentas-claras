@@ -13,6 +13,7 @@ import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
 import '../data/proveedor_repository.dart';
 import '../domain/proveedor.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Detalle de un proveedor (réplica visual de `P3 · DETALLE PROVEEDOR`,
 /// `Lote H · Cierre y Proveedores`).
@@ -112,7 +113,7 @@ class ProveedorDetalleScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               movimientosAsync.when(
                 loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
-                error: (e, _) => Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('No se pudo cargar: $e')),
+                error: (e, _) => Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text(mensajeDeError(e, accion: 'cargar los movimientos'))),
                 data: (movs) => movs.isEmpty
                     ? Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),

@@ -272,6 +272,21 @@ en `urgencias.dart`: una urgencia se emite sobre datos leídos o no se emite.
 - **Guardar fuera del mes visible lo dice** y ofrece ir: "Gasto guardado en
   julio 2026 · [Ver julio 2026]".
 
+## 8.c.3 El error crudo no se le enseña nunca al usuario
+
+`mensajeDeError(e, accion: 'guardar el gasto')`
+(`lib/shared/utils/errores.dart`) traduce cualquier excepción a una frase que
+un bodeguero entiende y manda el detalle a la consola. Distingue tres casos:
+sin conexión, permiso denegado y el resto. Nadie debe volver a escribir
+`Text('No se pudo X: $e')` — se vio en dispositivo un
+«ClientException with SocketException: Failed host lookup…» en pantalla, y lo
+único que eso le enseña a un dueño es que la app se rompió.
+
+`conReintentos(...)` del mismo archivo hace tres intentos con esperas
+crecientes (1 s, 2 s, 4 s) y **solo** reintenta lo que puede mejorar esperando:
+un permiso denegado o un archivo inválido se propagan al primer intento. Lo
+usan la subida de fotos a Cloudinary y las lecturas con IA.
+
 ## 8.d Infraestructura
 
 Cuentas de infraestructura documentadas en `INFRA.local.md` (no versionado).

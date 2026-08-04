@@ -13,6 +13,7 @@ import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
 import '../domain/gasto.dart';
 import 'gasto_detalle_screen.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Pantalla 9 — Gastos del mes (réplica visual de `P0 · GASTOS`,
 /// `Lote C · Gastos y Productos`).
@@ -66,7 +67,7 @@ class GastosScreen extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo eliminar: $e')),
+        SnackBar(content: Text(mensajeDeError(e, accion: 'eliminar el gasto'))),
       );
     }
   }

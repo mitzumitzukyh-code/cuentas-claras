@@ -8,6 +8,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Anotar fiado o abono (réplica visual de `P2 · ANOTAR FIADO/ABONO`,
 /// `Lote G · Fiados`).
@@ -97,7 +98,7 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
       if (!mounted) return;
       setState(() => _guardando = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo guardar: $e')),
+        SnackBar(content: Text(mensajeDeError(e, accion: 'guardar'))),
       );
     }
   }

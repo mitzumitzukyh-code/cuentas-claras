@@ -27,6 +27,7 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
 import '../../notificaciones/presentation/avisos_tasa_seccion.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Ajustes de la cuenta (réplica visual de `P3 · AJUSTES`, `Lote E ·
 /// Negocio y Perfil`).
@@ -102,7 +103,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo exportar: $e'),
+          content: Text(mensajeDeError(e, accion: 'exportar tus datos')),
           backgroundColor: AppColors.peligro,
         ),
       );
@@ -137,7 +138,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       setState(() => _guardando = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudieron guardar los ajustes: $e'),
+          content: Text(mensajeDeError(e, accion: 'guardar los ajustes')),
           backgroundColor: LibretaColors.peligro,
         ),
       );
@@ -165,7 +166,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo guardar: $e'),
+          content: Text(mensajeDeError(e, accion: 'guardar')),
           backgroundColor: LibretaColors.peligro,
         ),
       );
@@ -210,7 +211,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo guardar: $e'),
+          content: Text(mensajeDeError(e, accion: 'guardar')),
           backgroundColor: LibretaColors.peligro,
         ),
       );
@@ -268,7 +269,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
       setState(() => _subiendoFoto = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo subir la foto: $e'),
+          content: Text(mensajeDeError(e, accion: 'subir la foto')),
           backgroundColor: LibretaColors.peligro,
         ),
       );

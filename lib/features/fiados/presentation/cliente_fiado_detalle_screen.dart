@@ -11,6 +11,7 @@ import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Detalle de un cliente con fiado (réplica visual de `P1 · DETALLE
 /// CLIENTE`, `Lote G · Fiados`).
@@ -219,7 +220,7 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
                 ),
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text('No se pudo cargar: $e', style: TextStyle(color: context.libreta.textoMuted)),
+                  child: Text(mensajeDeError(e, accion: 'cargar los movimientos'), style: TextStyle(color: context.libreta.textoMuted)),
                 ),
                 data: (movs) => movs.isEmpty
                     ? Padding(

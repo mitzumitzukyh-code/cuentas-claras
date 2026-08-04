@@ -6,6 +6,7 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/invitacion.dart';
+import '../../../shared/utils/errores.dart';
 
 /// Unirse a un negocio con un código de invitación (réplica visual de
 /// `P2 · UNIRSE`, `Lote F · Onboarding y Sistema`).
@@ -82,7 +83,7 @@ class _UnirseCodigoScreenState extends ConsumerState<UnirseCodigoScreen> {
       if (!mounted) return;
       setState(() {
         _uniendo = false;
-        _error = 'No se pudo completar: $e';
+        _error = mensajeDeError(e, accion: 'unirte al negocio');
       });
     }
   }
