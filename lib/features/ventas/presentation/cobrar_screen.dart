@@ -15,6 +15,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../core/utils/telefono_ve.dart';
 import '../../../shared/utils/whatsapp.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
@@ -30,6 +31,23 @@ import '../data/venta_repository.dart';
 import '../domain/item_carrito.dart';
 import '../domain/venta.dart';
 import 'widgets/overlay_cobrado.dart';
+
+/// A quién va una cotización.
+///
+/// **No es un `ClienteFiado` a propósito.** Antes había que elegir a alguien de
+/// Fiados para poder cotizar, lo que obligaba a inventar deudores para gente
+/// que solo preguntó un precio. Una cotización es para cualquiera —el que pasó
+/// preguntando, el que llamó— y no crea cliente ni deuda: vive lo que dura el
+/// mensaje.
+class _Destinatario {
+  const _Destinatario({required this.telefono, this.nombre});
+
+  /// Ya normalizado a E.164 sin `+`, listo para `wa.me`.
+  final String telefono;
+
+  /// Opcional: si no lo hay, el mensaje saluda sin nombre.
+  final String? nombre;
+}
 
 /// Qué se está armando: una venta que se cobra ya, o una cotización que se
 /// manda por WhatsApp y no toca inventario ni caja.
@@ -103,6 +121,10 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
   MetodoPago _metodo = MetodoPago.efectivo;
   bool _fiado = false;
   ClienteFiado? _cliente;
+
+  /// A quién va la cotización. Independiente de [_cliente], que es para fiar:
+  /// fiar exige un cliente real con cuenta; cotizar, no.
+  _Destinatario? _destinatario;
 
   final _busqueda = TextEditingController();
   String _termino = '';
@@ -438,9 +460,146 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
 
   // ── Cliente ─────────────────────────────────────────────────────────────
 
-  Future<void> _elegirCliente() async {
-    final elegido = await _abrirSelectorCliente();
-    if (elegido != null && mounted) setState(() => _cliente = elegido);
+  /// A quién va la cotización: alguien de Fiados, o un número suelto.
+  ///
+  /// El número escrito a mano es el caso común —quien pasó preguntando— y no
+  /// guarda nada: ni cliente, ni deuda. Si el dueño quiere conservarlo, lo
+  /// agrega desde Fiados, que es una decisión aparte.
+  ///
+  /// Falta el tercer camino, el contacto de la agenda: la app no pide hoy el
+  /// permiso de contactos y no vale gastarlo en esto.
+  Future<void> _elegirDestinatario() async {
+    final via = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: context.libreta.papel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const LibretaIcono(AppAssets.navClientes),
+              title: const Text('Un cliente de Fiados'),
+              subtitle: const Text('de los que ya tienes guardados'),
+              onTap: () => Navigator.of(ctx).pop('fiado'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dialpad),
+              title: const Text('Escribir un número'),
+              subtitle: const Text('no se guarda como cliente'),
+              onTap: () => Navigator.of(ctx).pop('numero'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (via == null || !mounted) return;
+
+    if (via == 'fiado') {
+      final cliente = await _abrirSelectorCliente();
+      if (cliente == null || !mounted) return;
+      final tel = normalizarTelefonoVE(cliente.telefono);
+      if (tel == null) {
+        _aviso('${cliente.nombre} no tiene un teléfono válido guardado.');
+        return;
+      }
+      setState(() {
+        _destinatario = _Destinatario(telefono: tel, nombre: cliente.nombre);
+      });
+      return;
+    }
+
+    final escrito = await _pedirNumeroSuelto();
+    if (escrito != null && mounted) setState(() => _destinatario = escrito);
+  }
+
+  Future<_Destinatario?> _pedirNumeroSuelto() {
+    final telefono = TextEditingController();
+    final nombre = TextEditingController();
+    String? error;
+
+    return showModalBottomSheet<_Destinatario>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.libreta.papel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 18,
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 18,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '¿A qué número?',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: ctx.libreta.textoFuerte,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'No se guarda como cliente ni queda debiendo nada.',
+                style: TextStyle(fontSize: 12.5, color: ctx.libreta.textoMuted),
+              ),
+              const SizedBox(height: 14),
+              LibretaInput(
+                controller: telefono,
+                label: 'Teléfono',
+                hint: '0414-510-0255',
+                keyboardType: TextInputType.phone,
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  error!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: LibretaColors.peligro,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              LibretaInput(
+                controller: nombre,
+                label: 'Nombre (opcional)',
+                hint: 'Para saludarlo por su nombre',
+              ),
+              const SizedBox(height: 16),
+              LibretaButton(
+                label: 'Usar este número',
+                onPressed: () {
+                  final tel = normalizarTelefonoVE(telefono.text);
+                  if (tel == null) {
+                    setSheet(() => error =
+                        'Ese no parece un número venezolano. Ej: 0414-510-0255');
+                    return;
+                  }
+                  final n = nombre.text.trim();
+                  Navigator.of(ctx).pop(
+                    _Destinatario(telefono: tel, nombre: n.isEmpty ? null : n),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).whenComplete(() {
+      telefono.dispose();
+      nombre.dispose();
+    });
   }
 
   /// Selector puro: no toca el estado de la pantalla, solo devuelve lo
@@ -701,7 +860,8 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     final carrito = ref.read(carritoProvider);
     final total = _totalDe(carrito);
     if (total <= 0) return;
-    if (_cliente == null) {
+    final destino = _destinatario;
+    if (destino == null) {
       _aviso('Elige a quién va la cotización.');
       return;
     }
@@ -713,8 +873,8 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
         .join('\n');
 
     final mensaje = StringBuffer()
-      ..writeln('Hola ${_cliente!.nombre} 👋 aquí tu cotización de '
-          '${negocio.nombre}:')
+      ..writeln('Hola${destino.nombre == null ? '' : ' ${destino.nombre}'} 👋 '
+          'aquí tu cotización de ${negocio.nombre}:')
       ..writeln()
       ..writeln(lineas)
       ..writeln()
@@ -729,7 +889,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     // resolver a una persona esté o no agendada.
     final resultado = await abrirWhatsApp(
       texto: mensaje.toString(),
-      telefono: _cliente!.telefono,
+      telefono: destino.telefono,
     );
     if (!mounted) return;
 
@@ -744,6 +904,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     setState(() {
       _montoLibre = 0;
       _cliente = null;
+      _destinatario = null;
       _modo = _Modo.venta;
     });
     final aviso = avisoDe(resultado);
@@ -845,9 +1006,11 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                         if (esCotizacion) ...[
                           const SizedBox(height: 10),
                           _TarjetaCliente(
-                            cliente: _cliente,
+                            nombre: _destinatario?.nombre,
+                            telefono: _destinatario?.telefono,
+                            vacio: _destinatario == null,
                             sufijo: 'recibe la cotización',
-                            onCambiar: _elegirCliente,
+                            onCambiar: _elegirDestinatario,
                           ),
                         ],
                       ],
@@ -1135,21 +1298,29 @@ class _PastillaMetodo extends StatelessWidget {
 /// Tarjeta del cliente al que se le fía o se le cotiza.
 class _TarjetaCliente extends StatelessWidget {
   const _TarjetaCliente({
-    required this.cliente,
+    required this.nombre,
+    required this.telefono,
+    required this.vacio,
     required this.sufijo,
     required this.onCambiar,
   });
 
-  final ClienteFiado? cliente;
+  /// Puede ser `null` aun con destinatario elegido: un número suelto no
+  /// necesita nombre.
+  final String? nombre;
+  final String? telefono;
+
+  /// `true` = todavía no se eligió a nadie.
+  final bool vacio;
   final String sufijo;
   final VoidCallback onCambiar;
 
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    final tel = cliente?.telefono;
+    final tel = telefono;
     return GestureDetector(
-      onTap: cliente == null ? onCambiar : null,
+      onTap: vacio ? onCambiar : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
@@ -1159,7 +1330,7 @@ class _TarjetaCliente extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _Avatar(nombre: cliente?.nombre),
+            _Avatar(nombre: nombre),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -1167,7 +1338,9 @@ class _TarjetaCliente extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    cliente?.nombre ?? 'Elegir cliente',
+                    vacio
+                        ? 'Elegir a quién'
+                        : (nombre ?? 'Número suelto'),
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
@@ -1177,8 +1350,8 @@ class _TarjetaCliente extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    cliente == null
-                        ? 'toca para buscarlo'
+                    vacio
+                        ? 'un cliente o un número suelto'
                         : [
                             if (tel != null && tel.isNotEmpty) tel,
                             sufijo,
@@ -1318,8 +1491,12 @@ class _HojaConfirmarPagoState extends State<_HojaConfirmarPago> {
             ),
             if (_fiado) ...[
               const SizedBox(height: 12),
+              // Fiar sí exige un cliente real: la deuda tiene que quedar en la
+              // cuenta de alguien.
               _TarjetaCliente(
-                cliente: _cliente,
+                nombre: _cliente?.nombre,
+                telefono: _cliente?.telefono,
+                vacio: _cliente == null,
                 sufijo: 'se anota a su cuenta',
                 onCambiar: _elegirCliente,
               ),
