@@ -209,7 +209,8 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     unawaited(HapticFeedback.selectionClick());
   }
 
-  /// Quita una unidad desde la propia ficha del catálogo (toque largo).
+  /// Quita una unidad desde la propia ficha del catálogo (botón − o toque
+  /// largo), sin abrir el carrito.
   ///
   /// Se descuenta de la ÚLTIMA línea de ese producto: con variantes hay varias
   /// —una por talla/color— y la última es la que el dueño acaba de tocar, que
@@ -1698,9 +1699,10 @@ class _GridCatalogo extends StatelessWidget {
 /// cliente delante tocaba otra vez por las dudas — cobrando doble y
 /// descuadrando el inventario.
 ///
-/// El toque largo quita una unidad. Se eligió sobre unos controles −/+ dentro
-/// de la ficha porque la celda mide 58 px de alto: los botones no caben sin
-/// rehacer el grid entero.
+/// Quitar tiene un botón visible, no solo un gesto. El toque largo sobre la
+/// ficha también resta —queda como atajo para quien lo descubra— pero un gesto
+/// invisible no es una salida: quien agregó de más se quedaba sin forma de
+/// deshacerlo salvo abriendo el carrito.
 class _FichaProducto extends StatelessWidget {
   const _FichaProducto({
     required this.producto,
@@ -1723,10 +1725,13 @@ class _FichaProducto extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: enCarrito ? onQuitar : null,
-      child: Stack(
-        children: [
-          Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 12,
+          right: enCarrito ? 6 : 12,
+          top: 10,
+          bottom: 10,
+        ),
         decoration: BoxDecoration(
           // Verde de marca teñido, no un gris de "seleccionado": el estado
           // dice "esto ya está sumado", que es información de plata.
@@ -1739,58 +1744,59 @@ class _FichaProducto extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(13),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              producto.nombre,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: t.textoFuerte,
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Text(
-                  MoneyFormatter.usd(producto.precio),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: LibretaColors.verde,
-                  ),
-                ),
-                if (producto.tieneOferta) ...[
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      MoneyFormatter.usd(producto.precioAnterior!),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: t.textoMuted,
-                        decoration: TextDecoration.lineThrough,
-                      ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    producto.nombre,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: t.textoFuerte,
+                      height: 1.2,
                     ),
                   ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        MoneyFormatter.usd(producto.precio),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: LibretaColors.verde,
+                        ),
+                      ),
+                      if (producto.tieneOferta) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            MoneyFormatter.usd(producto.precioAnterior!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: t.textoMuted,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
-              ],
+              ),
             ),
-          ],
-        ),
-          ),
-          if (enCarrito)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: Container(
+            if (enCarrito) ...[
+              const SizedBox(width: 6),
+              Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1809,8 +1815,35 @@ class _FichaProducto extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-        ],
+              const SizedBox(width: 2),
+              // El botón se come el toque antes de que llegue a la ficha: si
+              // burbujeara, quitar una unidad agregaría otra en el mismo gesto.
+              GestureDetector(
+                onTap: onQuitar,
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: Center(
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: LibretaColors.verde),
+                      ),
+                      child: const Icon(
+                        Icons.remove,
+                        size: 15,
+                        color: LibretaColors.verde,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
