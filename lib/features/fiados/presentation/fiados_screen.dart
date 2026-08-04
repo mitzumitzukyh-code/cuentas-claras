@@ -149,7 +149,11 @@ class FiadosScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 16),
 
-                      if (conDeuda.isEmpty)
+                      // El estado vacío es "no tienes clientes", NO "nadie te
+                      // debe": con `conDeuda.isEmpty` los clientes al día
+                      // volvían a esconderse en cuanto se saldaba el último,
+                      // que es justo lo que se acababa de arreglar.
+                      if (todos.isEmpty)
                         LibretaEstadoVacio(
                           ilustracion: Ilustracion.sinFiados,
                           titulo: 'Nadie te debe… por ahora',
@@ -166,6 +170,18 @@ class FiadosScreen extends ConsumerWidget {
                           ),
                         )
                       else ...[
+                        if (conDeuda.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Text(
+                              'Nadie te debe nada ahora mismo.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: LibretaColors.verde,
+                              ),
+                            ),
+                          ),
                         _RecordatorioVencido(clientes: conDeuda),
                         Text(
                           'TUS CLIENTES',
