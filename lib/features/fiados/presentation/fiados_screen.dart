@@ -6,6 +6,7 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -40,18 +41,19 @@ class FiadosScreen extends ConsumerWidget {
       body: LibretaPageBackground(
         child: SafeArea(
           child: clientesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error:
-                (e, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      mensajeDeError(e, accion: 'cargar tus fiados'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: context.libreta.textoMuted),
-                    ),
-                  ),
+            loading: () => const Center(child: LibretaCargando()),
+            // Con Reintentar: antes el fallo era un texto suelto y la unica
+            // salida era irse a otra pestana y volver.
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: LibretaErrorCarga(
+                  mensaje: mensajeDeError(e, accion: 'cargar tus fiados'),
+                  detalleTecnico: e,
+                  onReintentar: () => ref.invalidate(clientesFiadoProvider),
                 ),
+              ),
+            ),
             data: (todos) {
               final conDeuda = todos.where((c) => !c.saldada).toList();
               final total = conDeuda.fold<double>(0, (s, c) => s + c.saldoUSD);
@@ -305,8 +307,8 @@ class _RecordatorioVencido extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
         decoration: BoxDecoration(
-          color: const Color(0x140E9F6E),
-          border: Border.all(color: const Color(0x4D0E9F6E), width: 1.5),
+          color: LibretaColors.verde.withValues(alpha: .08),
+          border: Border.all(color: LibretaColors.verde.withValues(alpha: .30), width: 1.5),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -477,7 +479,7 @@ class _FilaCliente extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color:
                           vieja
-                              ? const Color(0xFFF2A93C)
+                              ? LibretaColors.ambarSuperficie
                               : context.libreta.textoMuted,
                     ),
                   ),

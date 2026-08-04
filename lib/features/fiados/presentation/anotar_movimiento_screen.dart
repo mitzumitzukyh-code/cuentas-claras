@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/numero_ve.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -60,7 +61,10 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
     super.dispose();
   }
 
-  double? get _montoValor => double.tryParse(_monto.text.replaceAll(',', '.'));
+  /// Por `normalizarNumeroVE`: con `replaceAll(',', '.')` un fiado de
+  /// "1.500" se anotaba como 1,5 —el punto se tomaba por decimal— en un libro
+  /// mayor que nunca se edita ni se borra.
+  double? get _montoValor => normalizarNumeroVE(_monto.text);
 
   bool get _puedeGuardar =>
       _nombre.text.trim().isNotEmpty &&
@@ -98,7 +102,7 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
       if (!mounted) return;
       setState(() => _guardando = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensajeDeError(e, accion: 'guardar'))),
+        SnackBar(content: Text(mensajeDeError(e, accion: 'guardar el movimiento'))),
       );
     }
   }

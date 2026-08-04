@@ -149,9 +149,12 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Fiados (por cobrar)
 
-- [ ] **Clientes fiados** — `/fiados` · [fiados_screen.dart](lib/features/fiados/presentation/fiados_screen.dart)
-- [ ] **Detalle de cliente** — `/fiados/:clienteId` · [cliente_fiado_detalle_screen.dart](lib/features/fiados/presentation/cliente_fiado_detalle_screen.dart)
-- [ ] **Anotar fiado / abono** — `/fiados/:clienteId/movimiento` · [anotar_movimiento_screen.dart](lib/features/fiados/presentation/anotar_movimiento_screen.dart)
+- [x] **Clientes fiados** — `/fiados` · [fiados_screen.dart](lib/features/fiados/presentation/fiados_screen.dart)
+      · 4 (error sin Reintentar, 3 colores)
+- [x] **Detalle de cliente** — `/fiados/:clienteId` · [cliente_fiado_detalle_screen.dart](lib/features/fiados/presentation/cliente_fiado_detalle_screen.dart)
+      · 1 color. Ya usaba `ModoPrecio` desde el cableado
+- [x] **Anotar fiado / abono** — `/fiados/:clienteId/movimiento` · [anotar_movimiento_screen.dart](lib/features/fiados/presentation/anotar_movimiento_screen.dart)
+      · 2 («1.500» anotado como 1,5 en el libro mayor; `accion` vaga)
 
 ## Proveedores (por pagar)
 
