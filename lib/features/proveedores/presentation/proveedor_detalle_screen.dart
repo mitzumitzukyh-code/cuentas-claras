@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -78,7 +79,7 @@ class ProveedorDetalleScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
-                  border: Border.all(color: const Color(0x141E2A38)),
+                  border: Border.all(color: context.libreta.renglon),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -113,8 +114,22 @@ class ProveedorDetalleScreen extends ConsumerWidget {
               Text('MOVIMIENTOS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: context.libreta.textoMuted)),
               const SizedBox(height: 4),
               movimientosAsync.when(
-                loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
-                error: (e, _) => Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text(mensajeDeError(e, accion: 'cargar los movimientos'))),
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: LibretaCargando(),
+                ),
+                // Con Reintentar: el error del historial de movimientos era un
+                // texto suelto sin forma de volver a intentarlo.
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: LibretaErrorCarga(
+                    mensaje: mensajeDeError(e, accion: 'cargar los movimientos'),
+                    detalleTecnico: e,
+                    onReintentar: () => ref.invalidate(
+                      movimientosProveedorProvider(proveedor.id),
+                    ),
+                  ),
+                ),
                 data: (movs) => movs.isEmpty
                     ? Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),

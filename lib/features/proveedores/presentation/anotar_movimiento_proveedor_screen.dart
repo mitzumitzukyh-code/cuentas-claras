@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/numero_ve.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -59,7 +60,10 @@ class _AnotarMovimientoProveedorScreenState
     super.dispose();
   }
 
-  double? get _montoValor => double.tryParse(_monto.text.replaceAll(',', '.'));
+  /// Por `normalizarNumeroVE`: con `replaceAll(',', '.')` una compra de
+  /// "1.500" se anotaba como 1,5 en un libro mayor que no se edita ni se
+  /// borra.
+  double? get _montoValor => normalizarNumeroVE(_monto.text);
 
   bool get _puedeGuardar =>
       _nombre.text.trim().isNotEmpty && _montoValor != null && _montoValor! > 0 && !_guardando;
@@ -100,7 +104,7 @@ class _AnotarMovimientoProveedorScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensajeDeError(e, accion: 'guardar'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensajeDeError(e, accion: 'guardar el movimiento'))));
     }
   }
 

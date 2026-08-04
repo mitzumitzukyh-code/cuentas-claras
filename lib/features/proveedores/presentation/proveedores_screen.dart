@@ -6,6 +6,7 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../data/proveedor_repository.dart';
 import '../domain/proveedor.dart';
@@ -38,18 +39,19 @@ class ProveedoresScreen extends ConsumerWidget {
       body: LibretaPageBackground(
         child: SafeArea(
           child: proveedoresAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error:
-                (e, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      mensajeDeError(e, accion: 'cargar tus proveedores'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: context.libreta.textoMuted),
-                    ),
-                  ),
+            loading: () => const Center(child: LibretaCargando()),
+            // Con Reintentar: el fallo era un texto suelto y la unica salida
+            // era irse a otra pestana y volver.
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: LibretaErrorCarga(
+                  mensaje: mensajeDeError(e, accion: 'cargar tus proveedores'),
+                  detalleTecnico: e,
+                  onReintentar: () => ref.invalidate(proveedoresProvider),
                 ),
+              ),
+            ),
             data: (todos) {
               final conDeuda = todos.where((p) => p.saldoUSD > 0).toList();
               final total = conDeuda.fold<double>(0, (s, p) => s + p.saldoUSD);
@@ -293,7 +295,7 @@ class _FilaProveedor extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0x1F0E9F6E),
+                color: LibretaColors.verde.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(11),
               ),
               alignment: Alignment.center,

@@ -158,9 +158,12 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Proveedores (por pagar)
 
-- [ ] **Proveedores** — `/proveedores` · [proveedores_screen.dart](lib/features/proveedores/presentation/proveedores_screen.dart)
-- [ ] **Detalle de proveedor** — `/proveedores/:proveedorId` · [proveedor_detalle_screen.dart](lib/features/proveedores/presentation/proveedor_detalle_screen.dart)
-- [ ] **Anotar compra / pago** — `/proveedores/:proveedorId/movimiento` · [anotar_movimiento_proveedor_screen.dart](lib/features/proveedores/presentation/anotar_movimiento_proveedor_screen.dart)
+- [x] **Proveedores** — `/proveedores` · [proveedores_screen.dart](lib/features/proveedores/presentation/proveedores_screen.dart)
+      · 2 (error sin Reintentar, color)
+- [x] **Detalle de proveedor** — `/proveedores/:proveedorId` · [proveedor_detalle_screen.dart](lib/features/proveedores/presentation/proveedor_detalle_screen.dart)
+      · 2 (error de movimientos sin Reintentar, color)
+- [x] **Anotar compra / pago** — `/proveedores/:proveedorId/movimiento` · [anotar_movimiento_proveedor_screen.dart](lib/features/proveedores/presentation/anotar_movimiento_proveedor_screen.dart)
+      · 2 («1.500» anotado como 1,5; `accion` vaga)
 
 ## Cierre de caja
 
