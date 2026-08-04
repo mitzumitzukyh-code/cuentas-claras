@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
@@ -47,7 +46,8 @@ class ResumenDiaScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
-    final tasa = ref.watch(tasaActivaValorProvider);
+    final (principalNeto, secundarioNeto) =
+        montosDelNegocio(ref, cierre.netoUSD);
 
     return Scaffold(
       backgroundColor: context.libreta.papel,
@@ -92,8 +92,8 @@ class ResumenDiaScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: LibretaColors.verde,
                   borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x470E9F6E), offset: Offset(0, 12), blurRadius: 26),
+                  boxShadow: [
+                    BoxShadow(color: LibretaColors.verde.withValues(alpha: .28), offset: const Offset(0, 12), blurRadius: 26),
                   ],
                 ),
                 child: Column(
@@ -103,14 +103,15 @@ class ResumenDiaScreen extends ConsumerWidget {
                       'NETO EN CAJA',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: Color(0xD9FFFFFF)),
                     ),
+                    // El orden de las dos monedas lo decide el negocio.
                     Text(
-                      MoneyFormatter.usd(cierre.netoUSD),
+                      principalNeto,
                       style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.7),
                     ),
                     Text(
-                      tasa == null
+                      secundarioNeto == null
                           ? 'tasa no disponible'
-                          : '${MoneyFormatter.usdComoBs(cierre.netoUSD, tasa)} · a la tasa de hoy',
+                          : '$secundarioNeto · a la tasa de hoy',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xD9FFFFFF)),
                     ),
                   ],
@@ -121,7 +122,7 @@ class ResumenDiaScreen extends ConsumerWidget {
               Container(
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
-                  border: Border.all(color: const Color(0x141E2A38)),
+                  border: Border.all(color: context.libreta.renglon),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -145,8 +146,8 @@ class ResumenDiaScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0x21F2A93C),
-                    border: Border.all(color: const Color(0x59F2A93C)),
+                    color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
+                    border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .35)),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(

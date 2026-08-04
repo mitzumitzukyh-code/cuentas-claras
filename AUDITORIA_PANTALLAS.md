@@ -167,8 +167,11 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Cierre de caja
 
-- [ ] **Arqueo de caja** — `/arqueo` · [arqueo_caja_screen.dart](lib/features/cierre/presentation/arqueo_caja_screen.dart)
-- [ ] **Resumen del día** — `/arqueo/resumen/:cierreId` · [resumen_dia_screen.dart](lib/features/cierre/presentation/resumen_dia_screen.dart)
+- [x] **Arqueo de caja** — `/arqueo` · [arqueo_caja_screen.dart](lib/features/cierre/presentation/arqueo_caja_screen.dart)
+      · 5 (efectivo «1.500» contado como 1,5, `Text('$e')` crudo, carga sin
+      Reintentar, 3 colores) + `ModoPrecio` cableado
+- [x] **Resumen del día** — `/arqueo/resumen/:cierreId` · [resumen_dia_screen.dart](lib/features/cierre/presentation/resumen_dia_screen.dart)
+      · 4 colores + `ModoPrecio` cableado
 
 ## Reportes
 

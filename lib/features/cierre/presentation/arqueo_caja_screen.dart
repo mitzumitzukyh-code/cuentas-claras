@@ -6,6 +6,8 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/numero_ve.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
@@ -38,7 +40,7 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
   }
 
   double? get _contadoValor =>
-      double.tryParse(_contado.text.replaceAll(',', '.'));
+      normalizarNumeroVE(_contado.text);
 
   bool _esHoy(DateTime f) {
     final ahora = DateTime.now();
@@ -136,8 +138,19 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
       body: LibretaPageBackground(
         child: SafeArea(
           child: ventasAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
+            loading: () => const Center(child: LibretaCargando()),
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: LibretaErrorCarga(
+                  // Era `Text('$e')`: la excepcion cruda, en la pantalla de
+                  // cerrar la caja del dia.
+                  mensaje: mensajeDeError(e, accion: 'cargar el cierre'),
+                  detalleTecnico: e,
+                  onReintentar: () => ref.invalidate(ventasDelDiaProvider),
+                ),
+              ),
+            ),
             data: (ventas) {
               final gastos =
                   (gastosAsync.valueOrNull ?? const [])
@@ -265,7 +278,7 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                       Container(
                         decoration: BoxDecoration(
                           color: context.libreta.superficie,
-                          border: Border.all(color: const Color(0x141E2A38)),
+                          border: Border.all(color: context.libreta.renglon),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         clipBehavior: Clip.antiAlias,
@@ -305,7 +318,7 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: context.libreta.superficie,
-                          border: Border.all(color: const Color(0x141E2A38)),
+                          border: Border.all(color: context.libreta.renglon),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -329,10 +342,14 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                                   ),
                               onChanged: (_) => setState(() {}),
                             ),
+                            // Segun la moneda que el negocio eligio: si
+                            // trabaja en bolivares, cuenta el efectivo en
+                            // bolivares y el dolar es la referencia.
                             if (contado != null && tasa != null) ...[
                               const SizedBox(height: 6),
                               Text(
-                                MoneyFormatter.usdComoBs(contado, tasa),
+                                montosDelNegocio(ref, contado).$2 ??
+                                    MoneyFormatter.usdComoBs(contado, tasa),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: context.libreta.textoMuted,
@@ -369,8 +386,8 @@ class _ArqueoCajaScreenState extends ConsumerState<ArqueoCajaScreen> {
                                     decoration: BoxDecoration(
                                       color:
                                           descuadre == 0
-                                              ? const Color(0x1F0E9F6E)
-                                              : const Color(0x26F2A93C),
+                                              ? LibretaColors.verde.withValues(alpha: .12)
+                                              : LibretaColors.ambarSuperficie.withValues(alpha: .15),
                                       borderRadius: BorderRadius.circular(100),
                                     ),
                                     child: Text(
