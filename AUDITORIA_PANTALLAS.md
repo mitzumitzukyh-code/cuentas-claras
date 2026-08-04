@@ -273,6 +273,31 @@ Es de tiempo de compilación: un APK sin esa bandera no contiene el código, as�
 que no hay nada que activar desde el teléfono. La pantalla de planes avisa en
 rojo cuando está puesto. Hay un test que falla si alguien lo deja encendido.
 
+### Los negocios viejos no tienen `creadoPor`
+
+`planDelNegocioProvider` averigua el plan preguntándoselo al dueño, y sabe quién
+es por `negocios/{id}.creadoPor`. Los negocios creados antes de que ese campo
+existiera no lo traen, así que caen en `gratis` pase lo que pase: un dueño que
+pagó Premium se vería en el plan gratis sin entender por qué.
+
+No se puede arreglar desde la app. Las reglas declaran `creadoPor` inmutable en
+el `update`, y no por descuido — es la prueba que autoriza a concederse la
+membresía de dueño (`esFundador`). Reescribirlo desde el cliente permitiría
+regalar o robar esa capacidad.
+
+Va con el Admin SDK, ejecutado por una persona:
+
+```
+npm install firebase-admin
+set GOOGLE_APPLICATION_CREDENTIALS=C:\ruta\a\tu-clave.json
+node herramientas/rellenar_creado_por.js            # informe
+node herramientas/rellenar_creado_por.js --aplicar  # escribe
+```
+
+Solo rellena los negocios con **exactamente una** membresía de dueño. Con cero o
+con varias se listan aparte sin tocarlos: elegir sería repartir a dedo quién
+puede fundar membresías.
+
 ### Antes de que esto sirva
 
 **Hay que desplegar `firestore.rules`.** La regla de `suscripciones` está en el
