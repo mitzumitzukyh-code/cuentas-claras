@@ -254,7 +254,28 @@ class _ClienteFiadoDetalleScreenState
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _eliminar(context, cliente),
+                  icon: const Icon(
+                    Icons.person_remove_outlined,
+                    size: 17,
+                    color: LibretaColors.peligro,
+                  ),
+                  label: const Text(
+                    'Quitar cliente',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: LibretaColors.peligro,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 6),
               Text(
                 'MOVIMIENTOS',
                 style: TextStyle(
@@ -351,6 +372,60 @@ class _ClienteFiadoDetalleScreenState
           ),
       ],
     );
+  }
+
+  /// Quita al cliente de la lista.
+  ///
+  /// No lo destruye: sus movimientos son el libro mayor de lo que le fiaste y
+  /// te pagó, y las reglas de Firestore prohíben borrarlos. Se marca y deja de
+  /// aparecer.
+  ///
+  /// Si todavía debe, el diálogo lo dice con el monto: quitarlo hace que esa
+  /// deuda deje de contar en el total, y eso no puede pasar por descuido.
+  Future<void> _eliminar(BuildContext context, ClienteFiado cliente) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text('¿Quitar a ${cliente.nombre}?'),
+        content: Text(
+          cliente.saldada
+              ? 'Su cuenta está al día. Deja de aparecer en Fiados; el '
+                  'historial de lo que le fiaste y te pagó no se borra.'
+              : 'Todavía te debe ${MoneyFormatter.usd(cliente.saldoUSD)}. Si '
+                  'lo quitas, esa deuda deja de contar en tu total por cobrar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(true),
+            style: TextButton.styleFrom(foregroundColor: LibretaColors.peligro),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true) return;
+
+    final membresia = ref.read(membresiaActivaProvider);
+    if (membresia == null) return;
+    try {
+      await ref
+          .read(fiadoRepositoryProvider)
+          .eliminarCliente(membresia.negocioId, cliente.id);
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${cliente.nombre} ya no aparece en Fiados.')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensajeDeError(e, accion: 'quitar el cliente'))),
+      );
+    }
   }
 
   /// El comprobante de que la cuenta quedó en cero.

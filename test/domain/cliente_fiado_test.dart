@@ -138,6 +138,38 @@ void main() {
       expect(c.saldoAFavorUSD, 3);
     });
   });
+
+  group('ClienteFiado · quitar sin destruir', () {
+    test('por defecto no está eliminado', () {
+      final c = ClienteFiado(
+        id: 'c1',
+        nombre: 'Jose',
+        saldoUSD: 0,
+        actualizadoEn: _fecha,
+      );
+      expect(c.eliminado, false);
+      expect(c.eliminadoEn, isNull);
+      expect(c.toMap()['eliminado'], false);
+    });
+
+    test('un cliente quitado conserva su saldo y su nombre', () {
+      final c = ClienteFiado(
+        id: 'c2',
+        nombre: 'Jose',
+        saldoUSD: 5.5,
+        actualizadoEn: _fecha,
+        eliminado: true,
+        eliminadoEn: DateTime(2026, 8, 4),
+      );
+      final map = c.toMap();
+      // El borrado es lógico: sus movimientos son un libro mayor que las
+      // reglas de Firestore prohíben borrar.
+      expect(map['eliminado'], true);
+      expect(map['eliminadoEn'], isNotNull);
+      expect(map['saldoUSD'], 5.5);
+      expect(map['nombre'], 'Jose');
+    });
+  });
 }
 
 final _fecha = DateTime(2026, 7, 26);

@@ -32,11 +32,28 @@ class FiadoRepository {
       _clientes(negocioId).doc(clienteId).collection(FirestorePaths.movimientos);
 
   /// Clientes con cuenta de fiado, más deuda primero.
+  ///
+  /// El filtro de eliminados va en Dart y no en la consulta: un `where` más
+  /// obligaría a un índice compuesto con el `orderBy` por unas decenas de
+  /// clientes.
   Stream<List<ClienteFiado>> clientes(String negocioId) {
     return _clientes(negocioId)
         .orderBy('saldoUSD', descending: true)
         .snapshots()
-        .map((s) => s.docs.map(ClienteFiado.fromDoc).toList());
+        .map((s) =>
+            s.docs.map(ClienteFiado.fromDoc).where((c) => !c.eliminado).toList());
+  }
+
+  /// Quita al cliente de la lista sin destruir su historial.
+  ///
+  /// No se borra el documento: sus movimientos son un libro mayor que las
+  /// reglas prohíben borrar, y un borrado físico los dejaría huérfanos. Se
+  /// marca, y las consultas lo filtran.
+  Future<void> eliminarCliente(String negocioId, String clienteId) {
+    return _clientes(negocioId).doc(clienteId).update({
+      'eliminado': true,
+      'eliminadoEn': Timestamp.fromDate(DateTime.now()),
+    });
   }
 
   Stream<List<MovimientoFiado>> movimientos(String negocioId, String clienteId) {

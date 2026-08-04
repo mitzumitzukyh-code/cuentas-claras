@@ -12,6 +12,8 @@ class ClienteFiado {
     this.telefono,
     required this.saldoUSD,
     required this.actualizadoEn,
+    this.eliminado = false,
+    this.eliminadoEn,
   });
 
   final String id;
@@ -21,6 +23,15 @@ class ClienteFiado {
   /// Deuda pendiente en USD. `0` = al día.
   final double saldoUSD;
   final DateTime actualizadoEn;
+
+  /// Quitado de la lista, pero no destruido.
+  ///
+  /// El borrado es lógico por dos razones: sus movimientos son un libro mayor
+  /// que las reglas de Firestore prohíben borrar —un borrado físico del
+  /// cliente los dejaría huérfanos, sin dueño ni forma de auditarlos— y quitar
+  /// a alguien que debía plata es justo lo que hay que poder revisar después.
+  final bool eliminado;
+  final DateTime? eliminadoEn;
 
   /// Iniciales para el avatar, máximo dos letras.
   /// Céntimo de tolerancia: `saldoUSD` sale de sumar y restar `double`s, y
@@ -57,6 +68,8 @@ class ClienteFiado {
       saldoUSD: (data['saldoUSD'] as num?)?.toDouble() ?? 0,
       actualizadoEn:
           (data['actualizadoEn'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      eliminado: (data['eliminado'] as bool?) ?? false,
+      eliminadoEn: (data['eliminadoEn'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -65,6 +78,9 @@ class ClienteFiado {
         'telefono': telefono,
         'saldoUSD': saldoUSD,
         'actualizadoEn': Timestamp.fromDate(actualizadoEn),
+        'eliminado': eliminado,
+        'eliminadoEn':
+            eliminadoEn == null ? null : Timestamp.fromDate(eliminadoEn!),
       };
 }
 
