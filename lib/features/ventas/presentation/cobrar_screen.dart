@@ -541,7 +541,12 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             left: 20,
             right: 20,
             top: 18,
-            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 18,
+            // `viewInsets` cubre el teclado pero NO la barra de navegación
+            // del sistema: sin `viewPadding`, el botón de confirmar quedaba
+            // medio tapado por los botones de Android.
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom +
+                MediaQuery.viewPaddingOf(ctx).bottom +
+                18,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

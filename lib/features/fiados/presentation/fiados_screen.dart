@@ -168,7 +168,7 @@ class FiadosScreen extends ConsumerWidget {
                       else ...[
                         _RecordatorioVencido(clientes: conDeuda),
                         Text(
-                          'CLIENTES CON DEUDA',
+                          'TUS CLIENTES',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,

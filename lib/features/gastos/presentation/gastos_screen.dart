@@ -143,24 +143,11 @@ class GastosScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 10),
+              // El selector ya dice qué mes es y cuánto suma. El subtítulo
+              // "Este mes · −$X" que había aquí repetía el total y encima
+              // mentía en cuanto se navegaba a otro mes: mirando julio seguía
+              // diciendo "Este mes".
               _SelectorMes(mes: mes, total: total),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    'Este mes · ',
-                    style: TextStyle(fontSize: 13, color: context.libreta.textoMuted),
-                  ),
-                  Text(
-                    '−${MoneyFormatter.usd(total)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: context.libreta.textoFuerte,
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 18),
 
               if (cargando)

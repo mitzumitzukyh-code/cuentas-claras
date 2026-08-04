@@ -228,7 +228,10 @@ class _ClienteFiadoDetalleScreenState
                 children: [
                   Expanded(
                     child: LibretaButton(
-                      label: 'Registrar abono',
+                      // "Abonar" y no "Registrar abono": con el botón de
+                      // Recordar al lado, la etiqueta larga se cortaba en
+                      // "Registrar ab…" en una pantalla de 900 px.
+                      label: 'Abonar',
                       height: 48,
                       onPressed: () => context.push(
                         Routes.fiadoMovimientoDe(cliente.id),
