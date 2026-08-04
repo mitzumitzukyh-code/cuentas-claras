@@ -27,6 +27,21 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
   bool _bloqueado = false;
   bool _pidiendo = false;
 
+  /// Cuándo se desbloqueó por última vez.
+  ///
+  /// El diálogo de huella devuelve el foco a la app, y ese `resumed` llega por
+  /// el canal de plataforma sin orden garantizado respecto al `await` que lo
+  /// esperaba. Si llega justo después de bajar [_pidiendo], `_evaluar` volvería
+  /// a cerrar el candado y a pedir la huella otra vez, en bucle. Un desbloqueo
+  /// recién hecho invalida el siguiente `resumed`.
+  DateTime? _desbloqueadoEn;
+
+  bool get _recienDesbloqueado {
+    final t = _desbloqueadoEn;
+    return t != null &&
+        DateTime.now().difference(t) < const Duration(seconds: 2);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,14 +57,28 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState estado) {
-    // Al irse a segundo plano se vuelve a cerrar, para que el candado sirva
-    // de algo cuando el teléfono cambia de manos con la app abierta.
-    if (estado == AppLifecycleState.paused) {
-      if (ref.read(biometriaServiceProvider).activa) {
-        setState(() => _bloqueado = true);
-      }
-    } else if (estado == AppLifecycleState.resumed) {
-      _evaluar();
+    // El propio diálogo de huella le quita el foco a la app y dispara estos
+    // mismos eventos. Sin esta guarda, taparíamos y volveríamos a pedir la
+    // huella encima de la huella que ya se está pidiendo.
+    if (_pidiendo) return;
+
+    switch (estado) {
+      // Se cierra ya en `inactive`, no solo en `paused`. Android toma la
+      // miniatura del conmutador de tareas cuando la app pierde el foco, y
+      // eso ocurre *antes* de `paused`: cerrando solo ahí, la miniatura salía
+      // con las ventas del día a la vista. Que es exactamente el momento que
+      // este candado existe para tapar — el teléfono cambiando de manos con
+      // la app abierta.
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        if (ref.read(biometriaServiceProvider).activa) {
+          setState(() => _bloqueado = true);
+        }
+      case AppLifecycleState.resumed:
+        _evaluar();
+      case AppLifecycleState.detached:
+        break;
     }
   }
 
@@ -57,6 +86,8 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
     final servicio = ref.read(biometriaServiceProvider);
     if (!servicio.activa) return;
     if (ref.read(authStateProvider).valueOrNull == null) return;
+    // El `resumed` que sigue al propio desbloqueo no vuelve a cerrar nada.
+    if (_pidiendo || _recienDesbloqueado) return;
     if (!mounted) return;
     setState(() => _bloqueado = true);
     await _desbloquear();
@@ -69,6 +100,7 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
       final ok = await ref
           .read(biometriaServiceProvider)
           .pedir(motivo: 'Desbloquea Cuenta Clara');
+      if (ok) _desbloqueadoEn = DateTime.now();
       if (!mounted) return;
       if (ok) setState(() => _bloqueado = false);
     } finally {

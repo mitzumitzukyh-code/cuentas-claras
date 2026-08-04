@@ -57,9 +57,9 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
       salen en debug; en release, un texto que el dueño puede entender y actuar
 - [x] **Bloqueo biométrico** — overlay sobre toda la app · [bloqueo_biometrico.dart](lib/features/auth/presentation/bloqueo_biometrico.dart)
       · 3 arreglados (`_pidiendo` sin `finally`, overlay sin tapar la semántica,
-      color a mano). **Pendiente:** cerrar también en `inactive` para que el
-      candado tape la miniatura del conmutador de tareas — necesita prueba en
-      dispositivo
+      color a mano) + cierre en `inactive` para tapar la miniatura del
+      conmutador. **Sin verificar en dispositivo:** el ciclo real necesita el
+      candado activado y una huella registrada
 - [x] ~~**Configurando tu cuenta**~~ — **borrada**: nunca se instanció en toda
       la historia del repo, y su painter era un calco del `_CheckAnimadoPainter`
       del splash. `git show HEAD:lib/shared/presentation/configurando_screen.dart`
