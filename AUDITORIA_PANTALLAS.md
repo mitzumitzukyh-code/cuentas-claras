@@ -175,8 +175,11 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Reportes
 
-- [ ] **Reportes** — `/reportes` · [reportes_screen.dart](lib/features/reportes/presentation/reportes_screen.dart)
-- [ ] **Exportar reporte (Excel / PDF)** — push desde Reportes · [exportar_reporte_screen.dart](lib/features/reportes/presentation/exportar_reporte_screen.dart)
+- [x] **Reportes** — `/reportes` · [reportes_screen.dart](lib/features/reportes/presentation/reportes_screen.dart)
+      · 4 (un fallo de carga pintaba $0,00 y gráfico plano — «no vendiste
+      nada»; 3 colores)
+- [x] **Exportar reporte (Excel / PDF)** — push desde Reportes · [exportar_reporte_screen.dart](lib/features/reportes/presentation/exportar_reporte_screen.dart)
+      · limpia
 
 ## Catálogo
 

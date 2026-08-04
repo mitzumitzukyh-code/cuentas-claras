@@ -5,6 +5,8 @@ import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
+import '../../../shared/presentation/estado_carga.dart';
+import '../../../shared/utils/errores.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../ventas/domain/venta.dart';
@@ -140,10 +142,40 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
     }
 
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
-    final historial =
-        ref.watch(ventasReporteProvider(_periodo)).valueOrNull ?? const [];
+    final historialAsync = ref.watch(ventasReporteProvider(_periodo));
+    final historial = historialAsync.valueOrNull ?? const <Venta>[];
     final comparativo =
         ref.watch(ventasComparativoProvider(_periodo)).valueOrNull ?? const [];
+
+    // Un fallo de carga no puede verse como un mes sin ventas: con
+    // `valueOrNull ?? const []` la pantalla pintaba $0,00, ganancia «—» y el
+    // gráfico plano, que es decirle al dueño que no vendió nada.
+    if (!historialAsync.hasValue) {
+      return Scaffold(
+        backgroundColor: t.papel,
+        bottomNavigationBar: const AppBottomNav(activa: NavTab.reportes),
+        body: LibretaPageBackground(
+          child: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: historialAsync.hasError
+                    ? LibretaErrorCarga(
+                        mensaje: mensajeDeError(
+                          historialAsync.error,
+                          accion: 'cargar tus reportes',
+                        ),
+                        detalleTecnico: historialAsync.error,
+                        onReintentar: () =>
+                            ref.invalidate(ventasReporteProvider(_periodo)),
+                      )
+                    : const LibretaCargando(),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     final desde = _periodo.desde;
     final ventas = historial.where((v) => !v.anulada && !v.fecha.isBefore(desde)).toList();
@@ -236,10 +268,10 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                     decoration: BoxDecoration(
                       color: LibretaColors.verde,
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: const [
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x470E9F6E),
-                          offset: Offset(0, 12),
+                          color: LibretaColors.verde.withValues(alpha: .28),
+                          offset: const Offset(0, 12),
                           blurRadius: 26,
                         ),
                       ],
@@ -263,7 +295,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0x33FFFFFF),
+                                  color: Colors.white.withValues(alpha: .20),
                                   borderRadius: BorderRadius.circular(100),
                                 ),
                                 child: Text(
@@ -366,7 +398,7 @@ class _ReportesScreenState extends ConsumerState<ReportesScreen> {
                 bottom: 16,
                 child: LibretaButton(
                   label: 'Exportar reporte',
-                  color: const Color(0xFF1E2A38),
+                  color: LibretaColors.tarjetaOscura,
                   icon: const LibretaIcono(AppAssets.accCompartir, size: 18, color: Colors.white),
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
