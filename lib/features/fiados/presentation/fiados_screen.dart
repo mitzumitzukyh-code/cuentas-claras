@@ -268,7 +268,12 @@ class _RecordatorioVencido extends ConsumerWidget {
         inicial: borrador,
       );
       if (texto == null || texto.isEmpty) return;
-      await abrirWhatsApp(texto: texto, telefono: c.telefono);
+      final r = await abrirWhatsApp(texto: texto, telefono: c.telefono);
+      final aviso = avisoDe(r);
+      if (aviso != null && context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(aviso)));
+      }
     }
 
     // Verde, no ámbar: el diseño lo trata como una oportunidad de cobrar, no

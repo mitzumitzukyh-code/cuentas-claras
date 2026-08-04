@@ -207,7 +207,13 @@ class _BotonPedido extends ConsumerWidget {
         inicial: borrador,
       );
       if (texto == null || texto.isEmpty) return;
-      await abrirWhatsApp(texto: texto, telefono: proveedor.telefono);
+      final r =
+          await abrirWhatsApp(texto: texto, telefono: proveedor.telefono);
+      final aviso = avisoDe(r);
+      if (aviso != null && context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(aviso)));
+      }
     }
 
     return LibretaSecondaryButton(

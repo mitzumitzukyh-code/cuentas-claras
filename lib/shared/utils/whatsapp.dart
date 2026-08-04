@@ -2,28 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/utils/telefono_ve.dart';
 import '../presentation/libreta/libreta.dart';
+
+/// Cómo terminó un intento de abrir WhatsApp.
+enum ResultadoWhatsApp {
+  /// Se abrió el chat de esa persona.
+  chatDirecto,
+
+  /// Se abrió WhatsApp sin destinatario (no había número que usar).
+  sinDestinatario,
+
+  /// Había algo escrito como teléfono, pero no es un número venezolano que se
+  /// pueda marcar.
+  telefonoInvalido,
+
+  /// WhatsApp no está instalado: se cayó al compartir genérico.
+  compartirGenerico,
+}
 
 /// Abre WhatsApp con un mensaje ya escrito.
 ///
-/// Si hay número, va directo al chat de esa persona. Si no, igual abre
-/// WhatsApp (con `wa.me/?text=`, que deja elegir el contacto o el propio
-/// Estado dentro de la app) en vez de caer directo al selector genérico del
-/// sistema. Solo si WhatsApp no está instalado se usa el compartir genérico.
-/// Devuelve `false` solo si no se pudo abrir nada.
-Future<bool> abrirWhatsApp({required String texto, String? telefono}) async {
-  final numero = (telefono ?? '').replaceAll(RegExp(r'\D'), '');
+/// El número se normaliza a E.164 sin `+` ([normalizarTelefonoVE]): `wa.me`
+/// solo abre el chat si viene con código de país y sin el cero nacional. Con
+/// `04145100255` crudo WhatsApp no resuelve a nadie y termina mostrando el
+/// selector de contactos — que es exactamente lo que hacía antes.
+///
+/// `wa.me` abre el chat **esté o no el contacto en la agenda**, que es el caso
+/// del bodeguero con cuarenta fiados y ninguno guardado.
+///
+/// Devuelve cómo terminó para que quien llama pueda decirlo: un teléfono que no
+/// se puede marcar no se manda en silencio al selector de contactos.
+Future<ResultadoWhatsApp> abrirWhatsApp({
+  required String texto,
+  String? telefono,
+}) async {
+  final teniaAlgo = (telefono ?? '').trim().isNotEmpty;
+  final numero = normalizarTelefonoVE(telefono);
+
+  if (teniaAlgo && numero == null) return ResultadoWhatsApp.telefonoInvalido;
+
   final uri = Uri.parse(
-    numero.isNotEmpty
+    numero != null
         ? 'https://wa.me/$numero?text=${Uri.encodeComponent(texto)}'
         : 'https://wa.me/?text=${Uri.encodeComponent(texto)}',
   );
   if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-    return true;
+    return numero != null
+        ? ResultadoWhatsApp.chatDirecto
+        : ResultadoWhatsApp.sinDestinatario;
   }
+  // Sin WhatsApp instalado, el compartir genérico es lo único que queda.
   await Share.share(texto);
-  return true;
+  return ResultadoWhatsApp.compartirGenerico;
 }
+
+/// Frase para el usuario cuando el envío no llegó al chat directo, o `null` si
+/// llegó y no hay nada que decir.
+String? avisoDe(ResultadoWhatsApp r) => switch (r) {
+  ResultadoWhatsApp.chatDirecto => null,
+  ResultadoWhatsApp.sinDestinatario => null,
+  ResultadoWhatsApp.telefonoInvalido =>
+    'El teléfono guardado no es un número venezolano válido. Corrígelo para '
+        'escribirle directo.',
+  ResultadoWhatsApp.compartirGenerico =>
+    'No encontramos WhatsApp: se abrió el menú de compartir.',
+};
 
 /// Muestra el mensaje antes de mandarlo, para que se pueda editar.
 ///

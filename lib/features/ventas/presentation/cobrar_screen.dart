@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_assets.dart';
 import '../../productos/domain/variante.dart';
@@ -16,6 +15,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/whatsapp.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../fiados/data/fiado_repository.dart';
 import '../../fiados/domain/cliente_fiado.dart';
@@ -723,18 +723,30 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
       ..writeln()
       ..write('¿La confirmamos? Aviso cuando pases a recoger.');
 
-    await Share.share(
-      mensaje.toString(),
-      subject: 'Cotización ${negocio.nombre}',
+    // Al chat del cliente, no al selector de contactos: `abrirWhatsApp`
+    // normaliza el teléfono a E.164, que es lo que `wa.me` necesita para
+    // resolver a una persona esté o no agendada.
+    final resultado = await abrirWhatsApp(
+      texto: mensaje.toString(),
+      telefono: _cliente!.telefono,
     );
     if (!mounted) return;
+
+    // Con un teléfono que no se puede marcar el carrito NO se limpia: la
+    // cotización no salió y el dueño tiene que poder reintentarla.
+    if (resultado == ResultadoWhatsApp.telefonoInvalido) {
+      _aviso(avisoDe(resultado)!);
+      return;
+    }
+
     ref.read(carritoProvider.notifier).vaciar();
     setState(() {
       _montoLibre = 0;
       _cliente = null;
       _modo = _Modo.venta;
     });
-    _aviso('Cotización enviada.', error: false);
+    final aviso = avisoDe(resultado);
+    _aviso(aviso ?? 'Cotización enviada.', error: aviso != null);
   }
 
   // ── UI ──────────────────────────────────────────────────────────────────

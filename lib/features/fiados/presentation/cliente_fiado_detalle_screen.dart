@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
@@ -41,8 +41,7 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
     WidgetRef ref,
     ClienteFiado cliente,
   ) async {
-    final telefono = cliente.telefono?.replaceAll(RegExp(r'\D'), '') ?? '';
-    if (telefono.isEmpty) {
+    if ((cliente.telefono ?? '').trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Este cliente no tiene teléfono guardado.')),
       );
@@ -55,15 +54,11 @@ class ClienteFiadoDetalleScreen extends ConsumerWidget {
         'cariño su saldo pendiente en ${negocio?.nombre ?? "nuestro negocio"}: '
         '${MoneyFormatter.usd(cliente.saldoUSD)}$bs. ¡Gracias por su preferencia!';
 
-    final uri = Uri.parse(
-      'https://wa.me/$telefono?text=${Uri.encodeComponent(texto)}',
-    );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo abrir WhatsApp.')),
-        );
-      }
+    final r = await abrirWhatsApp(texto: texto, telefono: cliente.telefono);
+    final aviso = avisoDe(r);
+    if (aviso != null && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(aviso)));
     }
   }
 
