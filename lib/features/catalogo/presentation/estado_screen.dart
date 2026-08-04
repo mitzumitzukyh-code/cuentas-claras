@@ -108,8 +108,14 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   ];
 
   /// Todo el inventario, sin filtrar.
+  /// Sin precio no se anuncia: un Estado es una lista de precios, y un
+  /// renglón sin cifra solo genera preguntas que el dueño no quería responder.
+  /// La excepción es "Llegó nuevo", que a propósito no lleva precios — pero ahí
+  /// tampoco sirve un producto que ni siquiera se puede vender.
   List<Producto> get _todos =>
-      ref.watch(productosProvider).valueOrNull ?? const [];
+      (ref.watch(productosProvider).valueOrNull ?? const <Producto>[])
+          .where((p) => p.sePuedeVender)
+          .toList();
 
   /// Los productos que van a salir en la imagen, ya filtrados y ordenados.
   ///
@@ -117,7 +123,7 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
   /// historial, no por precio ni por fecha de alta: lo que mueve el negocio
   /// es lo que conviene anunciar.
   List<Producto> get _seleccion {
-    var lista = ref.watch(productosProvider).valueOrNull ?? const [];
+    var lista = _todos;
 
     final q = _busqueda.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -791,7 +797,7 @@ class _FilaEscoger extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    MoneyFormatter.usd(producto.precio),
+                    MoneyFormatter.usd(producto.precio!),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -800,7 +806,7 @@ class _FilaEscoger extends ConsumerWidget {
                   ),
                   if (tasa != null)
                     Text(
-                      MoneyFormatter.usdComoBs(producto.precio, tasa),
+                      MoneyFormatter.usdComoBs(producto.precio!, tasa),
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1520,7 +1526,7 @@ class _Grilla extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      MoneyFormatter.usd(p.precio),
+                      MoneyFormatter.usd(p.precio!),
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -1529,7 +1535,7 @@ class _Grilla extends StatelessWidget {
                     ),
                     if (tasa != null)
                       Text(
-                        MoneyFormatter.usdComoBs(p.precio, tasa!),
+                        MoneyFormatter.usdComoBs(p.precio!, tasa!),
                         style: const TextStyle(
                           fontSize: 10,
                           color: Color(0xB3FFFFFF),
@@ -1609,7 +1615,7 @@ class _Flyer extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  MoneyFormatter.usd(p.precio),
+                  MoneyFormatter.usd(p.precio!),
                   style: const TextStyle(
                     fontSize: 46,
                     fontWeight: FontWeight.w800,
@@ -1617,7 +1623,7 @@ class _Flyer extends StatelessWidget {
                     height: 1,
                   ),
                 ),
-                if (precioAnterior != null && precioAnterior! > p.precio) ...[
+                if (precioAnterior != null && precioAnterior! > p.precio!) ...[
                   const SizedBox(width: 12),
                   Text(
                     MoneyFormatter.usd(precioAnterior!),
@@ -1634,7 +1640,7 @@ class _Flyer extends StatelessWidget {
             if (tasa != null) ...[
               const SizedBox(height: 6),
               Text(
-                MoneyFormatter.usdComoBs(p.precio, tasa!),
+                MoneyFormatter.usdComoBs(p.precio!, tasa!),
                 style: const TextStyle(fontSize: 15, color: Color(0xD9FFFFFF)),
               ),
             ],
@@ -1656,7 +1662,7 @@ class _Combo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibles = productos.take(4).toList();
-    final total = visibles.fold<double>(0, (s, p) => s + p.precio);
+    final total = visibles.fold<double>(0, (s, p) => s + p.precio!);
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1700,7 +1706,7 @@ class _Combo extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  MoneyFormatter.usd(p.precio),
+                  MoneyFormatter.usd(p.precio!),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,

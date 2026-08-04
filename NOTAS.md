@@ -50,6 +50,15 @@ fuera de alcance a propósito.
 
 ## Pendientes
 
+- **La marca de agua no se puede condicionar todavía: no existe el plan.**
+  «Hecho con Cuenta Clara» sale siempre en el Estado y el catálogo, y según el
+  brief debería desaparecer en Premium. Pero `in_app_purchase` está declarado en
+  `pubspec.yaml` y **no se usa en una sola línea de `lib/`**: no hay compra, no
+  hay estado de suscripción, no hay `esPremium`. Hoy nadie puede ser Premium, así
+  que mostrarla a todos es correcto. Es un bug latente, no uno activo: se activa
+  el día que se cobre la primera suscripción, y ese día hay que acordarse de
+  gatearla en `_LienzoEstado` y en el texto del catálogo.
+
 - **El Worker sigue mandando un push por negocio.** La regla nueva
   (`resumenesAEnviar`) solo evita la contradicción "vendiste / no vendiste" en
   el mismo teléfono. Un dueño con tres negocios que vendieron sigue recibiendo

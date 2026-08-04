@@ -393,7 +393,9 @@ double valorDelDescuadre(
   for (final p in productos) {
     final c = contado[p.id];
     if (c == null) continue;
-    total += (c - p.cantidad) * (p.costo ?? p.precio);
+    // Sin costo ni precio no se puede valorar el descuadre: se cuenta como
+    // cero en plata, que es lo honesto, en vez de inventar un valor.
+    total += (c - p.cantidad) * (p.costo ?? p.precio ?? 0);
   }
   return total;
 }

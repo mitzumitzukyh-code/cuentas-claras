@@ -63,8 +63,8 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     final lineas = elegidos.map((p) {
       final bs = tasa == null
           ? ''
-          : ' (${MoneyFormatter.usdComoBs(p.precio, tasa)})';
-      return '• ${p.nombre} — ${MoneyFormatter.usd(p.precio)}$bs';
+          : ' (${MoneyFormatter.usdComoBs(p.precio!, tasa)})';
+      return '• ${p.nombre} — ${MoneyFormatter.usd(p.precio!)}$bs';
     }).join('\n');
 
     final metodos = negocio.metodosActivos.map((m) => m.resumen).join('\n');
@@ -128,7 +128,11 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final productos = ref.watch(productosProvider).valueOrNull ?? const [];
+    // Sin precio no entra al catálogo: una lista de precios con renglones sin
+    // cifra no sirve para lo que se manda, y el cliente pregunta igual.
+    final productos = (ref.watch(productosProvider).valueOrNull ?? const [])
+        .where((p) => p.sePuedeVender)
+        .toList();
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
 
@@ -487,7 +491,7 @@ class _TarjetaCatalogo extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    MoneyFormatter.usd(producto.precio),
+                    MoneyFormatter.usd(producto.precio!),
                     style: const TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
@@ -638,7 +642,7 @@ class _LienzoCatalogo extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                MoneyFormatter.usd(p.precio),
+                                MoneyFormatter.usd(p.precio!),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
@@ -647,7 +651,7 @@ class _LienzoCatalogo extends StatelessWidget {
                               ),
                               if (tasa != null)
                                 Text(
-                                  MoneyFormatter.usdComoBs(p.precio, tasa!),
+                                  MoneyFormatter.usdComoBs(p.precio!, tasa!),
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,

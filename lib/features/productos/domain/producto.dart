@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../core/utils/money_formatter.dart';
 import 'insumo.dart';
 import 'variante.dart';
 
@@ -24,7 +25,7 @@ class Producto {
     required this.id,
     required this.nombre,
     required this.categoria,
-    required this.precio,
+    this.precio,
     this.costo,
     required this.cantidad,
     this.fotoUrl,
@@ -41,14 +42,30 @@ class Producto {
     this.receta = const [],
     this.unidad,
     this.extras = const {},
+    this.requiereRevision = false,
   });
 
   final String id;
   final String nombre;
   final String categoria;
 
-  /// Precio en USD (CLAUDE.md §6: los precios se capturan en USD).
-  final double precio;
+  /// Precio en USD (CLAUDE.md §6). **Puede ser `null`.**
+  ///
+  /// `null` = no se sabe cuánto cuesta, no "cuesta cero". Pasa cuando la
+  /// lectura de una foto de inventario no pudo leer la cifra: antes se
+  /// guardaba `0`, y un producto en $0,00 se puede cobrar — se regala la
+  /// mercancía sin que nadie lo note. Un producto sin precio no entra al
+  /// carrito (ver [sePuedeVender]).
+  final double? precio;
+
+  /// Algo de este producto lo puso una lectura automática y nadie lo confirmó.
+  ///
+  /// Se marca al importar cuando un campo vino ilegible o ausente. Mientras
+  /// esté en `true`, el producto se muestra señalado en la mercancía.
+  final bool requiereRevision;
+
+  /// `false` si no se le puede poner precio a la venta.
+  bool get sePuedeVender => precio != null && precio! > 0;
 
   /// Lo que costó reponer una unidad (o un kilo), en USD. `null` si el dueño
   /// no lo ha registrado: la ganancia de ese producto no se puede calcular y
@@ -116,13 +133,24 @@ class Producto {
 
   /// Porcentaje de descuento derivado, para pintar "−16 %".
   int? get descuentoPct {
-    if (!enOferta || precioAnterior == null || precioAnterior == 0) return null;
-    return ((precioAnterior! - precio) / precioAnterior! * 100).round();
+    final actual = precio;
+    if (!enOferta || actual == null || precioAnterior == null ||
+        precioAnterior == 0) {
+      return null;
+    }
+    return ((precioAnterior! - actual) / precioAnterior! * 100).round();
   }
+
+  /// El precio listo para pintar.
+  ///
+  /// "Sin precio" y no "\$0,00": un cero se lee como "es gratis" y es
+  /// exactamente lo que hacía que se regalara mercancía.
+  String get precioLabel =>
+      precio == null ? 'Sin precio' : MoneyFormatter.usd(precio!);
 
   /// `true` si el precio de oferta es el vigente (el getter `precio` siempre
   /// es el vigente; `precioAnterior` es el tachado).
-  bool get tieneOferta => enOferta && precioAnterior != null;
+  bool get tieneOferta => enOferta && precioAnterior != null && precio != null;
 
   bool get tieneVariantes => variantes.isNotEmpty;
 
@@ -172,7 +200,8 @@ class Producto {
       id: doc.id,
       nombre: (data['nombre'] as String?) ?? '',
       categoria: (data['categoria'] as String?) ?? '',
-      precio: (data['precio'] as num?)?.toDouble() ?? 0,
+      // Sin `?? 0`: un documento sin precio es un producto sin precio.
+      precio: (data['precio'] as num?)?.toDouble(),
       costo: (data['costo'] as num?)?.toDouble(),
       cantidad: (data['cantidad'] as num?)?.toDouble() ?? 0,
       fotoUrl: data['fotoUrl'] as String?,
@@ -194,6 +223,7 @@ class Producto {
           .map(LineaReceta.fromMap)
           .toList(),
       unidad: data['unidad'] as String?,
+      requiereRevision: (data['requiereRevision'] as bool?) ?? false,
       extras: Map<String, dynamic>.from(
         (data['extras'] as Map?) ?? const <String, dynamic>{},
       ),
@@ -221,6 +251,7 @@ class Producto {
         'garantiaMeses': garantiaMeses,
         'receta': receta.map((l) => l.toMap()).toList(),
         'unidad': unidad,
+        'requiereRevision': requiereRevision,
         'extras': extras,
       };
 }

@@ -214,4 +214,64 @@ void main() {
       });
     });
   });
+
+  group('Producto · sin precio no se vende', () {
+    Producto sinPrecio() => const Producto(
+          id: 'p1',
+          nombre: 'Leído de una foto',
+          categoria: 'Víveres',
+          cantidad: 5,
+          requiereRevision: true,
+        );
+
+    test('precio null no es cero', () {
+      final p = sinPrecio();
+      expect(p.precio, isNull);
+      expect(p.sePuedeVender, false);
+      // Lo que se pinta nunca puede leerse como "es gratis".
+      expect(p.precioLabel, 'Sin precio');
+      expect(p.precioLabel, isNot(contains('0,00')));
+    });
+
+    test('precio cero tampoco se vende', () {
+      const p = Producto(
+        id: 'p2',
+        nombre: 'Viejo',
+        categoria: 'x',
+        precio: 0,
+        cantidad: 1,
+      );
+      expect(p.sePuedeVender, false);
+    });
+
+    test('con precio sí se vende', () {
+      const p = Producto(
+        id: 'p3',
+        nombre: 'Harina',
+        categoria: 'x',
+        precio: 1.2,
+        cantidad: 1,
+      );
+      expect(p.sePuedeVender, true);
+      expect(p.precioLabel, contains('1,20'));
+    });
+
+    test('toMap no inventa un precio', () {
+      expect(sinPrecio().toMap()['precio'], isNull);
+      expect(sinPrecio().toMap()['requiereRevision'], true);
+    });
+
+    test('sin precio no hay oferta ni descuento que calcular', () {
+      const p = Producto(
+        id: 'p4',
+        nombre: 'x',
+        categoria: 'x',
+        cantidad: 1,
+        enOferta: true,
+        precioAnterior: 10,
+      );
+      expect(p.tieneOferta, false);
+      expect(p.descuentoPct, isNull);
+    });
+  });
 }

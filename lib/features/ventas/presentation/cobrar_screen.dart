@@ -195,12 +195,20 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     await _agregar(producto);
     if (!mounted) return;
     _aviso(
-      '${producto.nombre} · ${MoneyFormatter.usd(producto.precio)}',
+      '${producto.nombre} · ${producto.precioLabel}',
       error: false,
     );
   }
 
   Future<void> _agregar(Producto p) async {
+    // Un producto sin precio no entra al carrito. Antes la importación
+    // guardaba 0 cuando no podía leer la cifra, y ese 0 se podía cobrar: la
+    // mercancía se regalaba sin que nadie lo notara.
+    if (!p.sePuedeVender) {
+      _aviso('"${p.nombre}" no tiene precio. Ponle uno antes de venderlo.');
+      return;
+    }
+
     var cantidad = 1;
     Variante? variante;
 
@@ -218,7 +226,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
           ItemCarrito(
             productoId: p.id,
             nombre: p.nombre,
-            precioUnitario: p.precio,
+            precioUnitario: p.precio!,
             cantidad: cantidad,
             varianteValor: variante?.valor,
             varianteColor: variante?.color,
@@ -1943,11 +1951,13 @@ class _FichaProducto extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        MoneyFormatter.usd(producto.precio),
-                        style: const TextStyle(
+                        producto.precioLabel,
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: LibretaColors.verde,
+                          color: producto.sePuedeVender
+                              ? LibretaColors.verde
+                              : LibretaColors.aviso,
                         ),
                       ),
                       if (producto.tieneOferta) ...[

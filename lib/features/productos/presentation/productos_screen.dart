@@ -572,18 +572,29 @@ class _TarjetaProducto extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  MoneyFormatter.usd(producto.precio),
+                  producto.precioLabel,
                   style: AppTypography.money(
                     fontSize: 14,
-                    color: context.libreta.textoFuerte,
+                    color: producto.precio == null
+                        ? LibretaColors.aviso
+                        : context.libreta.textoFuerte,
                   ),
                 ),
-                if (tasa != null)
+                if (tasa != null && producto.precio != null)
                   Text(
-                    MoneyFormatter.usdComoBs(producto.precio, tasa!),
+                    MoneyFormatter.usdComoBs(producto.precio!, tasa!),
                     style: TextStyle(
                       fontSize: 11,
                       color: context.libreta.textoMuted,
+                    ),
+                  )
+                else if (producto.precio == null)
+                  Text(
+                    'ponle precio para venderlo',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: LibretaColors.aviso,
                     ),
                   ),
               ],

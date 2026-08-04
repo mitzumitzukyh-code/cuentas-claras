@@ -85,14 +85,20 @@ class _ImportarInventarioScreenState
 
     setState(() => _guardando = true);
     final categoria = negocio.rubro.config.categoriasSugeridas.firstOrNull ?? '';
+    // `f.precio ?? 0` era el bug: cuando la lectura no podía con la cifra, el
+    // producto entraba al inventario en $0,00 — y un producto en cero se puede
+    // cobrar, así que se regalaba la mercancía. Ahora el precio ausente viaja
+    // como `null` y el producto queda marcado para revisar: se ve en la
+    // mercancía y no se puede agregar al carrito hasta que tenga precio.
     final nuevos = _filas
         .map((f) => Producto(
               id: '',
               nombre: f.nombre,
               categoria: categoria,
-              precio: f.precio ?? 0,
+              precio: f.precio,
               cantidad: f.cantidad ?? 0,
               alertaEn: 5,
+              requiereRevision: f.precio == null || f.cantidad == null,
             ))
         .toList();
 
@@ -102,9 +108,21 @@ class _ImportarInventarioScreenState
           .crearVarios(membresia.negocioId, nuevos);
       if (!mounted) return;
       final cantidad = nuevos.length;
+      final sinPrecio = nuevos.where((p) => p.precio == null).length;
       Navigator.of(context).pop();
+      // Si algo entró sin precio se dice en el momento. Callarlo es como el
+      // gasto que se guardaba en otro mes: el dueño se entera cuando intenta
+      // cobrarlo, con el cliente delante.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$cantidad productos importados')),
+        SnackBar(
+          content: Text(
+            sinPrecio == 0
+                ? '$cantidad productos importados'
+                : '$cantidad productos importados · $sinPrecio sin precio, '
+                    'ponles uno antes de venderlos',
+          ),
+          duration: Duration(seconds: sinPrecio == 0 ? 4 : 7),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
