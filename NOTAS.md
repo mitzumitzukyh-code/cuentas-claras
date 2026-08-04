@@ -50,6 +50,20 @@ fuera de alcance a propósito.
 
 ## Pendientes
 
+- **Falta medir al MODELO contra las 8 fotos.** `test/domain/lector_inventario_test.dart`
+  ya mide el pipeline determinista contra los ground truth de `pruebas_ocr/`
+  (nulos que no se vuelven cero, consolidación por código, variantes que no se
+  suman, validación cruzada, formato venezolano). Lo que **no** mide es si
+  Gemini lee bien la foto: eso necesita la imagen real contra la API, y la clave
+  vive en Cloudflare. Se cierra importando las 8 imágenes desde el dispositivo y
+  comparando con `NN_*.json`.
+
+- **El lector no distingue la moneda de la lista.** El set de prueba trae
+  `"moneda": "USD"` en todos los casos, pero una lista impresa en Bs cargada
+  como USD multiplica los precios por ~750. El contrato sugerido en
+  `pruebas_ocr/_LEEME.md` incluye `moneda` y `advertencias[]`; lo implementado
+  no. Es el hueco más caro que queda en el importador.
+
 - **La marca de agua no se puede condicionar todavía: no existe el plan.**
   «Hecho con Cuenta Clara» sale siempre en el Estado y el catálogo, y según el
   brief debería desaparecer en Premium. Pero `in_app_purchase` está declarado en

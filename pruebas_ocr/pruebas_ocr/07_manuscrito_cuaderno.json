@@ -1,0 +1,69 @@
+{
+  "caso": "07_manuscrito_cuaderno",
+  "moneda": "USD",
+  "rubro": "bodega",
+  "dificultad": "alta",
+  "que_prueba": "El formato REAL del bodeguero venezolano: cuaderno rayado, sin encabezados, sin acentos, columnas implícitas por posición. El modelo debe inferir que col2=cantidad y col3=precio (pista: los valores con coma decimal son precios).",
+  "productos": [
+    {
+      "nombre": "Harina pan",
+      "stock": 24,
+      "precio": 1.2
+    },
+    {
+      "nombre": "Aceite",
+      "stock": 9,
+      "precio": 3.5
+    },
+    {
+      "nombre": "Arroz",
+      "stock": 30,
+      "precio": 1.8
+    },
+    {
+      "nombre": "Azucar",
+      "stock": 17,
+      "precio": 1.45
+    },
+    {
+      "nombre": "Cafe",
+      "stock": 12,
+      "precio": 2.6
+    },
+    {
+      "nombre": "Leche",
+      "stock": 6,
+      "precio": 4.2
+    },
+    {
+      "nombre": "Pasta",
+      "stock": 41,
+      "precio": 0.95
+    },
+    {
+      "nombre": "Atun",
+      "stock": 22,
+      "precio": 1.75
+    },
+    {
+      "nombre": "Jabon",
+      "stock": 35,
+      "precio": 0.8
+    },
+    {
+      "nombre": "Papel bano",
+      "stock": 14,
+      "precio": 2.3
+    },
+    {
+      "nombre": "Mayonesa",
+      "stock": 8,
+      "precio": 2.9
+    },
+    {
+      "nombre": "Salsa tomate",
+      "stock": 19,
+      "precio": 1.6
+    }
+  ]
+}

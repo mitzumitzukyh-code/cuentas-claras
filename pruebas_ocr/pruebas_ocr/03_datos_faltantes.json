@@ -1,0 +1,55 @@
+{
+  "caso": "03_datos_faltantes",
+  "moneda": "USD",
+  "rubro": "quincalleria",
+  "dificultad": "media",
+  "que_prueba": "REGLA DURA: campo ilegible o vacío => null + requiereRevision:true. NUNCA 0. Un producto con precio 0 se puede cobrar y regalas mercancía. Este caso es el que produjo tus 15 productos en $0,00.",
+  "productos": [
+    {
+      "nombre": "Cuaderno rayado 100h",
+      "stock": 80,
+      "precio": 1.5
+    },
+    {
+      "nombre": "Lápiz grafito HB",
+      "stock": null,
+      "precio": 0.3,
+      "requiereRevision": true
+    },
+    {
+      "nombre": "Borrador blanco",
+      "stock": 45,
+      "precio": null,
+      "requiereRevision": true
+    },
+    {
+      "nombre": "Regla 30cm",
+      "stock": 60,
+      "precio": 0.75
+    },
+    {
+      "nombre": "Tijera escolar",
+      "stock": null,
+      "precio": null,
+      "requiereRevision": true
+    },
+    {
+      "nombre": "Pega en barra",
+      "stock": 38,
+      "precio": 1.1
+    },
+    {
+      "nombre": "Marcador permanente",
+      "stock": 52,
+      "precio": null,
+      "requiereRevision": true
+    },
+    {
+      "nombre": "Cartulina blanca",
+      "stock": null,
+      "precio": 0.6,
+      "requiereRevision": true
+    }
+  ],
+  "fallo_critico_si": "algún producto sale con precio 0 o stock 0 en vez de null"
+}

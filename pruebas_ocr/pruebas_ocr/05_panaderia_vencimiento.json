@@ -1,0 +1,65 @@
+{
+  "caso": "05_panaderia_vencimiento",
+  "moneda": "USD",
+  "rubro": "panaderia",
+  "dificultad": "media",
+  "que_prueba": "Unidades mixtas kg/unidad en la misma lista (decimales con coma) y campo extra 'vencimiento'. Ojo: la última fila trae solo mes/año.",
+  "productos": [
+    {
+      "nombre": "Pan canilla",
+      "unidad": "kg",
+      "stock": 12.5,
+      "precio": 1.8,
+      "vencimiento": "04/08/2026"
+    },
+    {
+      "nombre": "Pan campesino",
+      "unidad": "unidad",
+      "stock": 40.0,
+      "precio": 1.2,
+      "vencimiento": "05/08/2026"
+    },
+    {
+      "nombre": "Golfeado",
+      "unidad": "unidad",
+      "stock": 35.0,
+      "precio": 1.0,
+      "vencimiento": "04/08/2026"
+    },
+    {
+      "nombre": "Cachito de jamón",
+      "unidad": "unidad",
+      "stock": 60.0,
+      "precio": 1.5,
+      "vencimiento": "03/08/2026"
+    },
+    {
+      "nombre": "Torta de chocolate",
+      "unidad": "kg",
+      "stock": 8.0,
+      "precio": 9.0,
+      "vencimiento": "06/08/2026"
+    },
+    {
+      "nombre": "Quesillo porción",
+      "unidad": "unidad",
+      "stock": 24.0,
+      "precio": 2.0,
+      "vencimiento": "05/08/2026"
+    },
+    {
+      "nombre": "Pan de sándwich",
+      "unidad": "unidad",
+      "stock": 18.0,
+      "precio": 2.4,
+      "vencimiento": "08/08/2026"
+    },
+    {
+      "nombre": "Harina de trigo",
+      "unidad": "kg",
+      "stock": 50.0,
+      "precio": 0.9,
+      "vencimiento": "12/2026"
+    }
+  ]
+}

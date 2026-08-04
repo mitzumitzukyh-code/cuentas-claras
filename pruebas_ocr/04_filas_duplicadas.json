@@ -1,0 +1,38 @@
+{
+  "caso": "04_filas_duplicadas",
+  "moneda": "USD",
+  "rubro": "repuestos",
+  "dificultad": "media",
+  "que_prueba": "Consolidar por código OEM antes de crear documentos. 8 filas => 4 productos. Debe preguntar al usuario antes de unir. Este es el bug de las 7 'Impresora InkJet LaserPlex'.",
+  "productos_esperados": [
+    {
+      "codigoOem": "FR-2201",
+      "nombre": "Filtro de aceite universal",
+      "stock": 45,
+      "precio": 5.0,
+      "filas_origen": 4
+    },
+    {
+      "codigoOem": "BJ-4410",
+      "nombre": "Bujía NGK BPR6ES",
+      "stock": 65,
+      "precio": 2.25,
+      "filas_origen": 2
+    },
+    {
+      "codigoOem": "CR-9002",
+      "nombre": "Correa de tiempo 8mm",
+      "stock": 6,
+      "precio": 18.0,
+      "filas_origen": 1
+    },
+    {
+      "codigoOem": "AM-3311",
+      "nombre": "Amortiguador delantero",
+      "stock": 4,
+      "precio": 45.0,
+      "filas_origen": 1
+    }
+  ],
+  "fallo_si": "se crean 8 documentos separados"
+}

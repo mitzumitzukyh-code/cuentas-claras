@@ -1,0 +1,38 @@
+{
+  "caso": "08_factura_compra",
+  "moneda": "USD",
+  "rubro": "bodega",
+  "dificultad": "alta",
+  "que_prueba": "Esto NO es una lista de inventario, es una factura de COMPRA. Comportamiento correcto: detectar el tipo de documento y ofrecer 'registrar como gasto' ($104,86) o 'sumar al inventario a precio de COSTO'. Fallo grave: cargar los precios de costo como precios de VENTA.",
+  "tipo_documento": "factura_compra",
+  "gasto_total": 104.86,
+  "subtotal": 90.4,
+  "iva": 14.46,
+  "lineas": [
+    {
+      "cantidad": 24,
+      "nombre": "Harina PAN 1kg",
+      "precio_costo": 0.95,
+      "total": 22.8
+    },
+    {
+      "cantidad": 12,
+      "nombre": "Aceite Vatel 1L",
+      "precio_costo": 2.8,
+      "total": 33.6
+    },
+    {
+      "cantidad": 30,
+      "nombre": "Pasta Capri 500g",
+      "precio_costo": 0.7,
+      "total": 21.0
+    },
+    {
+      "cantidad": 10,
+      "nombre": "Atún Margarita lata",
+      "precio_costo": 1.3,
+      "total": 13.0
+    }
+  ],
+  "fallo_critico_si": "usa precio_costo como precio de venta sin avisar"
+}

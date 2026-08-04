@@ -1,0 +1,73 @@
+{
+  "caso": "06_ropa_variantes",
+  "moneda": "USD",
+  "rubro": "ropa",
+  "dificultad": "media",
+  "que_prueba": "Mismo nombre + distinta talla/color = variantes de UN producto, no productos separados. Contrasta con el caso 04 (ahí sí se suman). Aquí NO se suman los stocks: cada variante mantiene el suyo.",
+  "productos_esperados": [
+    {
+      "nombre": "Franela básica algodón",
+      "precio": 8.0,
+      "variantes": [
+        {
+          "talla": "S",
+          "color": "Blanco",
+          "stock": 12
+        },
+        {
+          "talla": "M",
+          "color": "Blanco",
+          "stock": 18
+        },
+        {
+          "talla": "L",
+          "color": "Negro",
+          "stock": 10
+        }
+      ]
+    },
+    {
+      "nombre": "Jean clásico dama",
+      "precio": 22.0,
+      "variantes": [
+        {
+          "talla": "M",
+          "color": "Azul",
+          "stock": 7
+        },
+        {
+          "talla": "L",
+          "color": "Azul",
+          "stock": 5
+        }
+      ]
+    },
+    {
+      "nombre": "Vestido casual",
+      "precio": 35.0,
+      "variantes": [
+        {
+          "talla": "S",
+          "color": "Beige",
+          "stock": 4
+        },
+        {
+          "talla": "M",
+          "color": "Coral",
+          "stock": 6
+        }
+      ]
+    },
+    {
+      "nombre": "Chaqueta jean",
+      "precio": 40.0,
+      "variantes": [
+        {
+          "talla": "XL",
+          "color": "Azul",
+          "stock": 3
+        }
+      ]
+    }
+  ]
+}

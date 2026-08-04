@@ -1,0 +1,58 @@
+[
+  {
+    "imagen": "01_bodega_limpia.jpg",
+    "caso": "01_bodega_limpia",
+    "rubro": "bodega",
+    "dificultad": "baja",
+    "que_prueba": "Lectura base. Si esto falla, el prompt está roto."
+  },
+  {
+    "imagen": "02_columna_desalineada.jpg",
+    "caso": "02_columna_desalineada",
+    "rubro": "electronica",
+    "dificultad": "alta",
+    "que_prueba": "La columna PRECIO está impresa corrida una fila hacia arriba. El modelo NO debe adivinar: debe marcar precio con confianza baja o null + requiereRevision. Nunca 0. El total 423 permite validar la suma de stocks."
+  },
+  {
+    "imagen": "03_datos_faltantes.jpg",
+    "caso": "03_datos_faltantes",
+    "rubro": "quincalleria",
+    "dificultad": "media",
+    "que_prueba": "REGLA DURA: campo ilegible o vacío => null + requiereRevision:true. NUNCA 0. Un producto con precio 0 se puede cobrar y regalas mercancía. Este caso es el que produjo tus 15 productos en $0,00."
+  },
+  {
+    "imagen": "04_filas_duplicadas.jpg",
+    "caso": "04_filas_duplicadas",
+    "rubro": "repuestos",
+    "dificultad": "media",
+    "que_prueba": "Consolidar por código OEM antes de crear documentos. 8 filas => 4 productos. Debe preguntar al usuario antes de unir. Este es el bug de las 7 'Impresora InkJet LaserPlex'."
+  },
+  {
+    "imagen": "05_panaderia_vencimiento.jpg",
+    "caso": "05_panaderia_vencimiento",
+    "rubro": "panaderia",
+    "dificultad": "media",
+    "que_prueba": "Unidades mixtas kg/unidad en la misma lista (decimales con coma) y campo extra 'vencimiento'. Ojo: la última fila trae solo mes/año."
+  },
+  {
+    "imagen": "06_ropa_variantes.jpg",
+    "caso": "06_ropa_variantes",
+    "rubro": "ropa",
+    "dificultad": "media",
+    "que_prueba": "Mismo nombre + distinta talla/color = variantes de UN producto, no productos separados. Contrasta con el caso 04 (ahí sí se suman). Aquí NO se suman los stocks: cada variante mantiene el suyo."
+  },
+  {
+    "imagen": "07_manuscrito_cuaderno.jpg",
+    "caso": "07_manuscrito_cuaderno",
+    "rubro": "bodega",
+    "dificultad": "alta",
+    "que_prueba": "El formato REAL del bodeguero venezolano: cuaderno rayado, sin encabezados, sin acentos, columnas implícitas por posición. El modelo debe inferir que col2=cantidad y col3=precio (pista: los valores con coma decimal son precios)."
+  },
+  {
+    "imagen": "08_factura_compra.jpg",
+    "caso": "08_factura_compra",
+    "rubro": "bodega",
+    "dificultad": "alta",
+    "que_prueba": "Esto NO es una lista de inventario, es una factura de COMPRA. Comportamiento correcto: detectar el tipo de documento y ofrecer 'registrar como gasto' ($104,86) o 'sumar al inventario a precio de COSTO'. Fallo grave: cargar los precios de costo como precios de VENTA."
+  }
+]

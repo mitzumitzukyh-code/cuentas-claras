@@ -1,0 +1,81 @@
+{
+  "caso": "01_bodega_limpia",
+  "moneda": "USD",
+  "rubro": "bodega",
+  "dificultad": "baja",
+  "que_prueba": "Lectura base. Si esto falla, el prompt está roto.",
+  "productos": [
+    {
+      "nombre": "Harina PAN 1kg",
+      "unidad": "unidad",
+      "stock": 48,
+      "precio": 1.2
+    },
+    {
+      "nombre": "Aceite Vatel 1L",
+      "unidad": "unidad",
+      "stock": 22,
+      "precio": 3.5
+    },
+    {
+      "nombre": "Arroz Primor 1kg",
+      "unidad": "unidad",
+      "stock": 35,
+      "precio": 1.8
+    },
+    {
+      "nombre": "Azúcar Montalbán 1kg",
+      "unidad": "unidad",
+      "stock": 40,
+      "precio": 1.45
+    },
+    {
+      "nombre": "Pasta Capri 500g",
+      "unidad": "unidad",
+      "stock": 60,
+      "precio": 0.95
+    },
+    {
+      "nombre": "Leche en polvo 400g",
+      "unidad": "unidad",
+      "stock": 18,
+      "precio": 4.2
+    },
+    {
+      "nombre": "Café Fama de América",
+      "unidad": "unidad",
+      "stock": 25,
+      "precio": 2.6
+    },
+    {
+      "nombre": "Margarina Mavesa 500g",
+      "unidad": "unidad",
+      "stock": 30,
+      "precio": 2.1
+    },
+    {
+      "nombre": "Atún Margarita lata",
+      "unidad": "unidad",
+      "stock": 44,
+      "precio": 1.75
+    },
+    {
+      "nombre": "Papel higiénico x4",
+      "unidad": "paquete",
+      "stock": 27,
+      "precio": 2.3
+    },
+    {
+      "nombre": "Jabón azul Las Llaves",
+      "unidad": "unidad",
+      "stock": 52,
+      "precio": 0.8
+    },
+    {
+      "nombre": "Refresco 2L",
+      "unidad": "unidad",
+      "stock": 16,
+      "precio": 2.0
+    }
+  ]
+}

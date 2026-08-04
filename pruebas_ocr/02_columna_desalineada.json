@@ -1,0 +1,93 @@
+{
+  "caso": "02_columna_desalineada",
+  "moneda": "VES",
+  "rubro": "electronica",
+  "dificultad": "alta",
+  "que_prueba": "La columna PRECIO está impresa corrida una fila hacia arriba. El modelo NO debe adivinar: debe marcar precio con confianza baja o null + requiereRevision. Nunca 0. El total 423 permite validar la suma de stocks.",
+  "validacion_cruzada": {
+    "total_articulos_declarado": 423,
+    "suma_stock_real": 423
+  },
+  "productos": [
+    {
+      "codigo": "1010",
+      "nombre": "Smartphone Galaxy X10 128GB",
+      "categoria": "Telefonía",
+      "stock": 45,
+      "precio_correcto": 4500.8,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "1025",
+      "nombre": "Laptop ApexBook 15\" i7",
+      "categoria": "Laptops",
+      "stock": 22,
+      "precio_correcto": 12800.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "2005",
+      "nombre": "Monitor Curvo ViewMaster 27\"",
+      "categoria": "Monitores",
+      "stock": 15,
+      "precio_correcto": 6200.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "2040",
+      "nombre": "Auriculares Synch Inalámbricos",
+      "categoria": "Audio",
+      "stock": 112,
+      "precio_correcto": 950.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "3012",
+      "nombre": "Tablet TabLink A8 64GB",
+      "categoria": "Tablets",
+      "stock": 30,
+      "precio_correcto": 3400.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "3055",
+      "nombre": "Cámara DSLR OptiZoom Z5",
+      "categoria": "Fotografía",
+      "stock": 8,
+      "precio_correcto": 18900.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "4001",
+      "nombre": "Teclado Mecánico RGB Pro",
+      "categoria": "Periféricos",
+      "stock": 28,
+      "precio_correcto": 1960.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "4015",
+      "nombre": "Mouse Gaming ViperX",
+      "categoria": "Periféricos",
+      "stock": 55,
+      "precio_correcto": 780.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "5002",
+      "nombre": "Disco Duro Externo 2TB",
+      "categoria": "Almacenamiento",
+      "stock": 90,
+      "precio_correcto": 1600.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    },
+    {
+      "codigo": "5020",
+      "nombre": "Impresora InkJet LaserPlex",
+      "categoria": "Impresoras",
+      "stock": 18,
+      "precio_correcto": 4900.0,
+      "precio_como_aparece_impreso": "corrido una fila arriba"
+    }
+  ]
+}
