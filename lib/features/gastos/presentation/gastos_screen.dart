@@ -251,9 +251,9 @@ class _FilaGasto extends StatelessWidget {
       };
 
   Color get _fondoIcono => switch (gasto.categoria) {
-        CategoriaGasto.mercancia => const Color(0x1F0E9F6E),
-        CategoriaGasto.servicios => const Color(0x26F2A93C),
-        _ => const Color(0x141E2A38),
+        CategoriaGasto.mercancia => LibretaColors.verde.withValues(alpha: .12),
+        CategoriaGasto.servicios => LibretaColors.ambarSuperficie.withValues(alpha: .15),
+        _ => LibretaColors.renglon,
       };
 
   @override

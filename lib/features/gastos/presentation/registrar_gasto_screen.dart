@@ -9,6 +9,7 @@ import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
+import '../../../core/utils/numero_ve.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
@@ -78,8 +79,10 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
     super.dispose();
   }
 
-  double? get _montoValor =>
-      double.tryParse(_monto.text.replaceAll(',', '.'));
+  /// Por `normalizarNumeroVE` y no por `replaceAll(',', '.')`: con el apaño
+  /// viejo un gasto de "1.500" se registraba como 1,5 —el punto se tomaba por
+  /// decimal—, sin fallar ni avisar.
+  double? get _montoValor => normalizarNumeroVE(_monto.text);
 
   bool get _puedeGuardar {
     final m = _montoValor;
@@ -329,7 +332,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
-                  border: Border.all(color: const Color(0x141E2A38)),
+                  border: Border.all(color: context.libreta.renglon),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -525,7 +528,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
+                    border: Border.all(color: context.libreta.renglon),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(

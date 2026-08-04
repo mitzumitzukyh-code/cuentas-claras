@@ -140,9 +140,12 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Gastos
 
-- [ ] **Gastos del mes** — `/gastos` · [gastos_screen.dart](lib/features/gastos/presentation/gastos_screen.dart)
-- [ ] **Registrar / editar gasto** — `/gastos/nuevo` · [registrar_gasto_screen.dart](lib/features/gastos/presentation/registrar_gasto_screen.dart)
-- [ ] **Detalle de gasto** — push desde Gastos · [gasto_detalle_screen.dart](lib/features/gastos/presentation/gasto_detalle_screen.dart)
+- [x] **Gastos del mes** — `/gastos` · [gastos_screen.dart](lib/features/gastos/presentation/gastos_screen.dart)
+      · 3 colores. Los estados de carga/error/vacío ya estaban bien
+- [x] **Registrar / editar gasto** — `/gastos/nuevo` · [registrar_gasto_screen.dart](lib/features/gastos/presentation/registrar_gasto_screen.dart)
+      · 2 arreglados («1.500» registrado como 1,5; color)
+- [x] **Detalle de gasto** — push desde Gastos · [gasto_detalle_screen.dart](lib/features/gastos/presentation/gasto_detalle_screen.dart)
+      · limpia
 
 ## Fiados (por cobrar)
 
