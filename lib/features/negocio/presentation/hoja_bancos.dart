@@ -233,7 +233,7 @@ class _FilaBanco extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: activo ? const Color(0x140E9F6E) : t.superficie,
+          color: activo ? LibretaColors.verde.withValues(alpha: .08) : t.superficie,
           border: Border.all(
             color: activo ? LibretaColors.verde : t.renglon,
             width: activo ? 1.5 : 1,

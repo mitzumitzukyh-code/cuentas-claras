@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import 'hoja_bancos.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/negocio_repository.dart';
@@ -56,7 +58,7 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
       if (avisar) setState(() => _guardando = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudieron guardar: $e'),
+          content: Text(mensajeDeError(e, accion: 'guardar los métodos de pago')),
           backgroundColor: LibretaColors.peligro,
         ),
       );
@@ -92,7 +94,30 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
     final esDueno = ref.watch(esDuenoProvider);
 
     if (negocio == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Antes era un spinner sin fin: el negocio se lee con `valueOrNull`, asi
+      // que un fallo lo deja en null para siempre.
+      final negocioAsync = ref.watch(negocioActivoProvider);
+      return Scaffold(
+        backgroundColor: context.libreta.papel,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: negocioAsync.hasError
+                  ? LibretaErrorCarga(
+                      mensaje: mensajeDeError(
+                        negocioAsync.error,
+                        accion: 'cargar tu negocio',
+                      ),
+                      detalleTecnico: negocioAsync.error,
+                      onReintentar: () =>
+                          ref.invalidate(negocioActivoProvider),
+                    )
+                  : const LibretaCargando(),
+            ),
+          ),
+        ),
+      );
     }
     _sembrar(negocio.metodosPago);
 
@@ -144,7 +169,7 @@ class _MetodosPagoScreenState extends ConsumerState<MetodosPagoScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0x21F2A93C),
+                          color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Text(
@@ -306,7 +331,7 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: context.libreta.superficie,
-        border: Border.all(color: const Color(0x141E2A38)),
+        border: Border.all(color: context.libreta.renglon),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -318,7 +343,7 @@ class _TarjetaMetodoState extends State<_TarjetaMetodo> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0x1F0E9F6E),
+                  color: LibretaColors.verde.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,

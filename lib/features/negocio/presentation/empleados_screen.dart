@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/negocio_repository.dart';
 import '../domain/invitacion.dart';
@@ -47,7 +48,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
         ),
       );
     } catch (e) {
-      if (mounted) _mostrar('No se pudo crear la invitación: $e');
+      if (mounted) _mostrar(mensajeDeError(e, accion: 'crear la invitación'));
     } finally {
       if (mounted) setState(() => _generando = false);
     }
@@ -84,7 +85,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
     try {
       await ref.read(negocioRepositoryProvider).cambiarRol(m.id, nuevo);
     } catch (e) {
-      _mostrar('No se pudo cambiar el rol: $e');
+      _mostrar(mensajeDeError(e, accion: 'cambiar el rol'));
     }
   }
 
@@ -115,7 +116,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
     try {
       await ref.read(negocioRepositoryProvider).quitarMiembro(m.id);
     } catch (e) {
-      _mostrar('No se pudo quitar: $e');
+      _mostrar(mensajeDeError(e, accion: 'quitar a esta persona'));
     }
   }
 
@@ -224,7 +225,7 @@ class _EmpleadosScreenState extends ConsumerState<EmpleadosScreen> {
                             Container(
                               decoration: BoxDecoration(
                                 color: context.libreta.superficie,
-                                border: Border.all(color: const Color(0x141E2A38)),
+                                border: Border.all(color: context.libreta.renglon),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Column(
@@ -375,7 +376,7 @@ class _FilaMiembro extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0x1F0E9F6E),
+                  color: LibretaColors.verde.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: const Text(
@@ -431,7 +432,7 @@ class _DialogoCodigo extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 18),
             decoration: BoxDecoration(
-              color: const Color(0x1F0E9F6E),
+              color: LibretaColors.verde.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(16),
             ),
             alignment: Alignment.center,

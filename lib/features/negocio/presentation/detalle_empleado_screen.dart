@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../data/negocio_repository.dart';
 import '../domain/membresia.dart';
 
@@ -63,7 +64,7 @@ class _DetalleEmpleadoScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudieron guardar los permisos: $e'),
+          content: Text(mensajeDeError(e, accion: 'guardar los permisos')),
           backgroundColor: LibretaColors.peligro,
         ),
       );
@@ -116,7 +117,7 @@ class _DetalleEmpleadoScreenState
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0x1F0E9F6E),
+                        color: LibretaColors.verde.withValues(alpha: .12),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
@@ -203,7 +204,7 @@ class _DetalleEmpleadoScreenState
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: context.libreta.superficie,
-        border: Border.all(color: const Color(0x141E2A38)),
+        border: Border.all(color: context.libreta.renglon),
         borderRadius: BorderRadius.circular(14),
       ),
       child: SwitchListTile(

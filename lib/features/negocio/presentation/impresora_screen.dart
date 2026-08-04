@@ -6,6 +6,7 @@ import '../../../core/theme/app_assets.dart';
 import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../ventas/domain/venta.dart';
 import '../data/negocio_repository.dart';
 
@@ -34,7 +35,7 @@ class _OpcionConexion extends StatelessWidget {
         decoration: BoxDecoration(
           color:
               seleccionada
-                  ? const Color(0x140E9F6E)
+                  ? LibretaColors.verde.withValues(alpha: .08)
                   : context.libreta.superficie,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
@@ -112,7 +113,7 @@ class _Pasos extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.libreta.superficie,
-        border: Border.all(color: const Color(0x141E2A38)),
+        border: Border.all(color: context.libreta.renglon),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -136,8 +137,8 @@ class _Pasos extends StatelessWidget {
                   Container(
                     width: 20,
                     height: 20,
-                    decoration: const BoxDecoration(
-                      color: Color(0x1F0E9F6E),
+                    decoration: BoxDecoration(
+                      color: LibretaColors.verde.withValues(alpha: .12),
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
@@ -250,7 +251,7 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
     } on ImpresoraException catch (e) {
       _mostrar(e.mensaje);
     } catch (e) {
-      _mostrar('No se pudo buscar: $e');
+      _mostrar(mensajeDeError(e, accion: 'buscar impresoras'));
     } finally {
       if (mounted) setState(() => _buscando = false);
     }
@@ -291,7 +292,7 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
     } on ImpresoraException catch (e) {
       _mostrar(e.mensaje);
     } catch (e) {
-      _mostrar('No se pudo imprimir: $e');
+      _mostrar(mensajeDeError(e, accion: 'imprimir'));
     } finally {
       if (mounted) setState(() => _probando = false);
     }
@@ -391,7 +392,7 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
+                    border: Border.all(color: context.libreta.renglon),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -508,7 +509,7 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: context.libreta.superficie,
-                          border: Border.all(color: const Color(0x141E2A38)),
+                          border: Border.all(color: context.libreta.renglon),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
@@ -589,7 +590,7 @@ class _ImpresoraScreenState extends ConsumerState<ImpresoraScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
+                    border: Border.all(color: context.libreta.renglon),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(

@@ -185,7 +185,7 @@ class _FilaNegocio extends ConsumerWidget {
         decoration: BoxDecoration(
           color: t.superficie,
           border: Border.all(
-            color: activo ? const Color(0x4D0E9F6E) : t.renglon,
+            color: activo ? LibretaColors.verde.withValues(alpha: .30) : t.renglon,
             width: activo ? 1.5 : 1,
           ),
           borderRadius: BorderRadius.circular(14),
@@ -241,7 +241,7 @@ class _FilaNegocio extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0x1F0E9F6E),
+                  color: LibretaColors.verde.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: const Text(

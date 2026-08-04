@@ -191,13 +191,22 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Negocio y equipo
 
-- [ ] **Mis negocios** — `/mis-negocios` · [mis_negocios_screen.dart](lib/features/negocio/presentation/mis_negocios_screen.dart)
-- [ ] **Empleados** — `/perfil/empleados` · [empleados_screen.dart](lib/features/negocio/presentation/empleados_screen.dart)
-- [ ] **Detalle de empleado** — `/perfil/empleados/:membresiaId` · [detalle_empleado_screen.dart](lib/features/negocio/presentation/detalle_empleado_screen.dart)
-- [ ] **Auditoría** — `/perfil/auditoria` · [auditoria_screen.dart](lib/features/negocio/presentation/auditoria_screen.dart)
-- [ ] **Métodos de pago** — `/perfil/metodos-pago` · [metodos_pago_screen.dart](lib/features/negocio/presentation/metodos_pago_screen.dart)
-- [ ] **Hoja de bancos** — sheet desde Métodos de pago · [hoja_bancos.dart](lib/features/negocio/presentation/hoja_bancos.dart)
-- [ ] **Impresora** — `/perfil/impresora` · [impresora_screen.dart](lib/features/negocio/presentation/impresora_screen.dart)
+- [x] **Mis negocios** — `/mis-negocios` · [mis_negocios_screen.dart](lib/features/negocio/presentation/mis_negocios_screen.dart)
+      · 2 colores. Su `valueOrNull ?? const []` se deja: si las membresías
+      fallan, el router manda a `/sesion-error` y esta pantalla no se pinta
+- [x] **Empleados** — `/perfil/empleados` · [empleados_screen.dart](lib/features/negocio/presentation/empleados_screen.dart)
+      · 5 (3 `$e` crudos, 2 colores)
+- [x] **Detalle de empleado** — `/perfil/empleados/:membresiaId` · [detalle_empleado_screen.dart](lib/features/negocio/presentation/detalle_empleado_screen.dart)
+      · 3 (`$e` crudo, 2 colores)
+- [x] **Auditoría** — `/perfil/auditoria` · [auditoria_screen.dart](lib/features/negocio/presentation/auditoria_screen.dart)
+      · 1 (un fallo pintaba «aquí no ha pasado nada» en el registro que existe
+      para saber qué pasó)
+- [x] **Métodos de pago** — `/perfil/metodos-pago` · [metodos_pago_screen.dart](lib/features/negocio/presentation/metodos_pago_screen.dart)
+      · 5 (spinner infinito, `$e` crudo, 3 colores)
+- [x] **Hoja de bancos** — sheet desde Métodos de pago · [hoja_bancos.dart](lib/features/negocio/presentation/hoja_bancos.dart)
+      · 1 color
+- [x] **Impresora** — `/perfil/impresora` · [impresora_screen.dart](lib/features/negocio/presentation/impresora_screen.dart)
+      · 8 (2 `$e` crudos, 6 colores)
 
 ## Perfil y ajustes
 

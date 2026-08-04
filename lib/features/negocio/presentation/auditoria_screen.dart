@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../data/auditoria_repository.dart';
 
 /// Historial de auditoría — "quién hizo qué" (`Lote E · P3`).
@@ -31,7 +33,11 @@ class AuditoriaScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.libreta;
-    final eventos = ref.watch(auditoriaProvider).valueOrNull ?? const [];
+    // Sin `valueOrNull ?? const []`: un fallo de lectura pintaba el estado
+    // vacio, o sea "aqui no ha pasado nada" en el registro que existe justo
+    // para saber que paso.
+    final eventosAsync = ref.watch(auditoriaProvider);
+    final eventos = eventosAsync.valueOrNull ?? const <EventoAuditoria>[];
 
     final grupos = <String, List<EventoAuditoria>>{};
     for (final e in eventos) {
@@ -85,7 +91,24 @@ class AuditoriaScreen extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: eventos.isEmpty
+                child: eventosAsync.isLoading
+                    ? const Center(child: LibretaCargando())
+                    : eventosAsync.hasError
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: LibretaErrorCarga(
+                            mensaje: mensajeDeError(
+                              eventosAsync.error,
+                              accion: 'cargar la auditoría',
+                            ),
+                            detalleTecnico: eventosAsync.error,
+                            onReintentar: () =>
+                                ref.invalidate(auditoriaProvider),
+                          ),
+                        ),
+                      )
+                    : eventos.isEmpty
                     ? _Vacio()
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
