@@ -13,8 +13,10 @@ import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/numero_ve.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../../core/utils/telefono_ve.dart';
 import '../../../shared/utils/whatsapp.dart';
 import '../../auth/data/auth_repository.dart';
@@ -327,9 +329,10 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(
-              double.tryParse(ctrl.text.replaceAll(',', '.')),
-            ),
+            // "1.500" kg con `replaceAll` se leia como 1,5: el punto se
+            // tomaba por decimal y se cobraba mil veces menos peso.
+            onPressed: () =>
+                Navigator.of(ctx).pop(normalizarNumeroVE(ctrl.text)),
             child: const Text('Agregar'),
           ),
         ],
@@ -370,8 +373,12 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             child: const Text('Quitar'),
           ),
           TextButton(
+            // Vacio quita el monto libre; algo escrito que no se puede leer
+            // no lo pone en cero -eso regalaba el cobro en silencio-, sino
+            // que deja el importe como estaba.
             onPressed: () => Navigator.of(ctx).pop(
-              double.tryParse(ctrl.text.replaceAll(',', '.')) ?? 0,
+              normalizarNumeroVE(ctrl.text) ??
+                  (ctrl.text.trim().isEmpty ? 0.0 : null),
             ),
             child: const Text('Listo'),
           ),
@@ -863,7 +870,9 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _cobrando = false);
-      _aviso('$e');
+      // La excepcion cruda iba a la pantalla, y en el peor sitio: el momento
+      // en que el cobro no salio y el cliente esta esperando.
+      _aviso(mensajeDeError(e, accion: 'registrar la venta'));
     }
   }
 
@@ -1296,7 +1305,7 @@ class _PastillaMetodo extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
           color: activa
-              ? (esFiado ? const Color(0xFFF2A93C) : LibretaColors.verde)
+              ? (esFiado ? LibretaColors.ambarSuperficie : LibretaColors.verde)
               : _pista(t),
           borderRadius: BorderRadius.circular(9),
         ),
@@ -1345,7 +1354,7 @@ class _TarjetaCliente extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
           color: t.superficie,
-          border: Border.all(color: const Color(0x4D0E9F6E), width: 1.5),
+          border: Border.all(color: LibretaColors.verde.withValues(alpha: .30), width: 1.5),
           borderRadius: BorderRadius.circular(13),
         ),
         child: Row(
@@ -2073,10 +2082,10 @@ class _BotonCobrar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
         boxShadow: activo
-            ? const [
+            ? [
                 BoxShadow(
-                  color: Color(0x590E9F6E),
-                  offset: Offset(0, 12),
+                  color: LibretaColors.verde.withValues(alpha: .35),
+                  offset: const Offset(0, 12),
                   blurRadius: 24,
                 ),
               ]

@@ -125,11 +125,18 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Ventas
 
-- [ ] **Cobrar** — `/cobrar` (+ `?modo=cotizacion`, `?escanear=1`) · [cobrar_screen.dart](lib/features/ventas/presentation/cobrar_screen.dart)
-- [ ] **Historial de ventas** — `/ventas/historial` · [historial_screen.dart](lib/features/ventas/presentation/historial_screen.dart)
-- [ ] **Detalle de venta** — `/ventas/detalle/:ventaId` · [venta_detalle_screen.dart](lib/features/ventas/presentation/venta_detalle_screen.dart)
-- [ ] **Filtro de ventas** — push desde Historial · [filtro_ventas_screen.dart](lib/features/ventas/presentation/filtro_ventas_screen.dart)
-- [ ] **Ventas pendientes (offline)** — `/ventas/pendientes` · [ventas_pendientes_screen.dart](lib/features/ventas/presentation/ventas_pendientes_screen.dart)
+- [x] **Cobrar** — `/cobrar` (+ `?modo=cotizacion`, `?escanear=1`) · [cobrar_screen.dart](lib/features/ventas/presentation/cobrar_screen.dart)
+      · 5 arreglados: la excepción cruda al fallar el cobro, «1.500» kg leído
+      como 1,5, un monto libre ilegible que se ponía en cero (cobro regalado),
+      y colores a mano
+- [x] **Historial de ventas** — `/ventas/historial` · [historial_screen.dart](lib/features/ventas/presentation/historial_screen.dart)
+      · 1 (color a mano)
+- [x] **Detalle de venta** — `/ventas/detalle/:ventaId` · [venta_detalle_screen.dart](lib/features/ventas/presentation/venta_detalle_screen.dart)
+      · 2 arreglados: spinner infinito si el historial fallaba, colores
+- [x] **Filtro de ventas** — push desde Historial · [filtro_ventas_screen.dart](lib/features/ventas/presentation/filtro_ventas_screen.dart)
+      · limpia
+- [x] **Ventas pendientes (offline)** — `/ventas/pendientes` · [ventas_pendientes_screen.dart](lib/features/ventas/presentation/ventas_pendientes_screen.dart)
+      · 3 (colores a mano)
 
 ## Gastos
 

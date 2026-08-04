@@ -129,8 +129,8 @@ class _VentasPendientesScreenState
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0x21F2A93C),
-                    border: Border.all(color: const Color(0x59F2A93C)),
+                    color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
+                    border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .35)),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Row(
@@ -232,7 +232,7 @@ class _TarjetaPendiente extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 color: context.libreta.superficie,
-                border: Border.all(color: const Color(0x141E2A38)),
+                border: Border.all(color: context.libreta.renglon),
                 borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),

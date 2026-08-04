@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../services/impresora/impresora_service.dart';
 import '../../../services/impresora/ticket_esc_pos.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/auditoria_repository.dart';
@@ -224,11 +225,40 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
   @override
   Widget build(BuildContext context) {
     final esDueno = ref.watch(esDuenoProvider);
-    final ventas = ref.watch(historialVentasProvider).valueOrNull ?? const [];
+    final ventasAsync = ref.watch(historialVentasProvider);
+    final ventas = ventasAsync.valueOrNull ?? const <Venta>[];
     final venta = ventas.where((v) => v.id == widget.ventaId).firstOrNull;
 
     if (venta == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Antes todo esto era un spinner sin fin: con `valueOrNull ?? const []`
+      // un fallo de carga daba lista vacía, la venta no aparecía y la pantalla
+      // se quedaba girando para siempre, sin error y sin salida.
+      return Scaffold(
+        backgroundColor: context.libreta.papel,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: ventasAsync.hasError
+                  ? LibretaErrorCarga(
+                      mensaje: mensajeDeError(
+                        ventasAsync.error,
+                        accion: 'cargar la venta',
+                      ),
+                      detalleTecnico: ventasAsync.error,
+                      onReintentar: () =>
+                          ref.invalidate(historialVentasProvider),
+                    )
+                  : ventasAsync.isLoading
+                      ? const LibretaCargando()
+                      : LibretaErrorCarga(
+                          mensaje: 'Esta venta ya no está en tu historial.',
+                          onReintentar: () => Navigator.of(context).pop(),
+                        ),
+            ),
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -275,7 +305,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
-                  border: Border.all(color: const Color(0x141E2A38)),
+                  border: Border.all(color: context.libreta.renglon),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -395,7 +425,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: context.libreta.superficie,
-                  border: Border.all(color: const Color(0x141E2A38)),
+                  border: Border.all(color: context.libreta.renglon),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Column(
@@ -496,8 +526,8 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
               if (esDueno && !venta.anulada) ...[
                 const SizedBox(height: 14),
                 DottedBorderBox(
-                  color: const Color(0x80F2A93C),
-                  fondo: const Color(0x14F2A93C),
+                  color: LibretaColors.ambarSuperficie.withValues(alpha: .50),
+                  fondo: LibretaColors.ambarSuperficie.withValues(alpha: .08),
                   radius: 14,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -533,7 +563,7 @@ class _VentaDetalleScreenState extends ConsumerState<VentaDetalleScreen> {
                                   ? null
                                   : () => _anular(venta),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFF2A93C)),
+                            side: const BorderSide(color: LibretaColors.ambarSuperficie),
                             foregroundColor: LibretaColors.aviso,
                             minimumSize: const Size.fromHeight(48),
                             shape: RoundedRectangleBorder(
