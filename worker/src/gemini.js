@@ -182,33 +182,74 @@ export async function leerEtiqueta({
 // Libreta manuscrita
 // ---------------------------------------------------------------------------
 
-const PROMPT_LIBRETA = `Estás viendo la foto de una libreta o cuaderno donde
-el dueño de una tienda pequeña en Venezuela anota su inventario a mano. Cada
-renglón suele tener un producto con su precio (normalmente en dólares) y/o su
-cantidad en existencia, en cualquier orden y con abreviaturas.
+const PROMPT_LIBRETA = `Estás viendo la foto de una lista de inventario de una
+tienda pequeña en Venezuela. Puede ser impresa, de otra app, o escrita a mano
+en un cuaderno.
 
-Transcribe cada renglón legible como una fila con:
-- nombre: el nombre del producto tal como está escrito (limpio, sin números
-  de precio o cantidad pegados).
-- precio: el precio unitario en dólares si está anotado, o null.
-- cantidad: las unidades en existencia si están anotadas, o null.
+PRIMERO, antes de transcribir nada, identifica los ENCABEZADOS de la tabla y en
+qué posición horizontal está cada columna (código, descripción, existencia,
+precio, costo, talla, color…). Después lee cada fila mapeando cada celda a SU
+columna por la posición, no por el orden en que aparecen los números. Una fila
+a la que le falta una celda deja ese campo vacío: NO corras los valores de la
+columna siguiente para rellenarlo — ese corrimiento es el error más caro,
+porque mete una existencia en el lugar de un precio.
 
-No inventes datos que no estén escritos. Ignora renglones tachados o
-ilegibles. Si la foto no muestra una lista de productos, indica
-esLista=false.`;
+Si la lista no tiene encabezados (un cuaderno a mano), usa el sentido común del
+renglón: el nombre del producto, y las cifras que lo acompañen.
+
+Devuelve, por cada fila legible:
+- nombre: el producto tal como está escrito, limpio, sin cifras pegadas.
+- codigo: el código o referencia del artículo si hay columna de código; si no,
+  cadena vacía.
+- precio: el precio unitario TAL COMO ESTÁ ESCRITO, como texto y sin tocarlo
+  ("4.500,80", "$3,50"). No lo conviertas ni le quites los puntos: de eso se
+  encarga la app. Cadena vacía si no se lee.
+- cantidad: la existencia, también como texto y sin tocar. Cadena vacía si no
+  se lee.
+- talla y color: solo si la lista tiene columna de talla o de color. Si no
+  las tiene, cadena vacía en ambas.
+- confianzaPrecio y confianzaCantidad: "alta" si la cifra se lee nítida y sin
+  ambigüedad; "media" si es legible pero podría confundirse; "baja" si estás
+  adivinando. Es por CAMPO, no por documento: en una misma fila el nombre puede
+  ser nítido y el precio dudoso.
+
+Además:
+- tipoDocumento: "inventario" si es una lista de existencias del negocio;
+  "factura_compra" si es una factura o nota de entrega de un proveedor (trae
+  precios de costo, no de venta); "desconocido" si no distingues.
+- totalDeclarado: si la lista declara un total de artículos o de renglones
+  ("Total Artículos: 423"), esa cifra como texto. Cadena vacía si no lo dice.
+- esLista: false si la foto no muestra una lista de productos.
+
+REGLAS DURAS:
+- Nunca inventes un valor que no esté escrito. Ante la duda, campo vacío: la
+  app le pedirá al dueño que lo complete. Un precio inventado se cobra.
+- Nunca uses 0 para decir "no se lee". Cero es un valor, no una ausencia.
+- Ignora renglones tachados, subtotales y encabezados repetidos.
+- Devuelve JSON estricto y nada más: sin markdown, sin explicaciones.`;
 
 const ESQUEMA_LIBRETA = {
   type: 'OBJECT',
   properties: {
     esLista: { type: 'BOOLEAN' },
+    tipoDocumento: { type: 'STRING' },
+    totalDeclarado: { type: 'STRING' },
     filas: {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
         properties: {
           nombre: { type: 'STRING' },
-          precio: { type: 'NUMBER', nullable: true },
-          cantidad: { type: 'NUMBER', nullable: true },
+          codigo: { type: 'STRING' },
+          // Las cifras viajan como TEXTO a propósito: "4.500,80" lo interpreta
+          // Dart con una regla determinista. Pedirle al modelo que devuelva un
+          // número daba a veces 4.5 y a veces 450080, sin forma de saber cuál.
+          precio: { type: 'STRING' },
+          cantidad: { type: 'STRING' },
+          talla: { type: 'STRING' },
+          color: { type: 'STRING' },
+          confianzaPrecio: { type: 'STRING' },
+          confianzaCantidad: { type: 'STRING' },
         },
         required: ['nombre'],
       },
@@ -217,6 +258,17 @@ const ESQUEMA_LIBRETA = {
   required: ['esLista', 'filas'],
 };
 
+/** Texto limpio de un campo, o cadena vacía. */
+function texto(v) {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+/** Una de las tres confianzas; cualquier otra cosa es "media". */
+function confianza(v) {
+  const c = texto(v).toLowerCase();
+  return c === 'alta' || c === 'baja' ? c : 'media';
+}
+
 /** Reduce la respuesta de la libreta a filas limpias y utilizables. */
 export function interpretarRespuestaLibreta(json) {
   const datos = extraerJson(json);
@@ -224,15 +276,32 @@ export function interpretarRespuestaLibreta(json) {
     return { reconocido: false, filas: [] };
   }
 
+  // Las cifras se pasan como texto y sin tocar: normalizarlas es trabajo de
+  // Dart, donde la regla es determinista y está probada.
   const filas = datos.filas
     .filter((f) => typeof f?.nombre === 'string' && f.nombre.trim())
     .map((f) => ({
       nombre: f.nombre.trim(),
-      precio: numeroPositivo(f.precio),
-      cantidad: numeroPositivo(f.cantidad),
+      codigo: texto(f.codigo),
+      precio: texto(f.precio),
+      cantidad: texto(f.cantidad),
+      talla: texto(f.talla),
+      color: texto(f.color),
+      confianzaPrecio: confianza(f.confianzaPrecio),
+      confianzaCantidad: confianza(f.confianzaCantidad),
     }));
 
-  return { reconocido: filas.length > 0, filas };
+  const tipos = ['inventario', 'factura_compra', 'desconocido'];
+  const tipoDocumento = tipos.includes(texto(datos.tipoDocumento))
+    ? texto(datos.tipoDocumento)
+    : 'desconocido';
+
+  return {
+    reconocido: filas.length > 0,
+    filas,
+    tipoDocumento,
+    totalDeclarado: texto(datos.totalDeclarado),
+  };
 }
 
 /** Lee la foto de una libreta de inventario y devuelve sus filas. */

@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
-import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/numero_ve.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -31,6 +31,10 @@ class ImportarInventarioScreen extends ConsumerStatefulWidget {
 class _ImportarInventarioScreenState
     extends ConsumerState<ImportarInventarioScreen> {
   List<FilaLibreta> _filas = [];
+
+  /// Lo que dijo la lectura además de las filas: qué clase de papel era y si
+  /// el total declarado cuadra con lo leído.
+  LecturaInventario? _lectura;
   bool _leyendo = false;
   bool _guardando = false;
 
@@ -54,15 +58,30 @@ class _ImportarInventarioScreenState
 
     setState(() => _leyendo = true);
     try {
-      final filas = await ref
+      final lectura = await ref
           .read(lectorEtiquetaServiceProvider)
           .leerLibreta(File(x.path));
       if (!mounted) return;
       setState(() {
-        _filas = filas;
+        _lectura = lectura;
+        _filas = lectura.filas;
         _leyendo = false;
       });
-      if (filas.isEmpty) _avisar('No reconocimos productos en la foto.');
+      if (lectura.filas.isEmpty) {
+        _avisar('No reconocimos productos en la foto.');
+      } else if (lectura.tipo == TipoDocumento.facturaCompra) {
+        // Una factura de compra trae precios de COSTO. Cargarlos como precio
+        // de venta deja al dueño vendiendo a lo que le costó, sin ganancia.
+        _avisar(
+          'Esto parece una factura de compra: los precios son de costo, no de '
+          'venta. Revísalos antes de importar.',
+        );
+      } else if (!lectura.cuadra) {
+        _avisar(
+          'La lista dice ${lectura.totalDeclarado!.toStringAsFixed(0)} '
+          'artículos y leímos otra cantidad. Revisa antes de importar.',
+        );
+      }
     } on SinReconocer {
       if (!mounted) return;
       setState(() => _leyendo = false);
@@ -207,14 +226,28 @@ class _ImportarInventarioScreenState
 
               if (_filas.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                _PanelDetectados(filas: _filas),
+                if (_lectura?.tipo == TipoDocumento.facturaCompra)
+                  _AvisoLectura(
+                    texto: 'Esto parece una factura de compra: esos precios '
+                        'son de COSTO, no de venta.',
+                  )
+                else if (_lectura?.cuadra == false)
+                  _AvisoLectura(
+                    texto: 'La lista declara '
+                        '${_lectura!.totalDeclarado!.toStringAsFixed(0)} '
+                        'artículos y lo leído suma otra cantidad.',
+                  ),
+                _TablaRevision(
+                  filas: _filas,
+                  onCambio: (nuevas) => setState(() => _filas = nuevas),
+                ),
                 const SizedBox(height: 16),
                 LibretaButton(
                   label: _guardando
                       ? 'Importando…'
-                      : 'Importar ${_filas.length} productos',
+                      : 'Confirmar importación · ${_filas.length}',
                   loading: _guardando,
-                  onPressed: _guardando ? null : _importar,
+                  onPressed: _guardando || _filas.isEmpty ? null : _importar,
                 ),
               ],
 
@@ -368,66 +401,259 @@ class _FilaOpcion extends StatelessWidget {
 }
 
 /// Panel "Detectados de tu foto": vista previa de lo leído antes de importar.
-class _PanelDetectados extends StatelessWidget {
-  const _PanelDetectados({required this.filas});
+/// La revisión antes de guardar.
+///
+/// Sin esto el dueño no tenía forma de atrapar los errores de la lectura: los
+/// productos entraban al inventario tal como salieran, y los que salieron en
+/// $0,00 solo se descubrían al intentar cobrarlos.
+///
+/// Lo dudoso —lo que no se pudo leer o se leyó con poca confianza— va en ámbar,
+/// que es el color de "míralo", no de "está roto".
+class _TablaRevision extends StatefulWidget {
+  const _TablaRevision({required this.filas, required this.onCambio});
 
   final List<FilaLibreta> filas;
+
+  /// Devuelve la lista completa cada vez que algo cambia: la pantalla es la
+  /// dueña de los datos, esta tabla solo los edita.
+  final ValueChanged<List<FilaLibreta>> onCambio;
+
+  @override
+  State<_TablaRevision> createState() => _TablaRevisionState();
+}
+
+class _TablaRevisionState extends State<_TablaRevision> {
+  void _editar(int i, {double? precio, double? cantidad, bool quitar = false}) {
+    final copia = [...widget.filas];
+    if (quitar) {
+      copia.removeAt(i);
+    } else {
+      copia[i] = copia[i].copyCon(precio: precio, cantidad: cantidad);
+    }
+    widget.onCambio(copia);
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    final visibles = filas.take(5).toList();
-    final restantes = filas.length - visibles.length;
+    final dudosas = widget.filas.where((f) => f.dudosa).length;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0x0F0E9F6E),
-        border: Border.all(color: const Color(0x2E0E9F6E)),
+        color: t.superficie,
+        border: Border.all(color: t.renglon),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'DETECTADOS DE TU FOTO',
+          Text(
+            'REVISA ANTES DE IMPORTAR',
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
-              color: LibretaColors.verde,
+              color: t.textoMuted,
             ),
           ),
-          const SizedBox(height: 8),
-          for (final f in visibles)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      f.nombre,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: t.textoFuerte),
-                    ),
-                  ),
-                  Text(
-                    f.precio == null ? '—' : MoneyFormatter.usd(f.precio!),
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: t.textoFuerte),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 2),
+          Text(
+            dudosas == 0
+                ? '${widget.filas.length} productos leídos'
+                : '${widget.filas.length} leídos · $dudosas por revisar',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: dudosas == 0 ? t.textoMuted : LibretaColors.aviso,
             ),
-          if (restantes > 0)
+          ),
+          const SizedBox(height: 10),
+          for (var i = 0; i < widget.filas.length; i++)
+            _RenglonRevision(
+              key: ValueKey('${widget.filas[i].clave}-$i'),
+              fila: widget.filas[i],
+              onPrecio: (v) => _editar(i, precio: v),
+              onCantidad: (v) => _editar(i, cantidad: v),
+              onQuitar: () => _editar(i, quitar: true),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RenglonRevision extends StatefulWidget {
+  const _RenglonRevision({
+    super.key,
+    required this.fila,
+    required this.onPrecio,
+    required this.onCantidad,
+    required this.onQuitar,
+  });
+
+  final FilaLibreta fila;
+  final ValueChanged<double?> onPrecio;
+  final ValueChanged<double?> onCantidad;
+  final VoidCallback onQuitar;
+
+  @override
+  State<_RenglonRevision> createState() => _RenglonRevisionState();
+}
+
+class _RenglonRevisionState extends State<_RenglonRevision> {
+  late final _precio = TextEditingController(
+    text: widget.fila.precio?.toStringAsFixed(2) ?? '',
+  );
+  late final _cantidad = TextEditingController(
+    text: widget.fila.cantidad == null
+        ? ''
+        : Producto.formatearCantidad(widget.fila.cantidad!, false),
+  );
+
+  @override
+  void dispose() {
+    _precio.dispose();
+    _cantidad.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final f = widget.fila;
+    final faltaPrecio = f.precio == null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: f.dudosa
+            ? LibretaColors.aviso.withValues(alpha: 0.08)
+            : Colors.transparent,
+        border: Border.all(
+          color: f.dudosa ? LibretaColors.aviso : t.renglon,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  f.nombre,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: t.textoFuerte,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: widget.onQuitar,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Icon(Icons.close, size: 18, color: t.textoMuted),
+                ),
+              ),
+            ],
+          ),
+          if (f.codigo != null && f.codigo!.isNotEmpty ||
+              f.talla != null && f.talla!.isNotEmpty ||
+              f.color != null && f.color!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 2),
               child: Text(
-                '+ $restantes productos más detectados',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.textoMuted),
+                [
+                  if (f.codigo != null && f.codigo!.isNotEmpty) f.codigo!,
+                  if (f.talla != null && f.talla!.isNotEmpty) f.talla!,
+                  if (f.color != null && f.color!.isNotEmpty) f.color!,
+                ].join(' · '),
+                style: TextStyle(fontSize: 11.5, color: t.textoMuted),
               ),
             ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: LibretaInput(
+                  controller: _precio,
+                  label: 'Precio (USD)',
+                  hint: faltaPrecio ? 'no se leyó' : '0.00',
+                  height: 42,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (v) => widget.onPrecio(normalizarPositivoVE(v)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: LibretaInput(
+                  controller: _cantidad,
+                  label: 'Existencia',
+                  hint: f.cantidad == null ? 'no se leyó' : '0',
+                  height: 42,
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => widget.onCantidad(normalizarPositivoVE(v)),
+                ),
+              ),
+            ],
+          ),
+          if (faltaPrecio)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Sin precio no se puede vender.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: LibretaColors.aviso,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Franja ámbar sobre la tabla cuando la lectura entera merece desconfianza.
+class _AvisoLectura extends StatelessWidget {
+  const _AvisoLectura({required this.texto});
+
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: LibretaColors.aviso.withValues(alpha: 0.12),
+        border: Border.all(color: LibretaColors.aviso),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 17, color: LibretaColors.aviso),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+                color: context.libreta.textoFuerte,
+              ),
+            ),
+          ),
         ],
       ),
     );

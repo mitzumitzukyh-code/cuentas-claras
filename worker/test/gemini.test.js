@@ -124,34 +124,85 @@ describe('interpretarRespuestaGemini', () => {
 });
 
 describe('interpretarRespuestaLibreta', () => {
-  it('devuelve filas limpias y descarta las sin nombre', () => {
+  it('pasa las cifras COMO TEXTO, sin tocarlas', () => {
+    const r = interpretarRespuestaLibreta(
+      respuestaDe({
+        esLista: true,
+        tipoDocumento: 'inventario',
+        filas: [
+          {
+            nombre: ' Harina PAN 1kg ',
+            codigo: 'HP-01',
+            precio: '4.500,80',
+            cantidad: '45',
+            confianzaPrecio: 'alta',
+            confianzaCantidad: 'alta',
+          },
+        ],
+      }),
+    );
+    // El Worker NO normaliza: "4.500,80" llega intacto y lo interpreta Dart,
+    // donde la regla es determinista y está probada. Pedirle la conversión al
+    // modelo daba a veces 4.5 y a veces 450080.
+    assert.equal(r.filas[0].precio, '4.500,80');
+    assert.equal(r.filas[0].cantidad, '45');
+    assert.equal(r.filas[0].codigo, 'HP-01');
+    assert.equal(r.filas[0].nombre, 'Harina PAN 1kg');
+  });
+
+  it('descarta las filas sin nombre', () => {
     const r = interpretarRespuestaLibreta(
       respuestaDe({
         esLista: true,
         filas: [
-          { nombre: ' Harina PAN 1kg ', precio: 1.2, cantidad: 45 },
-          { nombre: 'Arroz Diana', precio: null, cantidad: 30 },
-          { nombre: '   ', precio: 3, cantidad: 1 },
+          { nombre: 'Arroz Diana', precio: '', cantidad: '30' },
+          { nombre: '   ', precio: '3', cantidad: '1' },
         ],
       }),
     );
-    assert.deepEqual(r, {
-      reconocido: true,
-      filas: [
-        { nombre: 'Harina PAN 1kg', precio: 1.2, cantidad: 45 },
-        { nombre: 'Arroz Diana', precio: null, cantidad: 30 },
-      ],
-    });
+    assert.equal(r.filas.length, 1);
+    assert.equal(r.filas[0].nombre, 'Arroz Diana');
+    // Un campo que no se leyó viaja vacío, no como cero: cero es un valor.
+    assert.equal(r.filas[0].precio, '');
   });
 
-  it('descarta precios y cantidades absurdos (cero o negativos)', () => {
+  it('la confianza es por campo y por defecto media', () => {
     const r = interpretarRespuestaLibreta(
       respuestaDe({
         esLista: true,
-        filas: [{ nombre: 'Pasta', precio: -2, cantidad: 0 }],
+        filas: [
+          { nombre: 'Pasta', confianzaPrecio: 'baja' },
+          { nombre: 'Aceite', confianzaPrecio: 'inventada' },
+        ],
       }),
     );
-    assert.deepEqual(r.filas, [{ nombre: 'Pasta', precio: null, cantidad: null }]);
+    assert.equal(r.filas[0].confianzaPrecio, 'baja');
+    assert.equal(r.filas[0].confianzaCantidad, 'media');
+    assert.equal(r.filas[1].confianzaPrecio, 'media');
+  });
+
+  it('reconoce una factura de compra y conserva el total declarado', () => {
+    const r = interpretarRespuestaLibreta(
+      respuestaDe({
+        esLista: true,
+        tipoDocumento: 'factura_compra',
+        totalDeclarado: '423',
+        filas: [{ nombre: 'Caja de jabón', precio: '12,00', cantidad: '10' }],
+      }),
+    );
+    assert.equal(r.tipoDocumento, 'factura_compra');
+    assert.equal(r.totalDeclarado, '423');
+  });
+
+  it('un tipo de documento inventado cae en desconocido', () => {
+    const r = interpretarRespuestaLibreta(
+      respuestaDe({
+        esLista: true,
+        tipoDocumento: 'recibo_de_luz',
+        filas: [{ nombre: 'Algo' }],
+      }),
+    );
+    assert.equal(r.tipoDocumento, 'desconocido');
   });
 
   it('no reconoce cuando la foto no es una lista', () => {

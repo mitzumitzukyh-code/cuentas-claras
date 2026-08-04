@@ -287,6 +287,25 @@ crecientes (1 s, 2 s, 4 s) y **solo** reintenta lo que puede mejorar esperando:
 un permiso denegado o un archivo inválido se propagan al primer intento. Lo
 usan la subida de fotos a Cloudinary y las lecturas con IA.
 
+## 8.c.4 Lectura de inventario desde foto
+
+- **`precio` es nulable y `null` nunca es `0`.** Un producto sin precio no entra
+  al carrito (`Producto.sePuedeVender`), no sale en el catálogo ni en el Estado,
+  y se pinta "Sin precio" en ámbar. El `?? 0` del importador metía productos en
+  \$0,00 que se podían cobrar.
+- **Las cifras viajan como texto desde el Worker** y las interpreta
+  `normalizarNumeroVE` (`lib/core/utils/numero_ve.dart`): `4.500,80` → 4500.80
+  es determinista y no necesita un modelo. Pedírselo a Gemini devolvía a veces
+  `4.5` y a veces `450080`.
+- **La confianza es por campo**, no por documento: en una fila el nombre puede
+  ser nítido y el precio dudoso.
+- **`consolidarFilas` une por código o nombre, pero la talla y el color
+  separan.** En repuestos dos filas con el mismo código son el mismo artículo;
+  en ropa, el mismo nombre con distinta talla son dos variantes con su propio
+  stock. La pista es si la lista trae esa columna.
+- **Nada se guarda sin pasar por la tabla de revisión**, con lo dudoso en ámbar.
+  Una factura de compra se detecta y se avisa: trae precios de costo.
+
 ## 8.d Infraestructura
 
 Cuentas de infraestructura documentadas en `INFRA.local.md` (no versionado).
