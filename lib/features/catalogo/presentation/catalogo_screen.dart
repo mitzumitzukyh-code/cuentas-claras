@@ -11,6 +11,8 @@ import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/captura_widget.dart';
 import '../../../shared/presentation/foto_red.dart';
+import '../../../shared/presentation/estado_carga.dart';
+import '../../../shared/utils/errores.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
@@ -114,7 +116,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
         text: 'Catálogo de $nombreNegocio\nHecho con Cuenta Clara',
       );
     } catch (e) {
-      _mostrar('No se pudo generar la imagen: $e');
+      _mostrar(mensajeDeError(e, accion: 'generar la imagen'));
     } finally {
       if (mounted) setState(() => _generando = false);
     }
@@ -137,7 +139,30 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
 
     if (negocio == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Antes era un spinner sin fin: con un fallo de carga el negocio nunca
+      // llega, y la pantalla giraba para siempre sin error ni salida.
+      final negocioAsync = ref.watch(negocioActivoProvider);
+      return Scaffold(
+        backgroundColor: context.libreta.papel,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: negocioAsync.hasError
+                  ? LibretaErrorCarga(
+                      mensaje: mensajeDeError(
+                        negocioAsync.error,
+                        accion: 'cargar tu negocio',
+                      ),
+                      detalleTecnico: negocioAsync.error,
+                      onReintentar: () =>
+                          ref.invalidate(negocioActivoProvider),
+                    )
+                  : const LibretaCargando(),
+            ),
+          ),
+        ),
+      );
     }
     _sembrar(productos);
 
@@ -736,7 +761,7 @@ class _LienzoCatalogo extends StatelessWidget {
 
           // --- Pie con la marca (CLAUDE.md §6: marca de agua en gratis) ---
           Container(
-            color: const Color(0xFF1E2A38),
+            color: LibretaColors.tarjetaOscura,
             padding: const EdgeInsets.symmetric(vertical: 9),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

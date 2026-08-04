@@ -9,6 +9,7 @@ import '../../../core/utils/money_formatter.dart';
 import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/captura_widget.dart';
 import '../../../shared/presentation/foto_red.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../productos/data/producto_repository.dart';
@@ -198,7 +199,30 @@ class _EstadoScreenState extends ConsumerState<EstadoScreen> {
     final tasa = ref.watch(bcvRateProvider).valueOrNull?.tasa;
 
     if (negocio == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Antes era un spinner sin fin: con un fallo de carga el negocio nunca
+      // llega, y la pantalla giraba para siempre sin error ni salida.
+      final negocioAsync = ref.watch(negocioActivoProvider);
+      return Scaffold(
+        backgroundColor: context.libreta.papel,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: negocioAsync.hasError
+                  ? LibretaErrorCarga(
+                      mensaje: mensajeDeError(
+                        negocioAsync.error,
+                        accion: 'cargar tu negocio',
+                      ),
+                      detalleTecnico: negocioAsync.error,
+                      onReintentar: () =>
+                          ref.invalidate(negocioActivoProvider),
+                    )
+                  : const LibretaCargando(),
+            ),
+          ),
+        ),
+      );
     }
 
     // El destacado del flyer es el único elegido; en la parrilla no aplica.

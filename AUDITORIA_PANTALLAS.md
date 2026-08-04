@@ -183,8 +183,11 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Catálogo
 
-- [ ] **Catálogo** — `/catalogo` · [catalogo_screen.dart](lib/features/catalogo/presentation/catalogo_screen.dart)
-- [ ] **Publicar en estado** — `/catalogo/estado` · [estado_screen.dart](lib/features/catalogo/presentation/estado_screen.dart)
+- [x] **Catálogo** — `/catalogo` · [catalogo_screen.dart](lib/features/catalogo/presentation/catalogo_screen.dart)
+      · 3 (spinner infinito si falla el negocio, `$e` crudo, color)
+- [x] **Publicar en estado** — `/catalogo/estado` · [estado_screen.dart](lib/features/catalogo/presentation/estado_screen.dart)
+      · 1 (spinner infinito). Los ~38 colores son paletas de plantilla, no
+      tokens de marca: se dejan
 
 ## Negocio y equipo
 
@@ -211,6 +214,22 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 - [ ] **Notificaciones** — `/notificaciones` · [notificaciones_screen.dart](lib/features/notificaciones/presentation/notificaciones_screen.dart)
 
 ---
+
+## No existe la capa de planes — pendiente de decisión
+
+`lib/features/planes/` solo tiene `presentation/`: no hay provider de
+suscripción, ni estado premium, ni nada que consulte el plan. En consecuencia:
+
+- La marca de agua del catálogo y del Estado está **siempre** puesta. Es el
+  lado seguro (todos ven el comportamiento gratis), pero significa que quien
+  pagara Premium no recibiría lo que compró.
+- Ningún límite del plan gratis se aplica: 1 negocio, 50 productos, historial
+  de 30 días, 1 usuario. Todos están documentados en CLAUDE.md §6 y ninguno
+  está en el código.
+- `in_app_purchase` está en `pubspec.yaml` y no se usa.
+
+No es un defecto de estas pantallas: es una capa sin construir. Anotado aquí
+para que no se pierda.
 
 ## Dos ámbares conviviendo — pendiente de tu decisión
 
