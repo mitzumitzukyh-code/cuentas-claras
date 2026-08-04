@@ -104,6 +104,84 @@ void main() {
       expect(map['subcategoria'], 'Luz');
     });
   });
+
+  group('Gasto · tasa congelada', () {
+    test('montoBs usa la tasa del día en que se registró', () {
+      final gasto = Gasto(
+        id: 'g5',
+        categoria: CategoriaGasto.mercancia,
+        descripcion: 'Harina',
+        monto: 10,
+        fecha: _fecha,
+        tasaUsada: 100,
+      );
+      expect(gasto.montoBs, 1000);
+    });
+
+    test('sin tasa guardada no se inventa una conversión', () {
+      final gasto = Gasto(
+        id: 'g6',
+        categoria: CategoriaGasto.mercancia,
+        descripcion: 'Viejo',
+        monto: 10,
+        fecha: _fecha,
+      );
+      // Los gastos anteriores al campo se muestran solo en USD: convertirlos
+      // con la tasa de hoy haría que su monto en Bs cambiara cada mañana.
+      expect(gasto.montoBs, isNull);
+      expect(gasto.toMap()['tasaUsada'], isNull);
+    });
+
+    test('editar no reescribe la tasa ni las marcas de borrado', () {
+      final original = Gasto(
+        id: 'g7',
+        categoria: CategoriaGasto.mercancia,
+        descripcion: 'Antes',
+        monto: 10,
+        fecha: _fecha,
+        tasaUsada: 100,
+      );
+      final editado = original.copyWith(descripcion: 'Después', monto: 12);
+      expect(editado.descripcion, 'Después');
+      expect(editado.monto, 12);
+      expect(editado.tasaUsada, 100);
+      expect(editado.id, 'g7');
+    });
+  });
+
+  group('Gasto · borrado lógico', () {
+    test('por defecto no está eliminado', () {
+      final gasto = Gasto(
+        id: 'g8',
+        categoria: CategoriaGasto.otro,
+        descripcion: 'Vivo',
+        monto: 5,
+        fecha: _fecha,
+      );
+      expect(gasto.eliminado, false);
+      expect(gasto.eliminadoEn, isNull);
+      expect(gasto.toMap()['eliminado'], false);
+    });
+
+    test('un gasto eliminado conserva sus datos y la marca', () {
+      final gasto = Gasto(
+        id: 'g9',
+        categoria: CategoriaGasto.otro,
+        descripcion: 'Borrado',
+        monto: 5,
+        fecha: _fecha,
+        eliminado: true,
+        eliminadoEn: DateTime(2026, 8, 3),
+      );
+      final map = gasto.toMap();
+      expect(map['eliminado'], true);
+      expect(map['eliminadoEn'], isNotNull);
+      // El documento no se destruye: los reportes tienen que poder auditar
+      // qué se quitó y cuándo.
+      expect(map['monto'], 5);
+      expect(map['descripcion'], 'Borrado');
+    });
+  });
 }
 
 final _fecha = DateTime(2026, 7, 26);

@@ -50,6 +50,9 @@ class Gasto {
     required this.monto,
     required this.fecha,
     this.fotoReciboUrl,
+    this.tasaUsada,
+    this.eliminado = false,
+    this.eliminadoEn,
   });
 
   final String id;
@@ -61,6 +64,22 @@ class Gasto {
   final double monto;
   final DateTime fecha;
   final String? fotoReciboUrl;
+
+  /// Tasa Bs/USD del día en que se registró el gasto.
+  ///
+  /// Se congela a propósito: si el detalle convirtiera con la tasa de hoy, el
+  /// monto en bolívares de un gasto de julio cambiaría solo cada mañana y los
+  /// números dejarían de servir para auditar nada. `null` en los gastos
+  /// anteriores a este campo — esos se muestran solo en USD, que es lo honesto.
+  final double? tasaUsada;
+
+  /// Borrado lógico. Un gasto alimenta los reportes: se marca, no se destruye,
+  /// para poder auditar qué se quitó y cuándo.
+  final bool eliminado;
+  final DateTime? eliminadoEn;
+
+  /// El monto en Bs del día en que se registró, o `null` si no se guardó tasa.
+  double? get montoBs => tasaUsada == null ? null : monto * tasaUsada!;
 
   /// "Transporte · Flete" o solo "Transporte".
   String get categoriaLabel {
@@ -80,6 +99,31 @@ class Gasto {
       monto: (data['monto'] as num?)?.toDouble() ?? 0,
       fecha: (data['fecha'] as Timestamp?)?.toDate() ?? DateTime.now(),
       fotoReciboUrl: data['fotoReciboUrl'] as String?,
+      tasaUsada: (data['tasaUsada'] as num?)?.toDouble(),
+      eliminado: (data['eliminado'] as bool?) ?? false,
+      eliminadoEn: (data['eliminadoEn'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  Gasto copyWith({
+    CategoriaGasto? categoria,
+    String? subcategoria,
+    String? descripcion,
+    double? monto,
+    DateTime? fecha,
+    String? fotoReciboUrl,
+  }) {
+    return Gasto(
+      id: id,
+      categoria: categoria ?? this.categoria,
+      subcategoria: subcategoria ?? this.subcategoria,
+      descripcion: descripcion ?? this.descripcion,
+      monto: monto ?? this.monto,
+      fecha: fecha ?? this.fecha,
+      fotoReciboUrl: fotoReciboUrl ?? this.fotoReciboUrl,
+      tasaUsada: tasaUsada,
+      eliminado: eliminado,
+      eliminadoEn: eliminadoEn,
     );
   }
 
@@ -90,5 +134,9 @@ class Gasto {
         'monto': monto,
         'fecha': Timestamp.fromDate(fecha),
         'fotoReciboUrl': fotoReciboUrl,
+        'tasaUsada': tasaUsada,
+        'eliminado': eliminado,
+        'eliminadoEn':
+            eliminadoEn == null ? null : Timestamp.fromDate(eliminadoEn!),
       };
 }

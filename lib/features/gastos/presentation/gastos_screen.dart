@@ -12,6 +12,7 @@ import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/gasto_repository.dart';
 import '../domain/gasto.dart';
+import 'gasto_detalle_screen.dart';
 
 /// Pantalla 9 — Gastos del mes (réplica visual de `P0 · GASTOS`,
 /// `Lote C · Gastos y Productos`).
@@ -73,7 +74,8 @@ class GastosScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final esDueno = ref.watch(esDuenoProvider);
-    final gastosAsync = ref.watch(gastosDelMesProvider);
+    final mes = ref.watch(mesGastosProvider);
+    final gastosAsync = ref.watch(gastosDelMesElegidoProvider);
     final gastos = gastosAsync.valueOrNull ?? const <Gasto>[];
     // Cargando, error y vacío son tres cosas distintas: un fallo de lectura no
     // puede verse igual que "no hay gastos".
@@ -139,6 +141,9 @@ class GastosScreen extends ConsumerWidget {
                   letterSpacing: -0.5,
                 ),
               ),
+              const SizedBox(height: 10),
+              _SelectorMes(mes: mes, total: total),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Text(
@@ -164,7 +169,8 @@ class GastosScreen extends ConsumerWidget {
                   mensaje: 'No pudimos cargar tus gastos. Revisa tu internet '
                       'e intenta de nuevo.',
                   detalleTecnico: gastosAsync.error,
-                  onReintentar: () => ref.invalidate(gastosDelMesProvider),
+                  onReintentar: () =>
+                      ref.invalidate(gastosDelMesElegidoProvider),
                 )
               else if (gastos.isEmpty)
                 LibretaEstadoVacio(
@@ -184,7 +190,7 @@ class GastosScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
-                    _mesEnLetras(DateTime.now()).toUpperCase(),
+                    '${_mesEnLetras(mes)} ${mes.year}'.toUpperCase(),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -198,6 +204,12 @@ class GastosScreen extends ConsumerWidget {
                     gasto: gastos[i],
                     ultima: i == gastos.length - 1,
                     onEliminar: () => _confirmarEliminar(context, ref, gastos[i]),
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            GastoDetalleScreen(gastoInicial: gastos[i]),
+                      ),
+                    ),
                   ),
               ],
             ],
@@ -229,11 +241,13 @@ class _FilaGasto extends StatelessWidget {
     required this.gasto,
     required this.ultima,
     required this.onEliminar,
+    required this.onTap,
   });
 
   final Gasto gasto;
   final bool ultima;
   final VoidCallback onEliminar;
+  final VoidCallback onTap;
 
   IconData get _icono => switch (gasto.categoria) {
         CategoriaGasto.mercancia => Icons.inventory_2_outlined,
@@ -257,7 +271,10 @@ class _FilaGasto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final f = gasto.fecha;
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       constraints: const BoxConstraints(minHeight: 54),
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -316,6 +333,81 @@ class _FilaGasto extends StatelessWidget {
             icon: LibretaIcono(AppAssets.accEliminar,
               size: 18,
               color: context.libreta.textoMuted,
+            ),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+/// Navegación por mes: `‹ agosto 2026 · −$104,86 ›`.
+///
+/// Solo por mes, sin rango libre: un bodeguero piensa en meses, y comparar mes
+/// contra mes es la razón por la que alguien registra gastos. El rango libre es
+/// más pantalla para un puñado de casos.
+class _SelectorMes extends ConsumerWidget {
+  const _SelectorMes({required this.mes, required this.total});
+
+  final DateTime mes;
+  final double total;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.libreta;
+    final hoy = DateTime.now();
+    // No se navega al futuro: no hay nada que ver y confunde.
+    final haySiguiente = mes.year < hoy.year ||
+        (mes.year == hoy.year && mes.month < hoy.month);
+
+    void mover(int meses) {
+      ref.read(mesGastosProvider.notifier).state =
+          DateTime(mes.year, mes.month + meses);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      decoration: BoxDecoration(
+        color: t.superficie,
+        border: Border.all(color: t.renglon),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: () => mover(-1),
+            icon: Icon(Icons.chevron_left, color: t.textoFuerte),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  '${_mesEnLetras(mes)} ${mes.year}',
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                    color: t.textoFuerte,
+                  ),
+                ),
+                Text(
+                  '−${MoneyFormatter.usd(total)}',
+                  style: AppTypography.money(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: t.textoMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: haySiguiente ? () => mover(1) : null,
+            icon: Icon(
+              Icons.chevron_right,
+              color: haySiguiente ? t.textoFuerte : t.renglon,
             ),
           ),
         ],

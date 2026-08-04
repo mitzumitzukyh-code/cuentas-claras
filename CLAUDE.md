@@ -251,6 +251,27 @@ un botón Reintentar, y manda la excepción a la consola — el `toString()` de 
 excepción no se le enseña nunca al usuario. Para lógica derivada está `_leidos`
 en `urgencias.dart`: una urgencia se emite sobre datos leídos o no se emite.
 
+## 8.c.2 Gastos: mes, edición y borrado lógico
+
+- **La pantalla se mira por mes**, no "el mes actual": `mesGastosProvider`
+  guarda qué mes está abierto y `gastosDelMesElegidoProvider` lo consulta. No
+  hay rango libre a propósito — un bodeguero piensa en meses.
+- **Editar reusa `RegistrarGastoScreen`** pasándole el `gasto`. No hay una
+  segunda pantalla de formulario.
+- **Eliminar es lógico** (`eliminado` + `eliminadoEn`), nunca físico: los gastos
+  alimentan reportes y hay que poder auditar qué se quitó. El filtro va en Dart
+  y no en la consulta para no exigir un índice compuesto por unas decenas de
+  documentos al mes.
+- **`gasto.tasaUsada` se congela al registrar y no se reescribe al editar.** Si
+  el detalle convirtiera con la tasa de hoy, el monto en Bs de un gasto de julio
+  cambiaría cada mañana. Los gastos anteriores al campo se muestran solo en USD.
+- **Lo que precarga la IA se marca** (`_SelloIA`, "según el recibo") y **la fecha
+  del recibo no se aplica sola**: se ofrece en un chip. Un recibo de julio
+  registrado en agosto es un gasto de agosto para el flujo de caja, y aplicarla
+  en silencio hacía que el gasto desapareciera del mes que el dueño miraba.
+- **Guardar fuera del mes visible lo dice** y ofrece ir: "Gasto guardado en
+  julio 2026 · [Ver julio 2026]".
+
 ## 8.d Infraestructura
 
 Cuentas de infraestructura documentadas en `INFRA.local.md` (no versionado).

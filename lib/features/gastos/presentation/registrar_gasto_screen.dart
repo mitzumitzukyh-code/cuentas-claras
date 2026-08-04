@@ -21,7 +21,12 @@ import '../domain/gasto.dart';
 /// fecha, categoría y descripción — y como siempre, solo PRELLENA: el dueño
 /// revisa y toca "Guardar", nada se registra solo.
 class RegistrarGastoScreen extends ConsumerStatefulWidget {
-  const RegistrarGastoScreen({super.key});
+  const RegistrarGastoScreen({super.key, this.gasto});
+
+  /// `null` = alta. Con valor, la misma pantalla edita ese gasto: sin esto, un
+  /// gasto con la fecha mal —lo que hace la IA cuando el recibo trae la del
+  /// proveedor— solo se arreglaba desde la consola de Firebase.
+  final Gasto? gasto;
 
   @override
   ConsumerState<RegistrarGastoScreen> createState() =>
@@ -40,7 +45,30 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
   bool _guardando = false;
 
   bool _categoriaTocada = false;
-  bool _fechaTocada = false;
+
+  /// Qué campos vienen de la lectura del recibo y el usuario no ha tocado.
+  /// Se pintan distinto: un campo que puso la IA no puede verse igual que uno
+  /// que escribió el dueño, o se guarda un dato equivocado sin notarlo.
+  final Set<String> _deIA = {};
+
+  /// Fecha que leyó la IA y todavía no se aplicó. Se ofrece, no se impone: lo
+  /// que importa para el flujo de caja es cuándo salió la plata, no cuándo se
+  /// emitió la factura.
+  DateTime? _fechaSugerida;
+
+  bool get _editando => widget.gasto != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final g = widget.gasto;
+    if (g == null) return;
+    _monto.text = g.monto.toStringAsFixed(2);
+    _descripcion.text = g.descripcion;
+    _categoria = g.categoria;
+    _subcategoria = g.subcategoria;
+    _fecha = g.fecha;
+  }
 
   @override
   void dispose() {
@@ -93,19 +121,28 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
       final hoy = DateTime.now();
       final limiteFecha = DateTime(hoy.year - 2);
       setState(() {
-        if (monto != null && montoVacio) _monto.text = monto.toStringAsFixed(2);
-        if (!_fechaTocada &&
-            datos.fecha != null &&
+        if (monto != null && montoVacio) {
+          _monto.text = monto.toStringAsFixed(2);
+          _deIA.add('monto');
+        }
+        // La fecha del recibo NO se aplica sola: se ofrece. Un recibo de julio
+        // registrado en agosto es un gasto de agosto para el flujo de caja, y
+        // aplicarla en silencio hacía que el gasto desapareciera del mes que
+        // el dueño estaba mirando.
+        if (datos.fecha != null &&
             !datos.fecha!.isAfter(hoy) &&
-            !datos.fecha!.isBefore(limiteFecha)) {
-          _fecha = datos.fecha!;
+            !datos.fecha!.isBefore(limiteFecha) &&
+            !_mismoDia(datos.fecha!, _fecha)) {
+          _fechaSugerida = datos.fecha;
         }
         if (!_categoriaTocada && datos.categoria != null) {
           _categoria = CategoriaGasto.fromId(datos.categoria);
           _subcategoria = null;
+          _deIA.add('categoria');
         }
         if (datos.descripcion != null && descripcionVacia) {
           _descripcion.text = datos.descripcion!;
+          _deIA.add('descripcion');
         }
         _leyendoIA = false;
       });
@@ -137,10 +174,32 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
     if (fecha != null && mounted) {
       setState(() {
         _fecha = fecha;
-        _fechaTocada = true;
+        _deIA.remove('fecha');
+        _fechaSugerida = null;
       });
     }
   }
+
+  /// Aplica la fecha que leyó el recibo, con un toque.
+  void _usarFechaSugerida() {
+    final f = _fechaSugerida;
+    if (f == null) return;
+    setState(() {
+      _fecha = f;
+      _fechaSugerida = null;
+      _deIA.add('fecha');
+    });
+  }
+
+  static bool _mismoDia(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static const _meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ];
+
+  static String mesYAno(DateTime f) => '${_meses[f.month - 1]} ${f.year}';
 
   Future<void> _guardar() async {
     final membresia = ref.read(membresiaActivaProvider);
@@ -161,27 +220,47 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
         }
       }
 
-      final confirmado = await repo.crear(
-        membresia.negocioId,
-        Gasto(
-          id: '',
-          categoria: _categoria,
-          subcategoria: _subcategoria,
-          descripcion: _descripcion.text.trim(),
-          monto: monto,
-          fecha: _fecha,
-          fotoReciboUrl: fotoUrl,
-        ),
+      final anterior = widget.gasto;
+      final gasto = Gasto(
+        id: anterior?.id ?? '',
+        categoria: _categoria,
+        subcategoria: _subcategoria,
+        descripcion: _descripcion.text.trim(),
+        monto: monto,
+        fecha: _fecha,
+        fotoReciboUrl: fotoUrl ?? anterior?.fotoReciboUrl,
+        // La tasa se congela al registrar y no se reescribe al editar: es la
+        // del día en que salió la plata (ver `Gasto.tasaUsada`).
+        tasaUsada: anterior?.tasaUsada ?? ref.read(bcvRateProvider).valueOrNull?.tasa,
       );
+
+      final confirmado = anterior == null
+          ? await repo.crear(membresia.negocioId, gasto)
+          : await repo.actualizar(membresia.negocioId, gasto);
       if (!mounted) return;
+
+      // Si el gasto cae fuera del mes que la pantalla de destino está
+      // mirando, se dice y se ofrece ir. Un "Gasto registrado: $104,86" a
+      // secas dejaba al dueño mirando una lista vacía, convencido de que no
+      // se había guardado.
+      final mesVisible = ref.read(mesGastosProvider);
+      final fueraDelMes =
+          _fecha.year != mesVisible.year || _fecha.month != mesVisible.month;
+
       Navigator.of(context).pop();
-      _mostrar(
-        avisoFoto ??
-            (confirmado
-                ? 'Gasto registrado: ${MoneyFormatter.usd(monto)}'
-                : 'Guardado sin señal. Se sube solo cuando vuelva '
-                    'la conexión.'),
-      );
+      if (avisoFoto != null) {
+        _mostrar(avisoFoto);
+      } else if (!confirmado) {
+        _mostrar('Guardado sin señal. Se sube solo cuando vuelva la conexión.');
+      } else if (fueraDelMes) {
+        _avisarOtroMes(gasto.fecha);
+      } else {
+        _mostrar(
+          anterior == null
+              ? 'Gasto registrado: ${MoneyFormatter.usd(monto)}'
+              : 'Gasto actualizado: ${MoneyFormatter.usd(monto)}',
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
@@ -192,6 +271,24 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
   void _mostrar(String mensaje) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(mensaje)));
+  }
+
+  /// El gasto quedó en otro mes: se dice cuál y se ofrece ir a verlo.
+  void _avisarOtroMes(DateTime fecha) {
+    final mes = mesYAno(fecha);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Gasto guardado en $mes'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Ver $mes',
+          onPressed: () {
+            ref.read(mesGastosProvider.notifier).state =
+                DateTime(fecha.year, fecha.month);
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -214,7 +311,7 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Nuevo gasto',
+                    _editando ? 'Editar gasto' : 'Nuevo gasto',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -337,6 +434,10 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
               const SizedBox(height: 18),
 
               // --- Monto ---
+              if (_deIA.contains('monto')) ...[
+                const Align(alignment: Alignment.centerLeft, child: _SelloIA()),
+                const SizedBox(height: 4),
+              ],
               LibretaInput(
                 controller: _monto,
                 label: 'Monto (USD)',
@@ -354,6 +455,10 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
               const SizedBox(height: 18),
 
               // --- Categoría ---
+              if (_deIA.contains('categoria')) ...[
+                const Align(alignment: Alignment.centerLeft, child: _SelloIA()),
+                const SizedBox(height: 4),
+              ],
               Text(
                 'Categoría',
                 style: TextStyle(
@@ -401,6 +506,10 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
               const SizedBox(height: 18),
 
               // --- Descripción ---
+              if (_deIA.contains('descripcion')) ...[
+                const Align(alignment: Alignment.centerLeft, child: _SelloIA()),
+                const SizedBox(height: 4),
+              ],
               LibretaInput(
                 controller: _descripcion,
                 label: 'Descripción (opcional)',
@@ -434,14 +543,59 @@ class _RegistrarGastoScreenState extends ConsumerState<RegistrarGastoScreen> {
                           color: LibretaColors.verde,
                         ),
                       ),
+                      if (_deIA.contains('fecha')) ...[
+                        const SizedBox(width: 6),
+                        const _SelloIA(),
+                      ],
                     ],
                   ),
                 ),
               ),
+
+              // La fecha del recibo se ofrece, no se impone. Un toque la aplica.
+              if (_fechaSugerida != null) ...[
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _usarFechaSugerida,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: LibretaColors.verde.withValues(alpha: 0.10),
+                      border: Border.all(color: LibretaColors.verde),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome_outlined,
+                          size: 16,
+                          color: LibretaColors.verde,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'El recibo dice ${_fechaSugerida!.day}/'
+                            '${_fechaSugerida!.month}/${_fechaSugerida!.year}'
+                            ' — usar esa fecha',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: context.libreta.textoFuerte,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               LibretaButton(
-                label: 'Guardar gasto',
+                label: _editando ? 'Guardar cambios' : 'Guardar gasto',
                 loading: _guardando,
                 onPressed: _puedeGuardar ? _guardar : null,
               ),
@@ -529,6 +683,45 @@ class _ReciboPegado extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Marca de "esto lo puso la IA, revísalo".
+///
+/// Un campo prellenado por la lectura del recibo no puede verse igual que uno
+/// escrito por el dueño: así fue como se guardó un gasto con la fecha del
+/// proveedor sin que nadie lo notara.
+class _SelloIA extends StatelessWidget {
+  const _SelloIA();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: LibretaColors.verde.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.auto_awesome_outlined,
+            size: 11,
+            color: LibretaColors.verde,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            'según el recibo',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: LibretaColors.verde,
+            ),
+          ),
+        ],
       ),
     );
   }
