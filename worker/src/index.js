@@ -23,7 +23,11 @@ import {
 import { paginaEliminarCuenta, paginaPrivacidad, paginaTerminos } from './legal.js';
 import { construirAvisoStock } from './stock.js';
 import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
-import { huellaDeEnvio, mensajeResumenVentas } from './ventas.js';
+import {
+  huellaDeEnvio,
+  mensajeResumenVentas,
+  resumenesAEnviar,
+} from './ventas.js';
 
 /** Una foto de celular comprimida no debería pasar de esto. Corta abusos. */
 const MAX_BYTES_IMAGEN = 6 * 1024 * 1024;
@@ -114,6 +118,10 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
   // figura como dueño en varios negocios y todos le mandan la misma frase.
   const yaEnviado = new Set();
 
+  // Paso 1 — leer qué vendió cada negocio pendiente. Nada se manda todavía:
+  // hace falta el cuadro completo del teléfono para decidir (ver
+  // `resumenesAEnviar`).
+  const pendientes = [];
   for (const { negocioId, pushToken } of duenos) {
     // Evita mandarlo dos veces si el cron llegara a dispararse más de una
     // vez en la misma hora — no debería pasar, pero es barato cubrirlo.
@@ -128,34 +136,49 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
         negocioId,
         desde,
       });
-      const mensaje = mensajeResumenVentas({ total, cobros });
-      const huella =
-        mensaje &&
-        huellaDeEnvio({
-          destino: pushToken,
-          titulo: mensaje.titulo,
-          cuerpo: mensaje.cuerpo,
-        });
-      if (mensaje && !yaEnviado.has(huella)) {
-        yaEnviado.add(huella);
-        await enviarAToken({
-          cuenta,
-          token: tokenOAuth,
-          destino: pushToken,
-          titulo: mensaje.titulo,
-          cuerpo: mensaje.cuerpo,
-          datos: mensaje.datos,
-          canal: 'resumen_ventas',
-          // Etiqueta estable: si FCM reintenta la entrega, Android reemplaza
-          // el aviso en vez de apilar otro igual.
-          etiqueta: `resumen_ventas:${negocioId}`,
-        });
-        enviados++;
+      pendientes.push({ negocioId, pushToken, total, cobros, clave });
+    } catch (e) {
+      console.error(`resumen de ventas falló para ${negocioId}:`, e.message);
+    }
+  }
+
+  // Paso 2 — enviar. Un teléfono que ya recibe un resumen con ventas no recibe
+  // además el "todavía no registras ventas" de otro de sus negocios.
+  const aEnviar = new Set(resumenesAEnviar(pendientes).map((p) => p.negocioId));
+
+  for (const { negocioId, pushToken, total, cobros, clave } of pendientes) {
+    try {
+      if (aEnviar.has(negocioId)) {
+        const mensaje = mensajeResumenVentas({ total, cobros });
+        const huella =
+          mensaje &&
+          huellaDeEnvio({
+            destino: pushToken,
+            titulo: mensaje.titulo,
+            cuerpo: mensaje.cuerpo,
+          });
+        if (mensaje && !yaEnviado.has(huella)) {
+          yaEnviado.add(huella);
+          await enviarAToken({
+            cuenta,
+            token: tokenOAuth,
+            destino: pushToken,
+            titulo: mensaje.titulo,
+            cuerpo: mensaje.cuerpo,
+            datos: mensaje.datos,
+            canal: 'resumen_ventas',
+            // Etiqueta estable: si FCM reintenta la entrega, Android reemplaza
+            // el aviso en vez de apilar otro igual.
+            etiqueta: `resumen_ventas:${negocioId}`,
+          });
+          enviados++;
+        }
       }
-      // Se marca como hecho aunque no hubiera nada que mandar (0 cobros): si
-      // no, cada revisión de la misma hora repetiría la consulta a Firestore
-      // el resto del día. Una prueba forzada NO se marca — si no, cancelaría
-      // el envío real de esta noche para ese negocio.
+      // Se marca como hecho aunque no se mandara nada (0 cobros, o silenciado
+      // porque otro negocio del mismo teléfono sí vendió): si no, cada
+      // revisión de la misma hora repetiría la consulta a Firestore el resto
+      // del día. Una prueba forzada NO se marca — si no, cancelaría el envío
+      // real de esta noche para ese negocio.
       if (!forzar) {
         await env.TASAS.put(clave, hoy, { expirationTtl: 3 * 86400 });
       }

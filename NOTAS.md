@@ -50,6 +50,13 @@ fuera de alcance a propósito.
 
 ## Pendientes
 
+- **El Worker sigue mandando un push por negocio.** La regla nueva
+  (`resumenesAEnviar`) solo evita la contradicción "vendiste / no vendiste" en
+  el mismo teléfono. Un dueño con tres negocios que vendieron sigue recibiendo
+  tres avisos seguidos, y ninguno dice de cuál negocio habla. El arreglo de
+  fondo es nombrar el negocio en el texto, o mandar un resumen consolidado por
+  teléfono. Hace falta decidir cuál antes de que alguien tenga cinco sucursales.
+
 - **`RangoFechasVE` — endurecimiento pendiente, no un fix.** La app calcula los
   rangos de fecha con la zona **del dispositivo** (`DateTime(y, m, d)` y luego
   `Timestamp.fromDate`, que convierte bien); el Worker los calcula con una zona

@@ -37,6 +37,32 @@ export function huellaDeEnvio({ destino, titulo, cuerpo }) {
 }
 
 /**
+ * De todos los resúmenes pendientes, cuáles se mandan de verdad.
+ *
+ * El resumen sale uno por negocio, pero el destinatario es un TELÉFONO, y el
+ * mismo teléfono administra varios negocios. Con uno que vendió y otro que no,
+ * al dueño le llegaban juntas "🌙 Cierre del día · Vendiste $4,50 en 1 cobro
+ * hoy" y "👋 ¿Cómo va tu día? · Todavía no registras ventas hoy". Las dos eran
+ * ciertas —de negocios distintos— pero el teléfono no dice cuál es cuál, así
+ * que se leen como una contradicción y entrenan a ignorar el aviso.
+ *
+ * `huellaDeEnvio` no lo tapaba: deduplica textos IDÉNTICOS, y estos difieren.
+ *
+ * Regla: si a un teléfono le toca al menos un resumen con ventas, las ramas
+ * "sin ventas" de sus otros negocios no se envían. El recordatorio de usar la
+ * app no tiene sentido para quien hoy ya vendió.
+ *
+ * Espera objetos `{ pushToken, cobros }` y devuelve el mismo arreglo filtrado,
+ * en el mismo orden.
+ */
+export function resumenesAEnviar(pendientes) {
+  const conVenta = new Set(
+    pendientes.filter((p) => p.cobros > 0).map((p) => p.pushToken),
+  );
+  return pendientes.filter((p) => p.cobros > 0 || !conVenta.has(p.pushToken));
+}
+
+/**
  * Arma el resumen de ventas del día — con cobros, cuánto vendiste; sin
  * ellos, una invitación amigable a usar la app en vez de quedarse callado.
  * Nunca "vendiste $0 hoy": eso no le sirve a nadie y solo entrena al dueño a
