@@ -148,7 +148,7 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: const Color(0x21F2A93C),
+                        color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
                         borderRadius: BorderRadius.circular(18),
                       ),
                       alignment: Alignment.center,
@@ -182,7 +182,7 @@ class _EliminarCuentaScreenState extends ConsumerState<EliminarCuentaScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
+                    border: Border.all(color: context.libreta.renglon),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -339,7 +339,7 @@ class _AvisoBloqueado extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0x21F2A93C),
+            color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(

@@ -98,7 +98,7 @@ class MiPerfilScreen extends ConsumerWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0x1F0E9F6E),
+                    color: LibretaColors.verde.withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(

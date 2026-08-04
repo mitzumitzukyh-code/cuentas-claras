@@ -217,7 +217,7 @@ class _CentroAyudaScreenState extends State<CentroAyudaScreen> {
                 Container(
                   decoration: BoxDecoration(
                     color: context.libreta.superficie,
-                    border: Border.all(color: const Color(0x141E2A38)),
+                    border: Border.all(color: context.libreta.renglon),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   clipBehavior: Clip.antiAlias,

@@ -210,12 +210,19 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Perfil y ajustes
 
-- [ ] **Perfil** — `/perfil` · [perfil_screen.dart](lib/features/perfil/presentation/perfil_screen.dart)
-- [ ] **Ajustes** — `/perfil/ajustes` · [ajustes_screen.dart](lib/features/perfil/presentation/ajustes_screen.dart)
-- [ ] **Mi perfil** — `/perfil/mi-perfil` · [mi_perfil_screen.dart](lib/features/perfil/presentation/mi_perfil_screen.dart)
-- [ ] **Centro de ayuda** — `/perfil/ayuda` · [centro_ayuda_screen.dart](lib/features/perfil/presentation/centro_ayuda_screen.dart)
-- [ ] **Legal** — `/perfil/legal` · [legal_screen.dart](lib/features/perfil/presentation/legal_screen.dart)
-- [ ] **Eliminar cuenta** — `/perfil/eliminar-cuenta` · [eliminar_cuenta_screen.dart](lib/features/perfil/presentation/eliminar_cuenta_screen.dart)
+- [x] **Perfil** — `/perfil` · [perfil_screen.dart](lib/features/perfil/presentation/perfil_screen.dart)
+      · 2 colores
+- [x] **Ajustes** — `/perfil/ajustes` · [ajustes_screen.dart](lib/features/perfil/presentation/ajustes_screen.dart)
+      · 4 (spinner infinito, 3 colores)
+- [x] **Mi perfil** — `/perfil/mi-perfil` · [mi_perfil_screen.dart](lib/features/perfil/presentation/mi_perfil_screen.dart)
+      · 1 color
+- [x] **Centro de ayuda** — `/perfil/ayuda` · [centro_ayuda_screen.dart](lib/features/perfil/presentation/centro_ayuda_screen.dart)
+      · 1 color (los otros 3 no son tokens: degradado, blanco con alfa y el
+      gris de WhatsApp)
+- [x] **Legal** — `/perfil/legal` · [legal_screen.dart](lib/features/perfil/presentation/legal_screen.dart)
+      · 1 color
+- [x] **Eliminar cuenta** — `/perfil/eliminar-cuenta` · [eliminar_cuenta_screen.dart](lib/features/perfil/presentation/eliminar_cuenta_screen.dart)
+      · 3 colores. Sus errores ya pasaban por `mensajeDeError`
 
 ## Otros
 

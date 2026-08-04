@@ -23,6 +23,7 @@ import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/binance/binance_p2p_service.dart';
 import '../../../services/cloudinary/cloudinary_service.dart';
 import '../../../shared/presentation/foto_red.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
@@ -282,7 +283,30 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
     final esDueno = ref.watch(esDuenoProvider);
 
     if (negocio == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Antes era un spinner sin fin: el negocio se lee con `valueOrNull`, asi
+      // que un fallo lo deja en null para siempre.
+      final negocioAsync = ref.watch(negocioActivoProvider);
+      return Scaffold(
+        backgroundColor: context.libreta.papel,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: negocioAsync.hasError
+                  ? LibretaErrorCarga(
+                      mensaje: mensajeDeError(
+                        negocioAsync.error,
+                        accion: 'cargar tus ajustes',
+                      ),
+                      detalleTecnico: negocioAsync.error,
+                      onReintentar: () =>
+                          ref.invalidate(negocioActivoProvider),
+                    )
+                  : const LibretaCargando(),
+            ),
+          ),
+        ),
+      );
     }
     _sembrar(negocio);
 
@@ -329,7 +353,7 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0x21F2A93C),
+                            color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Text(
@@ -1353,8 +1377,8 @@ class _SeccionAcordeonState extends State<_SeccionAcordeon> {
         border: Border.all(
           color:
               _abierta
-                  ? const Color(0x590E9F6E)
-                  : const Color(0x141E2A38),
+                  ? LibretaColors.verde.withValues(alpha: .35)
+                  : context.libreta.renglon,
         ),
         borderRadius: BorderRadius.circular(16),
       ),

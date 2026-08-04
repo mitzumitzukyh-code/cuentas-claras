@@ -312,7 +312,7 @@ class _Grupo extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: context.libreta.superficie,
-            border: Border.all(color: const Color(0x141E2A38)),
+            border: Border.all(color: context.libreta.renglon),
             borderRadius: BorderRadius.circular(16),
           ),
           clipBehavior: Clip.antiAlias,
@@ -379,7 +379,7 @@ class _Fila extends StatelessWidget {
             if (badge != null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0x28F2A93C), borderRadius: BorderRadius.circular(100)),
+                decoration: BoxDecoration(color: LibretaColors.ambarSuperficie.withValues(alpha: .16), borderRadius: BorderRadius.circular(100)),
                 child: Text(badge!, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: LibretaColors.aviso)),
               ),
               const SizedBox(width: 8),
