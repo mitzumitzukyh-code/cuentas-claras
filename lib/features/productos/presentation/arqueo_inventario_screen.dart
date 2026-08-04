@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/numero_ve.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/producto_repository.dart';
 import '../domain/producto.dart';
@@ -101,7 +104,11 @@ class _ArqueoInventarioScreenState
       if (!mounted) return;
       setState(() => _guardando = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'), backgroundColor: AppColors.peligro),
+        SnackBar(
+          // El `toString()` de la excepcion iba tal cual a la pantalla.
+          content: Text(mensajeDeError(e, accion: 'guardar el conteo')),
+          backgroundColor: AppColors.peligro,
+        ),
       );
     }
   }
@@ -109,7 +116,11 @@ class _ArqueoInventarioScreenState
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    final productos = ref.watch(productosProvider).valueOrNull ?? const [];
+    // Sin `valueOrNull ?? const []`: con un fallo de carga la pantalla decia
+    // "No hay productos que contar" y dejaba guardar un conteo vacio sobre un
+    // inventario que si existe.
+    final productosAsync = ref.watch(productosProvider);
+    final productos = productosAsync.valueOrNull ?? const <Producto>[];
     final visibles = _busqueda.trim().isEmpty
         ? productos
         : productos
@@ -200,7 +211,24 @@ class _ArqueoInventarioScreenState
                 ),
               ),
               Expanded(
-                child: visibles.isEmpty
+                child: productosAsync.isLoading
+                    ? const Center(child: LibretaCargando())
+                    : productosAsync.hasError
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: LibretaErrorCarga(
+                            mensaje: mensajeDeError(
+                              productosAsync.error,
+                              accion: 'cargar tus productos',
+                            ),
+                            detalleTecnico: productosAsync.error,
+                            onReintentar: () =>
+                                ref.invalidate(productosProvider),
+                          ),
+                        ),
+                      )
+                    : visibles.isEmpty
                     ? Center(
                         child: Text(
                           productos.isEmpty
@@ -224,9 +252,10 @@ class _ArqueoInventarioScreenState
                             diferencia: _diferenciaDe(p),
                             contado: _contado.containsKey(p.id),
                             onCambio: (texto) {
-                              final v = double.tryParse(
-                                texto.replaceAll(',', '.'),
-                              );
+                              // "1.500" con `replaceAll` se leia como 1,5:
+                              // el punto se tomaba por decimal y el conteo
+                              // quedaba mil veces por debajo.
+                              final v = normalizarNumeroVE(texto);
                               setState(() {
                                 if (texto.trim().isEmpty || v == null) {
                                   _contado.remove(p.id);
@@ -284,7 +313,7 @@ class _FilaConteo extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.superficie,
         border: Border.all(
-          color: cuadra ? const Color(0x4D0E9F6E) : t.renglon,
+          color: cuadra ? LibretaColors.verde.withValues(alpha: .30) : t.renglon,
         ),
         borderRadius: BorderRadius.circular(13),
       ),

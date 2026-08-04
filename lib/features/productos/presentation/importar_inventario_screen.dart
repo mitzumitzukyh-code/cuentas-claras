@@ -10,6 +10,7 @@ import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/numero_ve.dart';
 import '../../../services/ia/lector_etiqueta_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/errores.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/producto_repository.dart';
 import '../domain/producto.dart';
@@ -93,7 +94,7 @@ class _ImportarInventarioScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() => _leyendo = false);
-      _avisar('No se pudo leer la foto: $e');
+      _avisar(mensajeDeError(e, accion: 'leer la foto'));
     }
   }
 
@@ -146,7 +147,7 @@ class _ImportarInventarioScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      _avisar('No se pudo importar: $e');
+      _avisar(mensajeDeError(e, accion: 'importar los productos'));
     }
   }
 
@@ -347,7 +348,7 @@ class _FilaOpcion extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: iconoVerde ? const Color(0x1F0E9F6E) : t.bordeSuave,
+                color: iconoVerde ? LibretaColors.verde.withValues(alpha: .12) : t.bordeSuave,
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,

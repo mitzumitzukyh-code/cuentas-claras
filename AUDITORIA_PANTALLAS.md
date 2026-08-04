@@ -114,9 +114,14 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
       `try`, el botón «Guardar» que no hacía nada, y un color a mano.
       **Pendiente:** eliminar sigue siendo solo pulsación larga, sin ninguna
       pista visual — cambiarlo toca el diseño de la fila
-- [ ] **Contar inventario (arqueo)** — `/productos/contar` · [arqueo_inventario_screen.dart](lib/features/productos/presentation/arqueo_inventario_screen.dart)
-- [ ] **Importar inventario (foto / Excel)** — `/productos/importar` · [importar_inventario_screen.dart](lib/features/productos/presentation/importar_inventario_screen.dart)
-- [ ] **Migrar desde otra app** — `/productos/migrar` · [migrar_otra_app_screen.dart](lib/features/productos/presentation/migrar_otra_app_screen.dart)
+- [x] **Contar inventario (arqueo)** — `/productos/contar` · [arqueo_inventario_screen.dart](lib/features/productos/presentation/arqueo_inventario_screen.dart)
+      · 4 arreglados (`valueOrNull ?? const []`, «1.500» contado como 1,5,
+      `Text('$e')` crudo, color a mano)
+- [x] **Importar inventario (foto / Excel)** — `/productos/importar` · [importar_inventario_screen.dart](lib/features/productos/presentation/importar_inventario_screen.dart)
+      · 3 arreglados (dos `$e` crudos en pantalla, color a mano)
+- [x] **Migrar desde otra app** — `/productos/migrar` · [migrar_otra_app_screen.dart](lib/features/productos/presentation/migrar_otra_app_screen.dart)
+      · 1 arreglado (degradado de marca copiado a mano). La pantalla es un
+      enganche a una importación que todavía dice «muy pronto»
 
 ## Ventas
 

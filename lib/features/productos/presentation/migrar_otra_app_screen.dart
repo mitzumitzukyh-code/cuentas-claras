@@ -52,10 +52,15 @@ class MigrarOtraAppScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  // Los extremos del degradado de marca, sin el tono
+                  // intermedio. Estaban copiados a mano.
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF8C2F22), Color(0xFF0E9F6E)],
+                    colors: [
+                      LibretaColors.degradadoMarca.first,
+                      LibretaColors.degradadoMarca.last,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(18),
                 ),
