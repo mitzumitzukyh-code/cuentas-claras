@@ -184,8 +184,8 @@ class _FilaNotificacion extends ConsumerWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: urgencia.grave
-                    ? const Color(0x24F2A93C)
-                    : const Color(0x1F0E9F6E),
+                    ? LibretaColors.ambarSuperficie.withValues(alpha: .14)
+                    : LibretaColors.verde.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: LibretaIcono(
@@ -259,8 +259,8 @@ class _SinNotificaciones extends StatelessWidget {
               width: 66,
               height: 66,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(0x140E9F6E),
+              decoration: BoxDecoration(
+                color: LibretaColors.verde.withValues(alpha: .08),
                 shape: BoxShape.circle,
               ),
               child: const LibretaIcono(AppAssets.accConfirmar,
@@ -347,7 +347,7 @@ class _PostItTasa extends ConsumerWidget {
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.5,
-                      color: Color(0xFF1E2A38),
+                      color: LibretaColors.tarjetaOscura,
                     ),
                   ),
                   if (delta != null && delta.abs() >= 0.01) ...[

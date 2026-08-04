@@ -226,8 +226,12 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Otros
 
-- [ ] **Planes / Premium** — `/planes` · [planes_screen.dart](lib/features/planes/presentation/planes_screen.dart)
-- [ ] **Notificaciones** — `/notificaciones` · [notificaciones_screen.dart](lib/features/notificaciones/presentation/notificaciones_screen.dart)
+- [x] **Planes / Premium** — `/planes` · [planes_screen.dart](lib/features/planes/presentation/planes_screen.dart)
+      · 7 colores. El botón dice «Próximamente» y está deshabilitado, que es
+      honesto: no hay capa de planes (ver arriba)
+- [x] **Notificaciones** — `/notificaciones` · [notificaciones_screen.dart](lib/features/notificaciones/presentation/notificaciones_screen.dart)
+      · 5 colores. Sin estados asíncronos que auditar: son preferencias
+      locales
 
 ---
 

@@ -129,8 +129,8 @@ class PlanesScreen extends ConsumerWidget {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0x21F2A93C),
-                  border: Border.all(color: const Color(0x59F2A93C)),
+                  color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
+                  border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .35)),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Text(
@@ -181,10 +181,10 @@ class _TarjetaPlan extends StatelessWidget {
             stops: [0.0, 0.52, 1.0],
           ),
           borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x478C2F22),
-              offset: Offset(0, 16),
+              color: LibretaColors.degradadoMarca.first.withValues(alpha: .28),
+              offset: const Offset(0, 16),
               blurRadius: 32,
             ),
           ],
@@ -286,8 +286,8 @@ class _TarjetaPlan extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: context.libreta.papel,
                         disabledBackgroundColor: context.libreta.papel,
-                        foregroundColor: const Color(0xFF8C2F22),
-                        disabledForegroundColor: const Color(0xFF8C2F22),
+                        foregroundColor: LibretaColors.degradadoMarca.first,
+                        disabledForegroundColor: LibretaColors.degradadoMarca.first,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(13),
                         ),
@@ -337,7 +337,7 @@ class _TarjetaPlan extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0x1F0E9F6E),
+                  color: LibretaColors.verde.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: const Text(
