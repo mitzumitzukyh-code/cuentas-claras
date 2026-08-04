@@ -64,8 +64,18 @@ final miPlanProvider = StreamProvider<Plan>((ref) {
 /// creó, cae en [Plan.gratis]. Un plan que no consta es un plan que no se
 /// pagó.
 final planDelNegocioProvider = Provider<Plan>((ref) {
+  // Primero de todo: «forzado» tiene que significar forzado. Estaba más abajo
+  // —dentro de los providers que leen Firestore— y el `return Plan.gratis` de
+  // un negocio sin `creadoPor` se le adelantaba, así que la bandera de pruebas
+  // no llegaba a los topes de productos ni de empleados.
+  if (premiumForzado) return Plan.premium;
+
   final negocio = ref.watch(negocioActivoProvider).valueOrNull;
   final dueno = negocio?.creadoPor;
+  // Un negocio sin `creadoPor` —los creados antes de que existiera ese campo—
+  // no tiene a quién preguntarle el plan, así que se queda en gratis. Si un
+  // dueño Premium aparece en gratis, esta es la razón: hay que rellenarle el
+  // `creadoPor` al documento.
   if (dueno == null) return Plan.gratis;
 
   // Si el dueño es quien está mirando, se reaprovecha su propio stream en vez
