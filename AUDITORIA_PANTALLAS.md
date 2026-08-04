@@ -95,7 +95,12 @@ Los mismos seis puntos en todas, para que el resultado sea comparable:
 
 ## Inventario
 
-- [ ] **Productos / Mercancía** — `/productos` · [productos_screen.dart](lib/features/productos/presentation/productos_screen.dart)
+- [x] **Productos / Mercancía** — `/productos` · [productos_screen.dart](lib/features/productos/presentation/productos_screen.dart)
+      · 5 arreglados. Dos de fondo: «Pedir reabastecimiento» abría el selector
+      de contactos en vez del chat del proveedor (armaba la URL de `wa.me` a
+      mano, sin código de país), y el CSV exportado se partía con un nombre
+      con comillas. El escapado de CSV sale de `RespaldoService` a
+      `shared/utils/csv.dart`, con pruebas
 - [ ] **Nuevo producto** — `/productos/nuevo` · [nuevo_producto_screen.dart](lib/features/productos/presentation/nuevo_producto_screen.dart)
 - [ ] **Insumos** — `/productos/insumos` · [insumos_screen.dart](lib/features/productos/presentation/insumos_screen.dart)
 - [ ] **Contar inventario (arqueo)** — `/productos/contar` · [arqueo_inventario_screen.dart](lib/features/productos/presentation/arqueo_inventario_screen.dart)

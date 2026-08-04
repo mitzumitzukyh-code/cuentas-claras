@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/firestore_paths.dart';
 import '../../core/providers/firebase_providers.dart';
+import '../../shared/utils/csv.dart';
 
 /// Exporta el negocio completo a un `.zip` de CSV (`Lote E · P3`).
 ///
@@ -18,25 +19,17 @@ class RespaldoService {
 
   final FirebaseFirestore _db;
 
-  /// Comillas dobles y saltos de línea rompen un CSV si se escriben crudos.
-  static String _celda(Object? valor) {
-    final texto = (valor ?? '').toString();
-    if (!texto.contains(RegExp(r'[",\n\r;]'))) return texto;
-    return '"${texto.replaceAll('"', '""')}"';
-  }
+  // El escapado vive en `shared/utils/csv.dart`: estaba aquí, privado, y
+  // mientras tanto la exportación de inventario de Mercancía se escribía a
+  // mano y sin escapar. Un solo escritor de CSV, y con pruebas.
 
   static String _fecha(Object? valor) {
     if (valor is Timestamp) return valor.toDate().toIso8601String();
-    return _celda(valor);
+    return celdaCsv(valor);
   }
 
-  static String _csv(List<String> encabezados, List<List<Object?>> filas) {
-    final buffer = StringBuffer()..writeln(encabezados.join(','));
-    for (final fila in filas) {
-      buffer.writeln(fila.map(_celda).join(','));
-    }
-    return buffer.toString();
-  }
+  static String _csv(List<String> encabezados, List<List<Object?>> filas) =>
+      tablaCsv(encabezados, filas);
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _todos(
     String negocioId,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/routes.dart';
 import '../../../core/theme/app_assets.dart';
@@ -11,7 +10,10 @@ import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../shared/presentation/app_bottom_nav.dart';
 import '../../../shared/presentation/foto_red.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/permiso_requerido.dart';
+import '../../../shared/utils/csv.dart';
+import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../../core/business/business_profile_provider.dart';
 import '../data/producto_repository.dart';
@@ -43,29 +45,34 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
   }
 
   /// Exporta el inventario como CSV y abre el diálogo de compartir.
+  ///
+  /// Por `tablaCsv` y no concatenando a mano: aquí se escribían las celdas
+  /// crudas entre comillas, así que un nombre con comillas partía la fila, y
+  /// `${p.precio}` escribía la palabra `null` en todo producto sin precio.
   Future<void> _exportar(List<Producto> productos) async {
     if (productos.isEmpty) {
       _mostrar('No hay productos que exportar.');
       return;
     }
-    final filas = <String>[
-      'Nombre,Categoria,Precio USD,Stock',
-      for (final p in productos)
-        '"${p.nombre}","${p.categoria}",${p.precio},${p.cantidad}',
-    ];
-    await Share.share(filas.join('\n'), subject: 'Inventario Cuenta Clara');
+    final csv = tablaCsv(
+      ['Nombre', 'Categoria', 'Precio USD', 'Stock'],
+      [
+        for (final p in productos)
+          [p.nombre, p.categoria, p.precio, p.cantidad],
+      ],
+    );
+    try {
+      await Share.share(csv, subject: 'Inventario Cuenta Clara');
+    } catch (e) {
+      _mostrar(mensajeDeError(e, accion: 'exportar tu inventario'));
+    }
   }
 
   /// Abre WhatsApp con la lista de productos por reponer.
   Future<void> _pedirReabastecimiento(List<Producto> bajos) async {
     final telefono =
-        ref
-            .read(negocioActivoProvider)
-            .valueOrNull
-            ?.proveedorWhatsapp
-            ?.replaceAll(RegExp(r'\D'), '') ??
-        '';
-    if (telefono.isEmpty) {
+        ref.read(negocioActivoProvider).valueOrNull?.proveedorWhatsapp ?? '';
+    if (telefono.trim().isEmpty) {
       _mostrar('Configura el WhatsApp del proveedor en Ajustes.');
       return;
     }
@@ -76,13 +83,15 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
     final texto =
         'Hola, necesito reabastecer estos productos:\n\n$lista\n\n'
         '¡Gracias!';
-    final uri = Uri.parse(
-      'https://wa.me/$telefono?text=${Uri.encodeComponent(texto)}',
-    );
 
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      _mostrar('No se pudo abrir WhatsApp.');
-    }
+    // Por `abrirWhatsApp` y no armando la URL a mano: normaliza el número a
+    // E.164, que es lo único que `wa.me` sabe resolver. Aquí se limpiaba con
+    // `replaceAll(RegExp(r'\D'), '')`, que quita guiones y espacios pero deja
+    // el cero nacional y no pone el 58 — así que un 0412-1234567 terminaba
+    // abriendo el selector de contactos en vez del chat del proveedor.
+    final resultado = await abrirWhatsApp(texto: texto, telefono: telefono);
+    final aviso = avisoDe(resultado);
+    if (aviso != null) _mostrar(aviso);
   }
 
   void _mostrar(String mensaje) {
@@ -118,18 +127,23 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
         child: SafeArea(
           bottom: false,
           child: productosAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error:
-                (e, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      mensajeDeError(e, accion: 'cargar tu ${vocab.inventoryLabel.toLowerCase()}'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: context.libreta.textoMuted),
-                    ),
+            loading: () => const Center(child: LibretaCargando()),
+            // Con `LibretaErrorCarga` en vez de un texto suelto: el fallo trae
+            // su botón de Reintentar. Antes la pantalla se quedaba en el
+            // mensaje y la única salida era irse a otra pestaña y volver.
+            error: (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: LibretaErrorCarga(
+                  mensaje: mensajeDeError(
+                    e,
+                    accion: 'cargar tu ${vocab.inventoryLabel.toLowerCase()}',
                   ),
+                  detalleTecnico: e,
+                  onReintentar: () => ref.invalidate(productosProvider),
                 ),
+              ),
+            ),
             data: (productos) {
               final categorias =
                   <String>{
@@ -215,16 +229,30 @@ class _ProductosScreenState extends ConsumerState<ProductosScreen> {
                       size: 18,
                       color: LibretaColors.verde,
                     ),
-                    suffix:
-                        _busqueda.text.isEmpty
-                            ? null
-                            : GestureDetector(
+                    suffix: _busqueda.text.isEmpty
+                        ? null
+                        // Caja de 48 con el icono pegado a la derecha: crece
+                        // lo que se puede pulsar, no lo que se ve.
+                        : Semantics(
+                            button: true,
+                            label: 'Limpiar la búsqueda',
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: () => setState(() => _busqueda.clear()),
-                              child: LibretaIcono(AppAssets.accCerrar,
-                                size: 17,
-                                color: context.libreta.textoMuted,
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: LibretaIcono(
+                                    AppAssets.accCerrar,
+                                    size: 17,
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ),
                               ),
                             ),
+                          ),
                     onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 6),
@@ -406,8 +434,8 @@ class _BannerStockBajo extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0x21F2A93C),
-        border: Border.all(color: const Color(0x59F2A93C)),
+        color: LibretaColors.ambarSuperficie.withValues(alpha: .13),
+        border: Border.all(color: LibretaColors.ambarSuperficie.withValues(alpha: .35)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -491,7 +519,7 @@ class _TarjetaProducto extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: context.libreta.superficie,
-          border: Border.all(color: const Color(0x141E2A38)),
+          border: Border.all(color: context.libreta.renglon),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
