@@ -3,7 +3,7 @@ package com.mitzukyhsdev.cuentaclara
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -15,8 +15,14 @@ import io.flutter.plugin.common.MethodChannel
  * la pantalla los ofrecia todos como si fueran impresoras. La clase de
  * dispositivo la conoce Android y no cruza a Dart por ese plugin, asi que se
  * pide aqui.
+ *
+ * **`FlutterFragmentActivity` y no `FlutterActivity`**: `local_auth` usa
+ * `androidx.biometric.BiometricPrompt`, que necesita alojar un fragment y por
+ * tanto una `FragmentActivity`. Con la clase normal, `authenticate()` lanzaba
+ * `PlatformException(no_fragment_activity)` en cada intento, el candado
+ * biometrico se abria solo y nunca llego a proteger nada.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val canal = "cuentaclara/bluetooth"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
