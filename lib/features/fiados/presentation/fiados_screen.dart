@@ -12,6 +12,7 @@ import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import '../domain/mensajes_fiado.dart';
 import '../../../shared/utils/errores.dart';
 
 final _busquedaFiadosProvider = StateProvider<String>((_) => '');
@@ -353,13 +354,18 @@ class _RecordatorioVencido extends ConsumerWidget {
     final c = vencidos.first;
     final dias = ahora.difference(c.actualizadoEn).inDays;
     final negocio = ref.watch(negocioActivoProvider).valueOrNull;
+    final tasa = ref.watch(tasaActivaValorProvider);
     final t = context.libreta;
 
     Future<void> enviar() async {
-      final borrador =
-          'Hola ${c.nombre} 👋 te escribo de ${negocio?.nombre ?? "la bodega"}. '
-          'Tienes un saldo pendiente de ${MoneyFormatter.usd(c.saldoUSD)}. '
-          '¿Puedes pasar a abonar esta semana? ¡Gracias!';
+      // Mismo borrador que el botón "Recordar" del detalle: eran dos copias
+      // del texto y por eso el mismo cliente recibía dos voces distintas.
+      final borrador = borradorRecordatorio(
+        nombre: c.nombre,
+        negocio: negocio?.nombre ?? 'la bodega',
+        saldoUSD: c.saldoUSD,
+        tasa: tasa,
+      );
       final texto = await editarMensaje(
         context,
         titulo: 'Recordatorio para ${c.nombre}',

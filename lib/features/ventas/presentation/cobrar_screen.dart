@@ -978,11 +978,23 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
       ..writeln()
       ..write('¿La confirmamos? Aviso cuando pases a recoger.');
 
+    // Por la hoja de edición, como el recordatorio y el pedido a proveedores:
+    // una cotización es una promesa de precio y sale con el nombre del negocio
+    // encima. El dueño la lee antes de mandarla.
+    if (!mounted) return;
+    final texto = await editarMensaje(
+      context,
+      titulo: 'Cotización para ${destino.nombre ?? "el cliente"}',
+      inicial: mensaje.toString(),
+      accion: 'Mandar cotización',
+    );
+    if (texto == null || texto.isEmpty || !mounted) return;
+
     // Al chat del cliente, no al selector de contactos: `abrirWhatsApp`
     // normaliza el teléfono a E.164, que es lo que `wa.me` necesita para
     // resolver a una persona esté o no agendada.
     final resultado = await abrirWhatsApp(
-      texto: mensaje.toString(),
+      texto: texto,
       telefono: destino.telefono,
     );
     if (!mounted) return;

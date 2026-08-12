@@ -12,6 +12,7 @@ import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import '../domain/mensajes_fiado.dart';
 import 'widgets/overlay_cuenta_saldada.dart';
 import '../../../shared/utils/errores.dart';
 
@@ -138,6 +139,56 @@ class _ClienteFiadoDetalleScreenState
     }
   }
 
+  /// Manda el detalle que respalda el saldo, no solo la cifra.
+  ///
+  /// Un recordatorio que dice «$12,00» y nada más no le da al cliente con qué
+  /// contrastarlo, y ahí es donde se pierde la confianza. Los movimientos ya
+  /// estaban guardados; solo no se usaban.
+  Future<void> _estadoDeCuenta(
+    BuildContext context,
+    ClienteFiado cliente,
+    List<MovimientoFiado> movimientos,
+  ) async {
+    if (movimientos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Todavía no hay movimientos que mandar.'),
+        ),
+      );
+      return;
+    }
+
+    var telefono = cliente.telefono;
+    if ((telefono ?? '').trim().isEmpty) {
+      telefono = await _pedirTelefono(cliente);
+      if (telefono == null || !context.mounted) return;
+    }
+
+    final negocio = ref.read(negocioActivoProvider).valueOrNull;
+    final borrador = borradorEstadoCuenta(
+      nombre: cliente.nombre,
+      negocio: negocio?.nombre ?? 'nuestro negocio',
+      movimientos: movimientos,
+      saldoUSD: cliente.saldoUSD,
+      tasa: ref.read(tasaActivaValorProvider),
+    );
+
+    if (!context.mounted) return;
+    final texto = await editarMensaje(
+      context,
+      titulo: 'Estado de cuenta de ${cliente.nombre}',
+      inicial: borrador,
+    );
+    if (texto == null || texto.isEmpty) return;
+
+    final r = await abrirWhatsApp(texto: texto, telefono: telefono);
+    final aviso = avisoDe(r);
+    if (aviso != null && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(aviso)));
+    }
+  }
+
   Future<void> _recordar(
     BuildContext context,
     WidgetRef ref,
@@ -153,11 +204,25 @@ class _ClienteFiadoDetalleScreenState
       if (telefono == null || !context.mounted) return;
     }
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
-    final tasa = ref.read(tasaActivaValorProvider);
-    final bs = tasa == null ? '' : ' (${MoneyFormatter.usdComoBs(cliente.saldoUSD, tasa)})';
-    final texto = 'Hola ${cliente.nombre.split(' ').first} 👋 Le recordamos con '
-        'cariño su saldo pendiente en ${negocio?.nombre ?? "nuestro negocio"}: '
-        '${MoneyFormatter.usd(cliente.saldoUSD)}$bs. ¡Gracias por su preferencia!';
+    final borrador = borradorRecordatorio(
+      nombre: cliente.nombre,
+      negocio: negocio?.nombre ?? 'nuestro negocio',
+      saldoUSD: cliente.saldoUSD,
+      tasa: ref.read(tasaActivaValorProvider),
+    );
+
+    // El camino por el que de verdad se cobra pasa ahora por la hoja de
+    // edición, como ya hacían el banner de vencida y el pedido a proveedores.
+    // La propia `editarMensaje` lo decía: cobrarle a alguien es delicado y el
+    // tono lo pone el dueño. Aquí salía escrito por la app, y el dueño se
+    // enteraba de lo que había dicho cuando ya estaba en el chat.
+    if (!context.mounted) return;
+    final texto = await editarMensaje(
+      context,
+      titulo: 'Recordatorio para ${cliente.nombre}',
+      inicial: borrador,
+    );
+    if (texto == null || texto.isEmpty) return;
 
     final r = await abrirWhatsApp(texto: texto, telefono: telefono);
     final aviso = avisoDe(r);
@@ -345,7 +410,34 @@ class _ClienteFiadoDetalleScreenState
                 ],
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              // Va debajo de Abonar/Recordar y no como tercer botón grande: se
+              // manda de vez en cuando —cuando el cliente pregunta de dónde
+              // sale la cifra—, no en cada visita.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _estadoDeCuenta(
+                    context,
+                    cliente,
+                    movimientosAsync.valueOrNull ?? const [],
+                  ),
+                  icon: const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 17,
+                    color: LibretaColors.verde,
+                  ),
+                  label: const Text(
+                    'Mandar estado de cuenta',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: LibretaColors.verde,
+                    ),
+                  ),
+                ),
+              ),
+
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
@@ -527,16 +619,13 @@ class _ClienteFiadoDetalleScreenState
   Future<void> _avisarSaldada(BuildContext context, ClienteFiado cliente) async {
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
     final hoy = DateTime.now();
-    final fecha = '${hoy.day} de ${_mesesLargos[hoy.month - 1]} de ${hoy.year}';
-
-    final extra = cliente.aFavor
-        ? ' Además le quedan ${MoneyFormatter.usd(cliente.saldoAFavorUSD)} a '
-            'favor para su próxima compra.'
-        : '';
-    final texto =
-        'Hola ${cliente.nombre.split(' ').first} 👋 Su cuenta en '
-        '${negocio?.nombre ?? "nuestro negocio"} quedó en CERO hoy, $fecha. '
-        '¡Gracias por su pago!$extra';
+    final borrador = borradorCuentaSaldada(
+      nombre: cliente.nombre,
+      negocio: negocio?.nombre ?? 'nuestro negocio',
+      fechaLarga: '${hoy.day} de ${_mesesLargos[hoy.month - 1]} de ${hoy.year}',
+      aFavorUSD: cliente.saldoAFavorUSD,
+      tasa: ref.read(tasaActivaValorProvider),
+    );
 
     var telefono = cliente.telefono;
     if ((telefono ?? '').trim().isEmpty) {
@@ -544,6 +633,14 @@ class _ClienteFiadoDetalleScreenState
       telefono = await _pedirTelefono(cliente);
       if (telefono == null || !context.mounted) return;
     }
+
+    if (!context.mounted) return;
+    final texto = await editarMensaje(
+      context,
+      titulo: 'Aviso para ${cliente.nombre}',
+      inicial: borrador,
+    );
+    if (texto == null || texto.isEmpty) return;
 
     final r = await abrirWhatsApp(texto: texto, telefono: telefono);
     final aviso = avisoDe(r);

@@ -5,10 +5,12 @@ import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/utils/money_formatter.dart';
 import '../../../core/utils/numero_ve.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
+import '../../../shared/utils/whatsapp.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../data/fiado_repository.dart';
 import '../domain/cliente_fiado.dart';
+import '../domain/mensajes_fiado.dart';
 import '../../../shared/utils/errores.dart';
 
 /// Anotar fiado o abono (réplica visual de `P2 · ANOTAR FIADO/ABONO`,
@@ -72,6 +74,56 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
       _montoValor! > 0 &&
       !_guardando;
 
+  /// Tras un abono, ofrece mandarle el comprobante al cliente.
+  ///
+  /// Es el único mensaje de todos los que manda la app que no le pide nada al
+  /// cliente, y el que más confianza construye. Antes solo se avisaba al
+  /// llegar a cero, así que quien abonaba $5 de $20 —justo al que conviene
+  /// reforzarle la costumbre— no recibía constancia de nada.
+  ///
+  /// **Solo si el cliente tiene teléfono guardado.** Con el cliente delante y
+  /// otro esperando, una hoja que hay que despachar en cada abono es fricción
+  /// pura; a quien tiene número guardado es a quien el dueño ya le escribe.
+  /// Los demás se cubren desde el detalle del cliente, que ahora deja poner el
+  /// teléfono.
+  Future<void> _ofrecerComprobante(String clienteId, double abono) async {
+    if (_tipo != TipoMovimientoFiado.abono) return;
+
+    final cliente = ref.read(clienteFiadoPorIdProvider(clienteId));
+    if (cliente == null) return;
+    final telefono = cliente.telefono;
+    if ((telefono ?? '').trim().isEmpty) return;
+
+    final negocio = ref.read(negocioActivoProvider).valueOrNull;
+    // `cliente.saldoUSD` viene del stream y puede no haber recibido todavía el
+    // abono que se acaba de escribir. Se resta a mano: la cifra del mensaje
+    // tiene que ser la de después de pagar, no la de antes.
+    final restante = cliente.saldoUSD - abono;
+    final borrador = borradorAbono(
+      nombre: cliente.nombre,
+      negocio: negocio?.nombre ?? 'nuestro negocio',
+      abonoUSD: abono,
+      saldoRestanteUSD: restante,
+      tasa: ref.read(tasaActivaValorProvider),
+    );
+
+    if (!mounted) return;
+    final texto = await editarMensaje(
+      context,
+      titulo: 'Comprobante para ${cliente.nombre}',
+      inicial: borrador,
+      accion: 'Mandar comprobante',
+    );
+    if (texto == null || texto.isEmpty || !mounted) return;
+
+    final r = await abrirWhatsApp(texto: texto, telefono: telefono);
+    final aviso = avisoDe(r);
+    if (aviso != null && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(aviso)));
+    }
+  }
+
   Future<void> _guardar() async {
     final membresia = ref.read(membresiaActivaProvider);
     final user = ref.read(authStateProvider).valueOrNull;
@@ -96,6 +148,8 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
         concepto: _concepto.text.trim(),
         registradoPor: user.uid,
       );
+      if (!mounted) return;
+      await _ofrecerComprobante(clienteId, monto);
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
