@@ -211,17 +211,23 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
       return;
     }
 
-    var cantidad = 1;
     Variante? variante;
+    double? kg;
 
     if (p.tieneVariantes) {
       variante = await _elegirVariante(p);
       if (variante == null) return;
     }
     if (p.vendidoPorPeso) {
-      final kg = await _pedirCantidad(p);
+      // El peso viaja tal cual, sin `.round()`. Redondearlo cobraba 3 kg de
+      // queso por 2,5 y metía 0,4 kg como 0 —es decir, gratis—, aunque el
+      // resto de la cadena lleva siempre decimales.
+      kg = await _pedirCantidad(p);
       if (kg == null) return;
-      cantidad = kg.round();
+      if (kg <= 0) {
+        _aviso('El peso tiene que ser mayor que cero.');
+        return;
+      }
     }
 
     ref.read(carritoProvider.notifier).agregar(
@@ -229,7 +235,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
             productoId: p.id,
             nombre: p.nombre,
             precioUnitario: p.precio!,
-            cantidad: cantidad,
+            pesoKg: kg,
             varianteValor: variante?.valor,
             varianteColor: variante?.color,
             fotoUrl: p.fotoUrl,
@@ -436,8 +442,9 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                           children: [
                             for (var i = 0; i < carrito.length; i++)
                               _FilaCarrito(
-                                nombre: carrito[i].cantidad > 1
-                                    ? '${carrito[i].nombre} ×${carrito[i].cantidad}'
+                                nombre: carrito[i].cantidad > 1 ||
+                                        carrito[i].porPeso
+                                    ? '${carrito[i].nombre} ×${carrito[i].cantidadLabel}'
                                     : carrito[i].nombre,
                                 monto: carrito[i].subtotal,
                                 onQuitar: () => ref
@@ -721,12 +728,53 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
 
   /// Un producto marcado "bloquear al agotarse" no se puede vender por encima
   /// de su stock. Los demás sí (una bodega vende y ajusta después).
+  ///
+  /// Se comprueba **sumando** todas las líneas del mismo producto, no una a
+  /// una. `CarritoNotifier.agregar` fusiona por producto *y variante*, así que
+  /// una franela en talla M y en L son dos líneas del mismo `productoId`: con
+  /// el control línea a línea, 4 M + 4 L pasaban contra un stock de 6 —cada
+  /// una comparaba 4 contra 6— y se vendían 8.
+  ///
+  /// Y cuando la línea trae variante se mira **la casilla de esa variante**,
+  /// que es de donde el repositorio va a descontar. El total del producto no
+  /// dice nada sobre si quedan tallas M.
   String? _stockInsuficiente(List<ItemCarrito> carrito) {
     final productos = ref.read(productosProvider).valueOrNull ?? const [];
+
+    final porProducto = <String, double>{};
+    final porVariante = <String, double>{};
+    for (final item in carrito) {
+      if (item.productoId.isEmpty) continue;
+      porProducto[item.productoId] =
+          (porProducto[item.productoId] ?? 0) + item.cantidadCobrada;
+      if (item.tieneVariante) {
+        final clave = '${item.productoId}|${item.varianteValor}'
+            '|${item.varianteColor ?? ''}';
+        porVariante[clave] = (porVariante[clave] ?? 0) + item.cantidadCobrada;
+      }
+    }
+
     for (final item in carrito) {
       final p = productos.where((x) => x.id == item.productoId).firstOrNull;
       if (p == null || !p.bloquearAlAgotarse) continue;
-      if (item.cantidad > p.cantidad) {
+
+      if (item.tieneVariante) {
+        final v = p.variantes
+            .where((x) =>
+                x.valor == item.varianteValor &&
+                (x.color ?? '') == (item.varianteColor ?? ''))
+            .firstOrNull;
+        final clave = '${item.productoId}|${item.varianteValor}'
+            '|${item.varianteColor ?? ''}';
+        final pedido = porVariante[clave] ?? 0;
+        if (v != null && pedido > v.cantidad) {
+          return 'Solo quedan ${v.cantidad} de "${p.nombre} '
+              '${item.varianteValor}".';
+        }
+        continue;
+      }
+
+      if ((porProducto[p.id] ?? 0) > p.cantidad) {
         return 'Solo quedan ${p.cantidadLabel} de "${p.nombre}".';
       }
     }
@@ -737,7 +785,9 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     if (carrito.isEmpty) return 'Venta rápida';
     if (carrito.length <= 2) {
       return carrito
-          .map((i) => i.cantidad > 1 ? '${i.nombre} ×${i.cantidad}' : i.nombre)
+          .map((i) => i.cantidad > 1 || i.porPeso
+              ? '${i.nombre} ×${i.cantidadLabel}'
+              : i.nombre)
           .join(' + ');
     }
     return '${carrito.length} productos';
@@ -803,13 +853,17 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
         ItemVenta(
           productoId: i.productoId,
           nombre: i.nombre,
-          cantidad: i.cantidad.toDouble(),
+          cantidad: i.cantidadCobrada,
           precioUnitario: i.precioUnitario,
           costoUnitario:
               productos.where((p) => p.id == i.productoId).firstOrNull?.costo,
           varianteValor: i.varianteValor,
           varianteColor: i.varianteColor,
           fotoUrl: i.fotoUrl,
+          // Sin esto el historial y los reportes enseñaban «3» donde tenía que
+          // decir «3 kg»: `ItemVenta.cantidadLabel` ya sabía formatearlo, pero
+          // nunca se enteraba de que la línea era de las que se pesan.
+          vendidoPorPeso: i.porPeso,
         ),
       // Línea sin producto: el repositorio la reconoce y no toca inventario.
       if (_montoLibre > 0)
@@ -889,10 +943,14 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
     }
 
     final tipo = ref.read(tasaActivaProvider);
-    final lineas = carrito
-        .map((i) => '• ${i.nombre} ×${i.cantidad} — '
-            '${MoneyFormatter.usd(i.subtotal)}')
-        .join('\n');
+    // El monto libre entra en el desglose además de en el total. Se quedaba
+    // fuera: el cliente recibía tres renglones y un total mayor que su suma,
+    // y quien tiene que explicar esa diferencia es el dueño.
+    final lineas = [
+      for (final i in carrito)
+        '• ${i.nombre} ×${i.cantidadLabel} — ${MoneyFormatter.usd(i.subtotal)}',
+      if (_montoLibre > 0) '• Otros — ${MoneyFormatter.usd(_montoLibre)}',
+    ].join('\n');
 
     final mensaje = StringBuffer()
       ..writeln('Hola${destino.nombre == null ? '' : ' ${destino.nombre}'} 👋 '

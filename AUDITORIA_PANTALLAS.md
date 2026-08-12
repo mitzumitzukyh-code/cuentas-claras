@@ -415,9 +415,14 @@ correcto y está tres funciones más abajo.
 queda mudo con el mismo aspecto que los demás. Debajo dice «Quedan 0», pero
 nada conecta las dos cosas.
 
-### Orden sugerido
+### Estado
 
-1. El peso (1 + 2) — es dinero mal cobrado hoy, en dos rubros de fábrica.
-2. El stock por variante (3) — vende lo que no hay justo donde se pidió que no.
-3. La cotización (4) — sale de la app hacia un cliente.
-4. Accesibilidad (5), fugas (6), variante muda (7).
+Arreglados **1, 2, 3 y 4** (2026-08-12). `ItemCarrito` gana `pesoKg` de verdad
+—con `cantidadCobrada` y `cantidadLabel` derivados—, el carrito acumula kilos
+en vez de unidades, `ItemVenta` recibe `vendidoPorPeso`, el control de stock
+suma por producto y mira la casilla de la variante, y el desglose de la
+cotización incluye el monto libre. Siete pruebas nuevas en
+`test/domain/carrito_test.dart`.
+
+Pendientes: **5** (cero `Semantics` con once `GestureDetector`), **6** (dos
+controladores sin liberar) y **7** (la variante agotada no dice por qué).

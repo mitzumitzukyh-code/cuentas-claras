@@ -22,12 +22,16 @@ class CarritoNotifier extends StateNotifier<List<ItemCarrito>> {
     );
     if (idx >= 0) {
       final existente = state[idx];
+      // Lo que se vende por peso acumula kilos, no unidades: pesar 0,5 kg y
+      // luego 0,3 kg del mismo queso son 0,8 kg, no "dos quesos".
+      final fusionado = existente.porPeso || item.porPeso
+          ? existente.copyWith(
+              pesoKg: (existente.pesoKg ?? 0) + (item.pesoKg ?? 0),
+            )
+          : existente.copyWith(cantidad: existente.cantidad + item.cantidad);
       state = [
         for (var i = 0; i < state.length; i++)
-          if (i == idx)
-            existente.copyWith(cantidad: existente.cantidad + item.cantidad)
-          else
-            state[i],
+          if (i == idx) fusionado else state[i],
       ];
     } else {
       state = [...state, item];
@@ -35,10 +39,13 @@ class CarritoNotifier extends StateNotifier<List<ItemCarrito>> {
   }
 
   /// Quita una unidad del ítem en [idx]. Si queda en 0, lo elimina.
+  ///
+  /// Una línea por peso se quita entera: "una unidad menos" de 2,5 kg no
+  /// significa nada, y el dueño que quiera otra cantidad la vuelve a pesar.
   void quitar(int idx) {
     if (idx < 0 || idx >= state.length) return;
     final item = state[idx];
-    if (item.cantidad <= 1) {
+    if (item.porPeso || item.cantidad <= 1) {
       state = [...state.take(idx), ...state.skip(idx + 1)];
     } else {
       state = [
