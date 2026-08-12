@@ -260,11 +260,26 @@ describe('construirAvisos · tasa paralela en el resumen', () => {
   });
 
   it('sin paralela el resumen sale igual, solo que sin ella', () => {
-    // Binance puede cortar por rate-limit: eso no puede tumbar el aviso de la
-    // tasa oficial, que es el que el usuario pidió.
+    // La fuente de la paralela puede caerse: eso no puede tumbar el aviso de
+    // la tasa oficial, que es el que el usuario pidió.
     const [resumen] = construirAvisos({ ...base, paralelo: null });
     assert.match(resumen.titulo, /Hoy el dólar está en Bs 700,00/);
     assert.equal(resumen.datos.paralelo, '');
+  });
+
+  it('el cuerpo dice de dónde sale la paralela', () => {
+    // El push y la app usan fuentes distintas y las cifras no coinciden. Sin
+    // esta frase, el dueño abre la app tras el push, ve otro número y da por
+    // hecho que una de las dos está mal.
+    const [resumen] = construirAvisos({ ...base, paralelo: 1234.5 });
+    assert.match(resumen.cuerpo, /referencia/);
+    assert.match(resumen.cuerpo, /mercado P2P/);
+  });
+
+  it('sin paralela el cuerpo no explica ninguna fuente', () => {
+    const [resumen] = construirAvisos({ ...base, paralelo: null });
+    assert.doesNotMatch(resumen.cuerpo, /referencia/);
+    assert.doesNotMatch(resumen.cuerpo, /P2P/);
   });
 
   it('una paralela absurda se descarta como si no hubiera', () => {

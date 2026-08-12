@@ -208,12 +208,21 @@ export function construirAvisos({
     const conParalela =
       paralelo != null && Number.isFinite(paralelo) && paralelo > 0;
 
+    // El push y la app sacan la paralela de sitios distintos: el aviso usa una
+    // referencia general y la app promedia anuncios del mercado P2P, y entre
+    // las dos hay un par de puntos de diferencia. Sin decirlo, el dueño abre
+    // la app después del push, ve otro número y concluye que una de las dos
+    // miente. Decir de dónde sale cada cifra cuesta una frase.
+    const deDonde = conParalela
+      ? ' Paralelo de referencia — en la app ves el del mercado P2P.'
+      : '';
+
     avisos.push({
       topics: ['tasa-resumen'],
       titulo: conParalela
         ? `☀️ BCV Bs ${bs(actual)} · Paralelo Bs ${bs(paralelo)}`
         : `☀️ Hoy el dólar está en Bs ${bs(actual)}`,
-      cuerpo: `El BCV ${detalle}. ${tendencia(historial)}`,
+      cuerpo: `El BCV ${detalle}. ${tendencia(historial)}${deDonde}`,
       datos: {
         ...datosBase,
         tipo: 'resumen',
