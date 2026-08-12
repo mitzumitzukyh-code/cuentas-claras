@@ -52,13 +52,17 @@ const MAX_USOS_IA_POR_DIA = 40;
 const API_TASA = 'https://ve.dolarapi.com/v1/dolares/oficial';
 
 /**
- * Endpoint interno de Binance P2P, el mismo que consume su propia web y el
- * que ya usa la app (`binance_p2p_service.dart`). No es una API publica
- * documentada: puede cambiar de forma o cortar por rate-limit sin aviso, y por
- * eso el resumen sale igual si esto falla, solo que sin la paralela.
+ * Misma casa que [API_TASA]: si el BCV llega, la paralela llega.
+ *
+ * **No es Binance P2P a proposito, aunque sea lo que usa la app.** Ese
+ * endpoint responde 403 a las peticiones que salen de Cloudflare —comprobado
+ * con y sin cabeceras de navegador—, asi que `consultarParalelo` devolvia
+ * `null` en todas las ejecuciones y el resumen de la manana llevaba meses
+ * saliendo solo con el BCV. Desde el telefono si funciona, que es por lo que
+ * la app la muestra bien y el push no la traia: el fallo no estaba en el
+ * codigo del aviso sino en quien hacia la llamada.
  */
-const API_PARALELO =
-    'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search';
+const API_PARALELO = 'https://ve.dolarapi.com/v1/dolares/paralelo';
 
 /** Hora local de Venezuela (UTC−4) a la que sale el resumen de la mañana. */
 const HORA_RESUMEN = 8;
@@ -91,38 +95,25 @@ async function consultarTasa() {
 }
 
 /**
- * Precio promedio de los mejores anuncios de venta de USDT en Binance P2P.
+ * Tasa paralela del dia, para el resumen de la manana.
  *
- * Mismo criterio que la app: los 5 primeros anuncios de venta, promediados.
  * Devuelve `null` ante cualquier fallo en vez de lanzar — la paralela es un
- * extra del resumen, y quedarse sin resumen de tasa BCV porque Binance esté
- * caído seria cambiar un problema por otro peor.
+ * extra del resumen, y quedarse sin el aviso del BCV porque la paralela no
+ * responda seria cambiar un problema por otro peor.
  */
 async function consultarParalelo() {
   try {
     const resp = await fetch(API_PARALELO, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        asset: 'USDT',
-        fiat: 'VES',
-        tradeType: 'SELL',
-        page: 1,
-        rows: 10,
-        payTypes: [],
-        publisherType: null,
-      }),
+      headers: { accept: 'application/json' },
     });
-    if (!resp.ok) throw new Error(`Binance respondió ${resp.status}`);
+    if (!resp.ok) throw new Error(`dolarapi respondió ${resp.status}`);
 
     const json = await resp.json();
-    const precios = (json.data ?? [])
-      .map((a) => Number(a?.adv?.price))
-      .filter((p) => Number.isFinite(p) && p > 0)
-      .slice(0, 5);
-    if (!precios.length) throw new Error('sin anuncios usables');
-
-    return precios.reduce((a, b) => a + b, 0) / precios.length;
+    const tasa = Number(json.promedio ?? json.venta);
+    if (!Number.isFinite(tasa) || tasa <= 0) {
+      throw new Error(`paralelo inválido: ${JSON.stringify(json)}`);
+    }
+    return tasa;
   } catch (e) {
     console.error('paralelo no disponible:', e.message);
     return null;
