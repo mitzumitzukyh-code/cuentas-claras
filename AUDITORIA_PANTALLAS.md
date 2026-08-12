@@ -424,5 +424,14 @@ suma por producto y mira la casilla de la variante, y el desglose de la
 cotización incluye el monto libre. Siete pruebas nuevas en
 `test/domain/carrito_test.dart`.
 
-Pendientes: **5** (cero `Semantics` con once `GestureDetector`), **6** (dos
-controladores sin liberar) y **7** (la variante agotada no dice por qué).
+Arreglados también **5, 6 y 7** (2026-08-12). Los siete quedan cerrados.
+
+En el 5 hubo una trampa que casi se cuela: envolver la ficha de producto en
+`MergeSemantics` funde en un solo nodo **todo** lo de dentro, incluido el
+botón «−», y el lector se habría quedado sin forma de quitar una unidad. La
+ficha lleva `Semantics` a secas y son los textos de adorno —ya presentes en la
+etiqueta— los que van en `ExcludeSemantics`, nunca algo que se pueda tocar.
+Es la misma regla que ya costó dos correcciones en las pantallas de auth.
+
+El árbol de semántica **no se ha ejercitado en dispositivo**: está revisado en
+código y compila, pero no se ha leído con TalkBack.

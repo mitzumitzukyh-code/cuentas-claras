@@ -286,29 +286,40 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...p.variantes.map(
-                  (v) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      [
-                        v.valor,
-                        if (v.color != null && v.color!.isNotEmpty) v.color!,
-                      ].join(' / '),
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: t.textoFuerte,
+                ...p.variantes.map((v) {
+                  // Una variante agotada se quedaba muda: mismo aspecto que
+                  // las demás y sin responder al toque. Decía «Quedan 0» dos
+                  // renglones más abajo, pero nada conectaba las dos cosas y
+                  // parecía que la app se había trabado.
+                  final agotada = v.cantidad <= 0 && p.bloquearAlAgotarse;
+                  return Opacity(
+                    opacity: agotada ? 0.45 : 1,
+                    child: ListTile(
+                      enabled: !agotada,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        [
+                          v.valor,
+                          if (v.color != null && v.color!.isNotEmpty) v.color!,
+                        ].join(' / '),
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: t.textoFuerte,
+                        ),
                       ),
+                      subtitle: Text(
+                        agotada ? 'Agotada — no queda ninguna' : 'Quedan ${v.cantidad}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: agotada ? FontWeight.w700 : FontWeight.w400,
+                          color: agotada ? LibretaColors.aviso : t.textoMuted,
+                        ),
+                      ),
+                      onTap: agotada ? null : () => Navigator.of(ctx).pop(v),
                     ),
-                    subtitle: Text(
-                      'Quedan ${v.cantidad}',
-                      style: TextStyle(fontSize: 12, color: t.textoMuted),
-                    ),
-                    onTap: v.cantidad <= 0 && p.bloquearAlAgotarse
-                        ? null
-                        : () => Navigator.of(ctx).pop(v),
-                  ),
-                ),
+                  );
+                }),
               ],
             ),
           ),
@@ -343,7 +354,10 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
           ),
         ],
       ),
-    );
+      // Mismo patrón que `_pedirNumeroSuelto`, que ya lo hacía bien tres
+      // funciones más abajo: el controlador se libera cuando la hoja se
+      // cierra, salga por donde salga.
+    ).whenComplete(ctrl.dispose);
   }
 
   Future<void> _abrirMontoLibre() async {
@@ -390,7 +404,7 @@ class _CobrarScreenState extends ConsumerState<CobrarScreen> {
           ),
         ],
       ),
-    );
+    ).whenComplete(ctrl.dispose);
     if (monto != null && mounted) setState(() => _montoLibre = monto);
   }
 
@@ -1259,7 +1273,15 @@ class _PillTasa extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    return GestureDetector(
+    // `MergeSemantics` + `Semantics`, nunca `ExcludeSemantics`: envolver un
+    // pulsable en `ExcludeSemantics` le quita también la acción, y la pastilla
+    // deja de poder tocarse con el lector de pantalla encendido.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: activa,
+        label: 'Cobrar a la $texto',
+        child: GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -1283,6 +1305,8 @@ class _PillTasa extends StatelessWidget {
             fontSize: 12,
             fontWeight: activa ? FontWeight.w800 : FontWeight.w700,
             color: activa ? t.textoFuerte : t.textoMuted,
+          ),
+        ),
           ),
         ),
       ),
@@ -1310,7 +1334,11 @@ class _Segmentado extends StatelessWidget {
         children: [
           for (final m in _Modo.values)
             Expanded(
-              child: GestureDetector(
+              child: MergeSemantics(
+                child: Semantics(
+                  button: true,
+                  selected: modo == m,
+                  child: GestureDetector(
                 onTap: () => onChanged(m),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 160),
@@ -1328,6 +1356,8 @@ class _Segmentado extends StatelessWidget {
                           modo == m ? FontWeight.w800 : FontWeight.w700,
                       color: modo == m ? Colors.white : t.textoMuted,
                     ),
+                  ),
+                ),
                   ),
                 ),
               ),
@@ -1356,25 +1386,34 @@ class _PastillaMetodo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        decoration: BoxDecoration(
-          color: activa
-              ? (esFiado ? LibretaColors.ambarSuperficie : LibretaColors.verde)
-              : _pista(t),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            color: activa
-                ? (esFiado ? LibretaColors.tarjetaOscura : Colors.white)
-                : t.textoMuted,
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: activa,
+        label: esFiado ? 'Fiado, no se cobra ahora' : 'Pagó en $label',
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+            decoration: BoxDecoration(
+              color: activa
+                  ? (esFiado
+                      ? LibretaColors.ambarSuperficie
+                      : LibretaColors.verde)
+                  : _pista(t),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: activa
+                    ? (esFiado ? LibretaColors.tarjetaOscura : Colors.white)
+                    : t.textoMuted,
+              ),
+            ),
           ),
         ),
       ),
@@ -1453,16 +1492,25 @@ class _TarjetaCliente extends StatelessWidget {
                 ],
               ),
             ),
-            GestureDetector(
-              onTap: onCambiar,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                child: Text(
-                  'Cambiar',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: LibretaColors.verde,
+            Semantics(
+              button: true,
+              label: vacio
+                  ? 'Elegir a quién va'
+                  : 'Cambiar a quién va',
+              child: GestureDetector(
+                onTap: onCambiar,
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  // 48 de alto de zona tocable: el texto solo daba 24 y en un
+                  // mostrador, con prisa, se falla el toque.
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                  child: Text(
+                    'Cambiar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: LibretaColors.verde,
+                    ),
                   ),
                 ),
               ),
@@ -1713,7 +1761,11 @@ class _TarjetaTotal extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          GestureDetector(
+          MergeSemantics(
+            child: Semantics(
+              button: true,
+              hint: 'Abre el carrito',
+              child: GestureDetector(
             onTap: onTapPie,
             behavior: HitTestBehavior.opaque,
             child: Container(
@@ -1745,6 +1797,8 @@ class _TarjetaTotal extends StatelessWidget {
                 ],
               ),
             ),
+              ),
+            ),
           ),
         ],
       ),
@@ -1766,7 +1820,11 @@ class _FilaCarrito extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.libreta;
-    return GestureDetector(
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        hint: 'Toca para quitar del carrito',
+        child: GestureDetector(
       onTap: onQuitar,
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -1798,6 +1856,8 @@ class _FilaCarrito extends StatelessWidget {
             const SizedBox(width: 8),
             LibretaIcono(AppAssets.accCerrar, size: 14, color: t.textoMuted),
           ],
+        ),
+      ),
         ),
       ),
     );
@@ -1863,14 +1923,18 @@ class _BuscadorProductos extends StatelessWidget {
                   ),
                 ),
                 if (controller.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () {
-                      controller.clear();
-                      onChanged('');
-                    },
-                    child: LibretaIcono(AppAssets.accCerrar,
-                      size: 16,
-                      color: t.textoMuted,
+                  Semantics(
+                    button: true,
+                    label: 'Borrar la búsqueda',
+                    child: GestureDetector(
+                      onTap: () {
+                        controller.clear();
+                        onChanged('');
+                      },
+                      child: LibretaIcono(AppAssets.accCerrar,
+                        size: 16,
+                        color: t.textoMuted,
+                      ),
                     ),
                   ),
               ],
@@ -1878,7 +1942,10 @@ class _BuscadorProductos extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        GestureDetector(
+        Semantics(
+          button: true,
+          label: 'Escanear código de barras',
+          child: GestureDetector(
           onTap: onEscanear,
           child: Container(
             width: 42,
@@ -1892,6 +1959,7 @@ class _BuscadorProductos extends StatelessWidget {
               size: 20,
             ),
           ),
+        ),
         ),
       ],
     );
@@ -1990,7 +2058,24 @@ class _FichaProducto extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.libreta;
     final enCarrito = cantidad > 0;
-    return GestureDetector(
+    // Una etiqueta por ficha con todo lo que hace falta para decidir: qué es,
+    // cuánto cuesta, si no se puede vender y cuántas van. Suelto, el lector
+    // iba leyendo nombres y precios sin decir que fueran pulsables ni que ya
+    // hubiera algo en el carrito.
+    //
+    // **Sin `MergeSemantics`**: fundiría en un solo nodo todo lo de dentro,
+    // incluido el botón «−», y el lector se quedaría sin forma de quitar una
+    // unidad. Lo que se calla es solo el texto de adorno, que ya está en la
+    // etiqueta — nunca algo que se pueda tocar.
+    return Semantics(
+      button: true,
+      label: [
+        producto.nombre,
+        producto.sePuedeVender ? producto.precioLabel : 'sin precio',
+        if (enCarrito) '$cantidad en el carrito',
+      ].join(', '),
+      hint: enCarrito ? 'Toca para sumar otro, mantén para quitar' : null,
+      child: GestureDetector(
       onTap: onTap,
       onLongPress: enCarrito ? onQuitar : null,
       child: Container(
@@ -2015,7 +2100,10 @@ class _FichaProducto extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Column(
+              // Solo texto de adorno: ya está todo en la etiqueta de la ficha.
+              // Sin esto el lector lee el nombre y el precio dos veces.
+              child: ExcludeSemantics(
+                child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2063,10 +2151,12 @@ class _FichaProducto extends StatelessWidget {
                   ),
                 ],
               ),
+              ),
             ),
             if (enCarrito) ...[
               const SizedBox(width: 6),
-              Container(
+              ExcludeSemantics(
+                child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -2085,10 +2175,18 @@ class _FichaProducto extends StatelessWidget {
                   ),
                 ),
               ),
+              ),
               const SizedBox(width: 2),
               // El botón se come el toque antes de que llegue a la ficha: si
               // burbujeara, quitar una unidad agregaría otra en el mismo gesto.
-              GestureDetector(
+              //
+              // Va fuera del `MergeSemantics` de la ficha: es la única acción
+              // distinta de la tarjeta y fundirla con ella dejaría al lector
+              // sin forma de quitar una unidad.
+              Semantics(
+                button: true,
+                label: 'Quitar una unidad de ${producto.nombre}',
+                child: GestureDetector(
                 onTap: onQuitar,
                 behavior: HitTestBehavior.opaque,
                 child: SizedBox(
@@ -2110,10 +2208,12 @@ class _FichaProducto extends StatelessWidget {
                     ),
                   ),
                 ),
+                ),
               ),
             ],
           ],
         ),
+      ),
       ),
     );
   }
