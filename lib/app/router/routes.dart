@@ -45,6 +45,13 @@ abstract final class Routes {
   static const String resumenDia = '/arqueo/resumen/:cierreId';
   static const String notificaciones = '/notificaciones';
   static const String importarInventario = '/productos/importar';
+  /// Pasar el cuaderno de papel al libro de fiados.
+  ///
+  /// **No** cuelga de `/fiados/…` a propósito: [fiadoDetalle] es
+  /// `/fiados/:clienteId` y se declara antes, así que `/fiados/importar`
+  /// casaría con ella y abriría el detalle de un cliente llamado "importar".
+  /// Es el mismo tropiezo que ya costó el `/fiados//movimiento` de abajo.
+  static const String importarFiados = '/importar-fiados';
   static const String migrarOtraApp = '/productos/migrar';
   static const String proveedorDetalle = '/proveedores/:proveedorId';
   static const String proveedorMovimiento = '/proveedores/:proveedorId/movimiento';

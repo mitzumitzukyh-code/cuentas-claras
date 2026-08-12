@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/providers/firebase_providers.dart';
+import '../../core/utils/confianza.dart';
 import '../../core/utils/numero_ve.dart';
+import '../../features/fiados/domain/fiado_leido.dart';
 import '../../shared/utils/errores.dart';
 
 const String _baseUrl = 'https://cuenta-clara-tasa.mitzumitzukyhs.workers.dev';
@@ -34,17 +36,6 @@ class SugerenciaEtiqueta {
   /// bien antes de aceptar la sugerencia, nunca para bloquearla.
   final String confianza;
 }
-
-/// Qué tan segura viene una lectura. Por campo, no por documento: en una foto
-/// se lee el nombre perfecto y el precio a medias, y decir "confianza media"
-/// del documento entero no ayuda a saber qué revisar.
-enum Confianza { alta, media, baja }
-
-Confianza _confianzaDe(Object? crudo) => switch (crudo) {
-  'alta' => Confianza.alta,
-  'baja' => Confianza.baja,
-  _ => Confianza.media,
-};
 
 /// Qué clase de papel se fotografió.
 ///
@@ -267,8 +258,8 @@ class LectorEtiquetaService {
               codigo: (f['codigo'] as String?)?.trim(),
               talla: (f['talla'] as String?)?.trim(),
               color: (f['color'] as String?)?.trim(),
-              confianzaPrecio: _confianzaDe(f['confianzaPrecio']),
-              confianzaCantidad: _confianzaDe(f['confianzaCantidad']),
+              confianzaPrecio: confianzaDe(f['confianzaPrecio']),
+              confianzaCantidad: confianzaDe(f['confianzaCantidad']),
             ))
         .where((f) => f.nombre.isNotEmpty)
         .toList();
@@ -291,6 +282,26 @@ class LectorEtiquetaService {
       totalDeclarado: total,
       cuadra: cuadra,
     );
+  }
+
+  /// Lee la página de un cuaderno de fiados y devuelve un renglón por deuda,
+  /// ya consolidados por persona.
+  ///
+  /// La moneda **no** viaja: la eligió el dueño antes de la foto y la aplica
+  /// la pantalla. Pedírsela al modelo es el mismo error que en la libreta de
+  /// inventario, solo que aquí confundir Bs con dólares no infla un precio —
+  /// inventa o borra una deuda entera.
+  Future<List<FiadoLeido>> leerFiados(File foto) async {
+    final datos = await _llamar('/leer-fiados', foto);
+    if (datos['reconocido'] != true) throw SinReconocer();
+
+    final crudas =
+        ((datos['filas'] as List?) ?? const []).whereType<Map<String, dynamic>>();
+    final filas = [
+      for (final (i, f) in crudas.indexed) fiadoDesdeJson(f, idLocal: i),
+    ].where((f) => f.nombre.isNotEmpty).toList();
+
+    return consolidarFiados(filas);
   }
 
   /// Lee un recibo de compra: monto, moneda, fecha, descripción y categoría.

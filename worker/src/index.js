@@ -12,7 +12,12 @@
 import { usuarioAutenticado } from './auth.js';
 import { carpetaValida, subirFotoFirmada } from './cloudinary.js';
 import { enviarAToken, enviarATopic, obtenerToken } from './fcm.js';
-import { leerEtiqueta, leerLibreta, leerRecibo } from './gemini.js';
+import {
+  leerEtiqueta,
+  leerFiados,
+  leerLibreta,
+  leerRecibo,
+} from './gemini.js';
 import { paginaDescargar } from './descargar.js';
 import {
   duenosConToken,
@@ -483,6 +488,7 @@ export default {
     // validación de imagen; solo cambia el prompt (ver gemini.js).
     const lectores = {
       '/leer-etiqueta': (args) => leerEtiqueta(args),
+      '/leer-fiados': (args) => leerFiados(args),
       '/leer-libreta': (args) => leerLibreta(args),
       '/leer-recibo': (args) => leerRecibo(args),
     };

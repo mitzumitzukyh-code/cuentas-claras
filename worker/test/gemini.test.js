@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  interpretarRespuestaFiados,
   interpretarRespuestaGemini,
   interpretarRespuestaLibreta,
   interpretarRespuestaRecibo,
@@ -252,5 +253,100 @@ describe('interpretarRespuestaRecibo', () => {
   it('no reconoce cuando la foto no es un recibo', () => {
     const r = interpretarRespuestaRecibo(respuestaDe({ esRecibo: false }));
     assert.deepEqual(r, { reconocido: false });
+  });
+});
+
+describe('interpretarRespuestaFiados', () => {
+  it('lee los renglones de un cuaderno', () => {
+    const r = interpretarRespuestaFiados(
+      respuestaDe({
+        esCuaderno: true,
+        filas: [
+          {
+            nombre: 'José Ramírez',
+            monto: '1.500',
+            fecha: '2026-08-03',
+            concepto: '2 harinas',
+            confianzaNombre: 'alta',
+            confianzaMonto: 'alta',
+          },
+        ],
+      }),
+    );
+    assert.equal(r.reconocido, true);
+    assert.equal(r.filas.length, 1);
+    assert.equal(r.filas[0].nombre, 'José Ramírez');
+    assert.equal(r.filas[0].concepto, '2 harinas');
+  });
+
+  it('el monto llega como texto y sin tocar', () => {
+    // "1.500" convertido a número por el modelo puede llegar 1.5. Se
+    // interpreta en Dart con `normalizarNumeroVE`, que es determinista.
+    const r = interpretarRespuestaFiados(
+      respuestaDe({
+        esCuaderno: true,
+        filas: [{ nombre: 'Ana', monto: '1.500' }],
+      }),
+    );
+    assert.equal(r.filas[0].monto, '1.500');
+    assert.equal(typeof r.filas[0].monto, 'string');
+  });
+
+  it('una fila sin nombre se descarta', () => {
+    // Sin saber de quién es la deuda no hay nada que anotar. El monto solo
+    // no sirve para nada.
+    const r = interpretarRespuestaFiados(
+      respuestaDe({
+        esCuaderno: true,
+        filas: [
+          { nombre: '  ', monto: '20' },
+          { monto: '30' },
+          { nombre: 'Carlos', monto: '10' },
+        ],
+      }),
+    );
+    assert.equal(r.filas.length, 1);
+    assert.equal(r.filas[0].nombre, 'Carlos');
+  });
+
+  it('una fila sin monto se conserva para que el dueño la complete', () => {
+    const r = interpretarRespuestaFiados(
+      respuestaDe({
+        esCuaderno: true,
+        filas: [{ nombre: 'María', monto: '', confianzaMonto: 'baja' }],
+      }),
+    );
+    assert.equal(r.filas.length, 1);
+    assert.equal(r.filas[0].monto, '');
+  });
+
+  it('una foto que no es un cuaderno no devuelve nada', () => {
+    const r = interpretarRespuestaFiados(
+      respuestaDe({ esCuaderno: false, filas: [{ nombre: 'X', monto: '5' }] }),
+    );
+    assert.equal(r.reconocido, false);
+    assert.deepEqual(r.filas, []);
+  });
+
+  it('un cuaderno vacío no cuenta como reconocido', () => {
+    const r = interpretarRespuestaFiados(
+      respuestaDe({ esCuaderno: true, filas: [] }),
+    );
+    assert.equal(r.reconocido, false);
+  });
+
+  it('el mismo nombre dos veces son dos renglones', () => {
+    // Quien decide si suman o si el segundo es el saldo actualizado es la
+    // app, con el dueño mirando. El lector no lo resuelve por su cuenta.
+    const r = interpretarRespuestaFiados(
+      respuestaDe({
+        esCuaderno: true,
+        filas: [
+          { nombre: 'Pedro', monto: '10' },
+          { nombre: 'Pedro', monto: '25' },
+        ],
+      }),
+    );
+    assert.equal(r.filas.length, 2);
   });
 });

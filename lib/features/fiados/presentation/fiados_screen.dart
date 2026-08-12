@@ -149,7 +149,13 @@ class FiadosScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+
+                      // Va aquí y no solo en el estado vacío: quien está
+                      // pasando su libreta la fotografía por páginas, y
+                      // después de la primera la pantalla ya no está vacía.
+                      _AtajoCuaderno(primeraVez: todos.isEmpty),
+                      const SizedBox(height: 12),
 
                       // El estado vacío es "no tienes clientes", NO "nadie te
                       // debe": con `conDeuda.isEmpty` los clientes al día
@@ -255,6 +261,75 @@ class FiadosScreen extends ConsumerWidget {
 /// Solo aparece con deudas de [_diasParaAvisar] días o más y solo señala una
 /// —la más vieja—: una lista de morosos en la pantalla principal convierte
 /// Fiados en un tablero de reclamos, y el dueño deja de abrirla.
+/// Atajo a "Pasar tu cuaderno": la puerta de entrada de quien ya lleva los
+/// fiados en papel.
+///
+/// Sin esto, empezar a usar la app significaba teclear una por una las deudas
+/// que ya estaban escritas, y esa tarde de trabajo es exactamente lo que hace
+/// que la libreta gane.
+class _AtajoCuaderno extends StatelessWidget {
+  const _AtajoCuaderno({required this.primeraVez});
+
+  /// La primera vez se explica entero; después basta con nombrarlo.
+  final bool primeraVez;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => context.push(Routes.importarFiados),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: t.superficie,
+              border: Border.all(color: t.bordeSuave),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.photo_camera_outlined,
+                  size: 20,
+                  color: LibretaColors.verde,
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pasar tu cuaderno',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: t.textoFuerte,
+                        ),
+                      ),
+                      Text(
+                        primeraVez
+                            ? '¿Ya tienes deudas anotadas en papel? Fotografía '
+                                'la página y las pasamos.'
+                            : 'Fotografía otra página del cuaderno',
+                        style: TextStyle(fontSize: 11.5, color: t.textoMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, size: 18, color: t.textoMuted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RecordatorioVencido extends ConsumerWidget {
   const _RecordatorioVencido({required this.clientes});
 

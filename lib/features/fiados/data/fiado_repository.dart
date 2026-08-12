@@ -122,6 +122,106 @@ class FiadoRepository {
     await batch.commit();
   }
 
+  /// Nombres de los clientes que ya existen, en minúscula, apuntando a su id.
+  ///
+  /// Se lee de una vez para el importador: preguntar cliente por cliente son
+  /// tantas idas al servidor como renglones tenga la página del cuaderno.
+  Future<Map<String, String>> nombresExistentes(String negocioId) async {
+    final snap = await _clientes(negocioId).get();
+    return {
+      for (final d in snap.docs)
+        if (!ClienteFiado.fromDoc(d).eliminado)
+          ClienteFiado.fromDoc(d).nombre.toLowerCase().trim(): d.id,
+    };
+  }
+
+  /// Copia al libro las deudas que el dueño ya tenía anotadas en papel.
+  ///
+  /// Cada renglón entra como un movimiento de tipo `fiado` marcado
+  /// [MovimientoFiado.importado]: la deuda es real y suma al saldo, pero no
+  /// cuenta como plata fiada hoy en el Resumen del día.
+  ///
+  /// Los clientes que ya existen reciben el movimiento en su cuenta —no se
+  /// duplica la ficha— y los nuevos se crean en el mismo batch.
+  ///
+  /// Se trocea en tandas porque un batch de Firestore admite 500 escrituras y
+  /// cada renglón gasta hasta tres (crear cliente, crear movimiento, subir el
+  /// saldo). Una página de cuaderno no llega ahí, pero una libreta entera
+  /// fotografiada por partes sí, y fallar a medias es la peor forma de fallar.
+  Future<int> importarDesdeCuaderno(
+    String negocioId, {
+    required List<({String nombre, double montoUSD, String concepto})> filas,
+    required String registradoPor,
+  }) async {
+    if (filas.isEmpty) return 0;
+    final existentes = await nombresExistentes(negocioId);
+    final ahora = DateTime.now();
+
+    var batch = _db.batch();
+    var escrituras = 0;
+    var guardados = 0;
+
+    Future<void> cerrarTanda() async {
+      if (escrituras == 0) return;
+      await batch.commit();
+      batch = _db.batch();
+      escrituras = 0;
+    }
+
+    for (final fila in filas) {
+      final clave = fila.nombre.toLowerCase().trim();
+      if (clave.isEmpty || fila.montoUSD <= 0) continue;
+
+      if (escrituras + 3 > 400) await cerrarTanda();
+
+      var clienteId = existentes[clave];
+      final clienteRef = clienteId == null
+          ? _clientes(negocioId).doc()
+          : _clientes(negocioId).doc(clienteId);
+
+      if (clienteId == null) {
+        batch.set(
+          clienteRef,
+          ClienteFiado(
+            id: clienteRef.id,
+            nombre: fila.nombre.trim(),
+            saldoUSD: 0,
+            actualizadoEn: ahora,
+          ).toMap(),
+        );
+        escrituras++;
+        clienteId = clienteRef.id;
+        // Dos renglones del mismo nombre en la misma tanda tienen que caer en
+        // la misma ficha; si no, el cuaderno crea clientes gemelos.
+        existentes[clave] = clienteId;
+      }
+
+      final movRef = _movimientos(negocioId, clienteId).doc();
+      batch.set(
+        movRef,
+        MovimientoFiado(
+          id: movRef.id,
+          tipo: TipoMovimientoFiado.fiado,
+          montoUSD: fila.montoUSD,
+          concepto: fila.concepto,
+          fecha: ahora,
+          registradoPor: registradoPor,
+          negocioId: negocioId,
+          importado: true,
+        ).toMap(),
+      );
+      batch.update(clienteRef, {
+        'saldoUSD': FieldValue.increment(fila.montoUSD),
+        'actualizadoEn': Timestamp.fromDate(ahora),
+      });
+      escrituras += 2;
+      guardados++;
+    }
+
+    await cerrarTanda();
+    return guardados;
+  }
+
   /// Todos los movimientos de fiado del negocio desde [desde] (para el
   /// Resumen del día en Cierre de caja, Lote H). `collectionGroup` cruza las
   /// subcolecciones de todos los clientes; se filtra por `negocioId`
@@ -192,5 +292,11 @@ final movimientosFiadoHoyProvider = StreamProvider<List<MovimientoFiado>>((ref) 
   final inicio = DateTime(ahora.year, ahora.month, ahora.day);
   return ref
       .watch(fiadoRepositoryProvider)
-      .movimientosDelNegocioDesde(membresia.negocioId, inicio);
+      .movimientosDelNegocioDesde(membresia.negocioId, inicio)
+      // Lo copiado del cuaderno de papel se queda fuera del día: son deudas
+      // viejas que hoy solo se anotaron. Contarlas como fiado otorgado hoy
+      // descuadraba el arqueo por plata que nunca salió de la caja. El filtro
+      // va en Dart —igual que el de eliminados— para no pedir otro índice
+      // compuesto por un puñado de documentos.
+      .map((ms) => ms.where((m) => !m.importado).toList());
 });

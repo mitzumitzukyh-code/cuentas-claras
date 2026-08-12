@@ -1,3 +1,4 @@
+import 'package:cuentaclara/core/utils/confianza.dart';
 import 'package:cuentaclara/services/ia/lector_etiqueta_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 

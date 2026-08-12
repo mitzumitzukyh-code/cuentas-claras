@@ -106,6 +106,7 @@ class MovimientoFiado {
     required this.fecha,
     required this.registradoPor,
     this.negocioId = '',
+    this.importado = false,
   });
 
   final String id;
@@ -124,6 +125,15 @@ class MovimientoFiado {
   /// contra los movimientos de TODOS los negocios y la consulta fallaría.
   final String negocioId;
 
+  /// Este movimiento vino del cuaderno de papel, no de una venta de hoy.
+  ///
+  /// La deuda es real y suma al saldo como cualquier otra, pero **no es plata
+  /// que se fió hoy**: se anotó hoy y ya existía. Sin distinguirlo, copiar un
+  /// cuaderno con veinte deudas viejas hacía que el Resumen del día declarara
+  /// cientos de dólares de fiado otorgado esa tarde y el arqueo saliera
+  /// descuadrado por un dinero que nunca pasó por la caja.
+  final bool importado;
+
   factory MovimientoFiado.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const {};
     return MovimientoFiado(
@@ -134,6 +144,7 @@ class MovimientoFiado {
       fecha: (data['fecha'] as Timestamp?)?.toDate() ?? DateTime.now(),
       registradoPor: (data['registradoPor'] as String?) ?? '',
       negocioId: (data['negocioId'] as String?) ?? '',
+      importado: (data['importado'] as bool?) ?? false,
     );
   }
 
@@ -144,5 +155,6 @@ class MovimientoFiado {
         'concepto': concepto,
         'fecha': Timestamp.fromDate(fecha),
         'registradoPor': registradoPor,
+        'importado': importado,
       };
 }

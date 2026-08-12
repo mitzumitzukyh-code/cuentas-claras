@@ -318,6 +318,112 @@ export async function leerLibreta({ apiKey, modelo, imagenBase64, mimeType }) {
 }
 
 // ---------------------------------------------------------------------------
+// Cuaderno de fiados
+// ---------------------------------------------------------------------------
+
+const PROMPT_FIADOS = `Estás viendo la foto de la página de un cuaderno donde
+el dueño de una tienda pequeña en Venezuela lleva a mano quién le debe plata.
+Casi siempre es letra manuscrita, a veces con columnas y a veces solo renglones
+sueltos.
+
+Cada renglón útil tiene un NOMBRE de persona y un MONTO que esa persona debe.
+Puede traer además una fecha y una nota de qué se llevó.
+
+Devuelve, por cada renglón legible:
+- nombre: el nombre de la persona tal como está escrito, limpio y sin cifras
+  pegadas. Si solo hay un apodo ("la señora del kiosco"), ese apodo.
+- monto: la cifra que debe, TAL COMO ESTÁ ESCRITA, como texto y sin tocarla
+  ("1.500", "20,50", "3$"). No la conviertas, no le quites los puntos ni las
+  comas: de eso se encarga la app con una regla determinista.
+- fecha: la fecha del renglón en formato YYYY-MM-DD si se lee completa y sin
+  ambigüedad. Cadena vacía en cualquier otro caso — incluido cuando solo hay
+  día y mes sin año.
+- concepto: qué se llevó, si el renglón lo dice ("2 harinas", "cerveza").
+  Cadena vacía si no.
+- confianzaNombre y confianzaMonto: "alta" si se lee nítido y sin ambigüedad;
+  "media" si es legible pero podría confundirse; "baja" si estás adivinando.
+  Es por CAMPO: en un mismo renglón el nombre puede ser claro y el monto
+  dudoso.
+
+REGLAS DURAS:
+- NO interpretes la moneda ni la conviertas. El dueño ya le dijo a la app si su
+  cuaderno está en bolívares o en dólares. Un "150" se devuelve como "150" sin
+  decidir de qué moneda es: equivocarse ahí multiplica una deuda por setecientos.
+- Un renglón TACHADO es una deuda ya pagada: NO lo devuelvas. Es el error más
+  caro de esta pantalla — revive una deuda que el cliente ya salió de pagar.
+- Si un mismo nombre aparece varias veces con montos distintos, devuelve un
+  renglón por cada uno. La app decide si suman o si es el saldo actualizado.
+- Nunca inventes un nombre ni un monto. Ante la duda, campo vacío.
+- Nunca uses 0 para decir "no se lee". Cero es un monto, no una ausencia.
+- Ignora totales, subtotales y encabezados.
+- esCuaderno: false si la foto no muestra una lista de deudas de personas.
+- Devuelve JSON estricto y nada más: sin markdown, sin explicaciones.`;
+
+const ESQUEMA_FIADOS = {
+  type: 'OBJECT',
+  properties: {
+    esCuaderno: { type: 'BOOLEAN' },
+    filas: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          nombre: { type: 'STRING' },
+          // Como en la libreta de inventario: la cifra viaja como TEXTO. Un
+          // "1.500" que el modelo devuelva como número puede llegar 1.5.
+          monto: { type: 'STRING' },
+          fecha: { type: 'STRING' },
+          concepto: { type: 'STRING' },
+          confianzaNombre: { type: 'STRING' },
+          confianzaMonto: { type: 'STRING' },
+        },
+        required: ['nombre'],
+      },
+    },
+  },
+  required: ['esCuaderno', 'filas'],
+};
+
+/**
+ * Interpreta la respuesta del modelo para un cuaderno de fiados.
+ *
+ * Una fila sin monto legible se conserva: el dueño la completa en la tabla de
+ * revisión. Lo que no se conserva es una fila sin nombre — sin saber de quién
+ * es la deuda no hay nada que anotar.
+ */
+export function interpretarRespuestaFiados(json) {
+  const datos = extraerJson(json);
+  if (!datos.esCuaderno || !Array.isArray(datos.filas)) {
+    return { reconocido: false, filas: [] };
+  }
+
+  const filas = datos.filas
+    .filter((f) => typeof f?.nombre === 'string' && f.nombre.trim())
+    .map((f) => ({
+      nombre: f.nombre.trim(),
+      monto: texto(f.monto),
+      fecha: texto(f.fecha),
+      concepto: texto(f.concepto),
+      confianzaNombre: confianza(f.confianzaNombre),
+      confianzaMonto: confianza(f.confianzaMonto),
+    }));
+
+  return { reconocido: filas.length > 0, filas };
+}
+
+export async function leerFiados({ apiKey, modelo, imagenBase64, mimeType }) {
+  const json = await llamarGemini({
+    apiKey,
+    modelo,
+    prompt: PROMPT_FIADOS,
+    esquema: ESQUEMA_FIADOS,
+    imagenBase64,
+    mimeType,
+  });
+  return interpretarRespuestaFiados(json);
+}
+
+// ---------------------------------------------------------------------------
 // Recibo de compra (gastos)
 // ---------------------------------------------------------------------------
 

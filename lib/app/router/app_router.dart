@@ -14,6 +14,7 @@ import '../../features/productos/presentation/insumos_screen.dart';
 import '../../shared/presentation/permiso_requerido.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/fiados/presentation/fiados_screen.dart';
+import '../../features/fiados/presentation/importar_fiados_screen.dart';
 import '../../features/gastos/presentation/gastos_screen.dart';
 import '../../features/negocio/domain/membresia.dart';
 import '../../features/negocio/presentation/detalle_empleado_screen.dart';
@@ -312,6 +313,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.importarInventario,
         pageBuilder: (_, s) => _pagina(s, const ImportarInventarioScreen()),
+      ),
+      GoRoute(
+        path: Routes.importarFiados,
+        pageBuilder: (_, s) => _pagina(s, const ImportarFiadosScreen()),
       ),
       GoRoute(
         path: Routes.migrarOtraApp,
