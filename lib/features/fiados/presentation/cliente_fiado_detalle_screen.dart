@@ -6,6 +6,7 @@ import '../../../app/router/routes.dart';
 import '../../../core/providers/tasa_activa_provider.dart';
 import '../../../core/theme/app_assets.dart';
 import '../../../core/utils/money_formatter.dart';
+import '../../../core/utils/telefono_ve.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../../shared/utils/whatsapp.dart';
 import '../../negocio/data/negocio_repository.dart';
@@ -52,16 +53,104 @@ class _ClienteFiadoDetalleScreenState
     return '${f.day} ${meses[f.month - 1]}';
   }
 
+  /// Pide el número y lo guarda. Devuelve el guardado, o `null` si se canceló
+  /// o falló.
+  ///
+  /// Se valida con [normalizarTelefonoVE] antes de guardar: un número que
+  /// WhatsApp no puede resolver no sirve de nada aquí, y descubrirlo al pulsar
+  /// "Recordar" —que es cuando hay prisa— es tarde. Se guarda lo que el dueño
+  /// escribió, no la forma normalizada: es su libreta y así lo reconoce.
+  Future<String?> _pedirTelefono(ClienteFiado cliente) async {
+    final ctrl = TextEditingController(text: cliente.telefono ?? '');
+    final guardado = await showDialog<String>(
+      context: context,
+      builder: (d) {
+        String? error;
+        return StatefulBuilder(
+          builder: (d2, setDialog) => AlertDialog(
+            title: Text(
+              (cliente.telefono ?? '').isEmpty
+                  ? 'Teléfono de ${cliente.nombre}'
+                  : 'Cambiar el teléfono',
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    hintText: '0414-000-0000',
+                    errorText: error,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sirve para mandarle el recordatorio por WhatsApp.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.libreta.textoMuted,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(d2).pop(),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final escrito = ctrl.text.trim();
+                  if (normalizarTelefonoVE(escrito) == null) {
+                    setDialog(() => error = 'Ese número no parece venezolano.');
+                    return;
+                  }
+                  Navigator.of(d2).pop(escrito);
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    ctrl.dispose();
+    if (guardado == null) return null;
+
+    final membresia = ref.read(membresiaActivaProvider);
+    if (membresia == null) return null;
+    try {
+      await ref
+          .read(fiadoRepositoryProvider)
+          .actualizarTelefono(membresia.negocioId, cliente.id, guardado);
+      return guardado;
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensajeDeError(e, accion: 'guardar el teléfono')),
+        ),
+      );
+      return null;
+    }
+  }
+
   Future<void> _recordar(
     BuildContext context,
     WidgetRef ref,
     ClienteFiado cliente,
   ) async {
-    if ((cliente.telefono ?? '').trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Este cliente no tiene teléfono guardado.')),
-      );
-      return;
+    var telefono = cliente.telefono;
+    if ((telefono ?? '').trim().isEmpty) {
+      // Antes esto era un callejón sin salida: «Este cliente no tiene teléfono
+      // guardado» y a otra cosa, sin forma de arreglarlo desde ninguna
+      // pantalla. Quien pulsa "Recordar" quiere recordar; se le pide el número
+      // aquí mismo y se sigue.
+      telefono = await _pedirTelefono(cliente);
+      if (telefono == null || !context.mounted) return;
     }
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
     final tasa = ref.read(tasaActivaValorProvider);
@@ -70,7 +159,7 @@ class _ClienteFiadoDetalleScreenState
         'cariño su saldo pendiente en ${negocio?.nombre ?? "nuestro negocio"}: '
         '${MoneyFormatter.usd(cliente.saldoUSD)}$bs. ¡Gracias por su preferencia!';
 
-    final r = await abrirWhatsApp(texto: texto, telefono: cliente.telefono);
+    final r = await abrirWhatsApp(texto: texto, telefono: telefono);
     final aviso = avisoDe(r);
     if (aviso != null && context.mounted) {
       ScaffoldMessenger.of(context)
@@ -154,15 +243,15 @@ class _ClienteFiadoDetalleScreenState
                             letterSpacing: -0.3,
                           ),
                         ),
-                        if (cliente.telefono != null && cliente.telefono!.isNotEmpty)
-                          Text(
-                            cliente.telefono!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: context.libreta.textoMuted,
-                            ),
-                          ),
+                        // El teléfono se edita desde aquí. Antes solo se podía
+                        // poner al crear la ficha: quien no lo tenía a mano en
+                        // ese momento se quedaba sin poder mandarle nunca el
+                        // recordatorio, y los clientes que entran desde el
+                        // cuaderno de papel nacen todos sin número.
+                        _Telefono(
+                          cliente: cliente,
+                          onEditar: () => _pedirTelefono(cliente),
+                        ),
                       ],
                     ),
                   ),
@@ -449,22 +538,70 @@ class _ClienteFiadoDetalleScreenState
         '${negocio?.nombre ?? "nuestro negocio"} quedó en CERO hoy, $fecha. '
         '¡Gracias por su pago!$extra';
 
-    if ((cliente.telefono ?? '').trim().isEmpty) {
+    var telefono = cliente.telefono;
+    if ((telefono ?? '').trim().isEmpty) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Este cliente no tiene teléfono guardado.'),
-        ),
-      );
-      return;
+      telefono = await _pedirTelefono(cliente);
+      if (telefono == null || !context.mounted) return;
     }
 
-    final r = await abrirWhatsApp(texto: texto, telefono: cliente.telefono);
+    final r = await abrirWhatsApp(texto: texto, telefono: telefono);
     final aviso = avisoDe(r);
     if (aviso != null && context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(aviso)));
     }
+  }
+}
+
+/// El teléfono bajo el nombre: se toca para ponerlo o para cambiarlo.
+class _Telefono extends StatelessWidget {
+  const _Telefono({required this.cliente, required this.onEditar});
+
+  final ClienteFiado cliente;
+  final VoidCallback onEditar;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final tiene = (cliente.telefono ?? '').trim().isNotEmpty;
+
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        label: tiene
+            ? 'Cambiar el teléfono de ${cliente.nombre}'
+            : 'Agregar teléfono a ${cliente.nombre}',
+        child: GestureDetector(
+          onTap: onEditar,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            // Vertical generoso: el nombre va justo encima y sin holgura el
+            // toque cae en el texto de al lado.
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  tiene ? Icons.phone_outlined : Icons.add_circle_outline,
+                  size: 13,
+                  color: tiene ? t.textoMuted : LibretaColors.verde,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  tiene ? cliente.telefono!.trim() : 'Agregar teléfono',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: tiene ? t.textoMuted : LibretaColors.verde,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

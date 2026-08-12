@@ -44,6 +44,27 @@ class FiadoRepository {
             s.docs.map(ClienteFiado.fromDoc).where((c) => !c.eliminado).toList());
   }
 
+  /// Guarda (o cambia) el teléfono de un cliente ya creado.
+  ///
+  /// Hasta ahora el teléfono solo se podía poner al crear la ficha, y quien no
+  /// lo tenía a mano en ese momento se quedaba sin poder mandarle el
+  /// recordatorio nunca más: "Recordar" contestaba «no tiene teléfono
+  /// guardado» y ahí terminaba el camino. Los clientes que entran desde el
+  /// cuaderno de papel nacen todos así, sin número.
+  ///
+  /// `null` borra el número: alguien puede querer dejar de guardarlo.
+  Future<void> actualizarTelefono(
+    String negocioId,
+    String clienteId,
+    String? telefono,
+  ) {
+    final limpio = telefono?.trim();
+    return _clientes(negocioId).doc(clienteId).update({
+      'telefono': (limpio == null || limpio.isEmpty) ? null : limpio,
+      'actualizadoEn': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
   /// Quita al cliente de la lista sin destruir su historial.
   ///
   /// No se borra el documento: sus movimientos son un libro mayor que las

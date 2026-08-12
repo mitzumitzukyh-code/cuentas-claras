@@ -344,3 +344,80 @@ los enlaces que el diseño quiere discretos (gris en vez de verde).
 - **Seis pantallas se abren por `Navigator.push` y no por ruta** (registro,
   recuperar, filtro de ventas, exportar reporte, detalle de gasto, hoja de
   bancos): no son enlazables ni recuperan estado al reabrir la app.
+
+## Segunda pasada sobre Cobrar (2026-08-12)
+
+La primera pasada miró la pantalla; esta miró el **camino del dinero**: qué se
+guarda cuando se toca "Cobrar". Siete hallazgos, tres tocan plata.
+
+### 1. Vender por peso cobra de más o regala — `cobrar_screen.dart:221-225`
+
+`_pedirCantidad` pregunta «¿Cuántos kg?» y la respuesta pasa por
+`kg.round()`, porque `ItemCarrito.cantidad` es `int`.
+
+| El cliente pide | Se guarda | Queso a $8/kg |
+|---|---|---|
+| 2,5 kg | 3 | cobra $24 en vez de $20 |
+| 1,5 kg | 2 | cobra $16 en vez de $12 |
+| 0,4 kg | **0** | **$0,00 — se regala** |
+
+Lo llamativo es que **todo lo demás ya soporta decimales**:
+`ItemVenta.cantidad` es `double` y su doc dice literalmente «Unidades, o kilos
+si `vendidoPorPeso`»; `Producto.cantidad` es `double` «porque los productos
+`vendidoPorPeso` se descuentan en kilos». Hasta existe `ItemCarrito.pesoKg`,
+declarado y **jamás escrito ni leído por nadie** — el sitio donde el peso
+tenía que ir, con el hueco a la vista. El carrito es el único eslabón entero
+en enteros.
+
+Dos rubros traen `vendePorPeso: true` de fábrica y hay un interruptor por
+producto, así que no es una rama muerta.
+
+### 2. La venta no recuerda que era por peso — `cobrar_screen.dart:803-813`
+
+El `ItemVenta` se arma sin `vendidoPorPeso`, que por defecto es `false`. El
+historial y los reportes enseñan «3» donde debería decir «3 kg»:
+`ItemVenta.cantidadLabel` ya sabe formatearlo, pero nunca se entera.
+
+### 3. Con variantes se puede vender más de lo que hay — `cobrar_screen.dart:724-734`
+
+`_stockInsuficiente` recorre el carrito **línea a línea** y compara cada una
+contra `p.cantidad`, que es el stock **total** del producto. Pero
+`CarritoNotifier.agregar` fusiona por producto *y variante*, así que una
+franela con talla M y L son dos líneas del mismo `productoId`.
+
+Con 6 en total (3 M y 3 L) y `bloquearAlAgotarse`: 4 M + 4 L pasan el control
+—cada línea compara 4 contra 6— y se venden 8. El stock por variante no se
+comprueba en ningún momento: la hoja de variantes solo desactiva la que está
+en cero, pero deja pedir 5 de la que tiene 1.
+
+### 4. La cotización enseña líneas que no suman el total — `cobrar_screen.dart:892-904`
+
+`lineas` recorre solo `carrito`, y el total sale de `_totalDe`, que **suma
+`_montoLibre`**. Una cotización con monto libre se manda con un desglose al
+que le falta plata: el cliente recibe tres renglones y un total mayor.
+
+### 5. Cero `Semantics` en toda la pantalla, con once `GestureDetector`
+
+Ni las pastillas BCV/Paralelo, ni el segmentado Venta/Cotización, ni las de
+método de pago, ni las fichas del catálogo. Para un lector de pantalla la
+pantalla de cobrar es un montón de texto suelto sin nada pulsable. Es la
+pantalla que más se usa de la app.
+
+### 6. Dos controladores de texto sin liberar — `cobrar_screen.dart:315, 344`
+
+`_pedirCantidad` y `_abrirMontoLibre` crean su `TextEditingController` y no lo
+liberan. `_pedirNumeroSuelto` sí lo hace con `whenComplete`, que es el patrón
+correcto y está tres funciones más abajo.
+
+### 7. La variante agotada no dice por qué no se puede tocar — `cobrar_screen.dart:301`
+
+`onTap: v.cantidad <= 0 && p.bloquearAlAgotarse ? null : ...`. El renglón se
+queda mudo con el mismo aspecto que los demás. Debajo dice «Quedan 0», pero
+nada conecta las dos cosas.
+
+### Orden sugerido
+
+1. El peso (1 + 2) — es dinero mal cobrado hoy, en dos rubros de fábrica.
+2. El stock por variante (3) — vende lo que no hay justo donde se pidió que no.
+3. La cotización (4) — sale de la app hacia un cliente.
+4. Accesibilidad (5), fugas (6), variante muda (7).

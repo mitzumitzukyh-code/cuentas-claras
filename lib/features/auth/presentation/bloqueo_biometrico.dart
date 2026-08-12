@@ -24,8 +24,37 @@ class BloqueoBiometrico extends ConsumerStatefulWidget {
 
 class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
     with WidgetsBindingObserver {
+  /// Cuánto puede la app estar en segundo plano sin que al volver se pida la
+  /// huella otra vez.
+  ///
+  /// Sin esto, el candado no distinguía "el teléfono cambió de manos" de "yo
+  /// mismo abrí la galería": elegir la foto de un producto, de un recibo o de
+  /// una página del cuaderno manda la app a segundo plano, y al volver pedía
+  /// la huella para seguir con lo que se estaba haciendo. Lo mismo con
+  /// compartir el catálogo, abrir WhatsApp o bajar la persiana de
+  /// notificaciones.
+  ///
+  /// La alternativa era marcar una por una las llamadas que salen de la app
+  /// —hay quince— y acordarse de marcar la dieciseisava. Un margen de tiempo
+  /// las cubre todas, incluidas las que aún no existen.
+  ///
+  /// **La pantalla se sigue tapando desde el primer instante**: lo que este
+  /// margen decide es solo si al volver hay que identificarse, no si se ve lo
+  /// que había debajo. La miniatura del conmutador de tareas queda protegida
+  /// igual.
+  static const _margenSegundoPlano = Duration(seconds: 60);
+
   bool _bloqueado = false;
   bool _pidiendo = false;
+
+  /// Cuándo se fue la app a segundo plano. `null` = arranque en frío, que
+  /// siempre pide huella.
+  DateTime? _seFueEn;
+
+  bool get _volvioEnseguida {
+    final t = _seFueEn;
+    return t != null && DateTime.now().difference(t) < _margenSegundoPlano;
+  }
 
   /// Cuándo se desbloqueó por última vez.
   ///
@@ -73,9 +102,29 @@ class _BloqueoBiometricoState extends ConsumerState<BloqueoBiometrico>
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
         if (ref.read(biometriaServiceProvider).activa) {
-          setState(() => _bloqueado = true);
+          // El margen solo se gana saliendo de una app **desbloqueada**. Si el
+          // candado ya estaba puesto —se canceló la huella y se mandó la app
+          // atrás—, volver dentro del minuto no puede colar a nadie: sería un
+          // bypass en dos gestos.
+          //
+          // De paso, esta misma guarda deja la hora fijada en la primera
+          // salida: Android encadena `inactive` → `paused`, y volver a
+          // escribirla en la segunda haría que el reloj del margen empezara a
+          // contar más tarde de lo que la app se fue de verdad.
+          if (!_bloqueado) {
+            _seFueEn = DateTime.now();
+            setState(() => _bloqueado = true);
+          }
         }
       case AppLifecycleState.resumed:
+        // Un viaje corto —la galería, la cámara, compartir por WhatsApp— se
+        // destapa sin preguntar nada. Una ausencia de verdad sí pide huella.
+        if (_volvioEnseguida) {
+          _seFueEn = null;
+          if (mounted) setState(() => _bloqueado = false);
+          return;
+        }
+        _seFueEn = null;
         _evaluar();
       case AppLifecycleState.detached:
         break;
