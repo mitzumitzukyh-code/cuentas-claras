@@ -22,7 +22,12 @@ import {
 } from './firestore.js';
 import { paginaEliminarCuenta, paginaPrivacidad, paginaTerminos } from './legal.js';
 import { construirAvisoStock } from './stock.js';
-import { DIAS_HISTORIAL, construirAvisos } from './tasa.js';
+import {
+  DIAS_HISTORIAL,
+  construirAvisos,
+  esDiaHabilVE,
+  tasaEsDeHoy,
+} from './tasa.js';
 import {
   huellaDeEnvio,
   mensajeResumenVentas,
@@ -40,6 +45,15 @@ const MAX_BYTES_IMAGEN = 6 * 1024 * 1024;
 const MAX_USOS_IA_POR_DIA = 40;
 
 const API_TASA = 'https://ve.dolarapi.com/v1/dolares/oficial';
+
+/**
+ * Endpoint interno de Binance P2P, el mismo que consume su propia web y el
+ * que ya usa la app (`binance_p2p_service.dart`). No es una API publica
+ * documentada: puede cambiar de forma o cortar por rate-limit sin aviso, y por
+ * eso el resumen sale igual si esto falla, solo que sin la paralela.
+ */
+const API_PARALELO =
+    'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search';
 
 /** Hora local de Venezuela (UTC−4) a la que sale el resumen de la mañana. */
 const HORA_RESUMEN = 8;
@@ -69,6 +83,45 @@ async function consultarTasa() {
     throw new Error(`Tasa inválida en la respuesta: ${JSON.stringify(json)}`);
   }
   return { tasa, fuente: json.fechaActualizacion };
+}
+
+/**
+ * Precio promedio de los mejores anuncios de venta de USDT en Binance P2P.
+ *
+ * Mismo criterio que la app: los 5 primeros anuncios de venta, promediados.
+ * Devuelve `null` ante cualquier fallo en vez de lanzar — la paralela es un
+ * extra del resumen, y quedarse sin resumen de tasa BCV porque Binance esté
+ * caído seria cambiar un problema por otro peor.
+ */
+async function consultarParalelo() {
+  try {
+    const resp = await fetch(API_PARALELO, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        asset: 'USDT',
+        fiat: 'VES',
+        tradeType: 'SELL',
+        page: 1,
+        rows: 10,
+        payTypes: [],
+        publisherType: null,
+      }),
+    });
+    if (!resp.ok) throw new Error(`Binance respondió ${resp.status}`);
+
+    const json = await resp.json();
+    const precios = (json.data ?? [])
+      .map((a) => Number(a?.adv?.price))
+      .filter((p) => Number.isFinite(p) && p > 0)
+      .slice(0, 5);
+    if (!precios.length) throw new Error('sin anuncios usables');
+
+    return precios.reduce((a, b) => a + b, 0) / precios.length;
+  } catch (e) {
+    console.error('paralelo no disponible:', e.message);
+    return null;
+  }
 }
 
 /** Fecha en Venezuela (UTC−4) como YYYY-MM-DD. */
@@ -275,6 +328,25 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
   const cuenta = cuentaDeServicio(env);
   const { tasa, fuente } = await consultarTasa();
 
+  // El BCV no publica sábados, domingos ni feriados, pero el cron corre las 24
+  // horas de los 7 días: sin esta puerta el resumen de la mañana salía cada
+  // fin de semana repitiendo la tasa del viernes, y dos avisos inútiles por
+  // semana enseñan a ignorar los avisos que sí importan.
+  //
+  // El día de la semana atrapa el fin de semana; `fechaActualizacion`, los
+  // feriados, que caen en día hábil y tampoco traen tasa nueva.
+  if (!validar && (!esDiaHabilVE(ahora) || !tasaEsDeHoy(fuente, ahora))) {
+    return {
+      tasa,
+      fuente,
+      avisos: [],
+      topics: [],
+      motivo: esDiaHabilVE(ahora)
+        ? 'el BCV no publicó hoy (feriado)'
+        : 'fin de semana: el BCV no publica',
+    };
+  }
+
   const estado = (await env.TASAS.get('estado', { type: 'json' })) ?? {
     ultima: null,
     historial: [],
@@ -297,11 +369,16 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
   const esResumen =
     horaEnVenezuela(ahora) === HORA_RESUMEN && estado.ultimoResumen !== hoy;
 
+  // La paralela solo hace falta para el resumen, asi que no se consulta en las
+  // otras 23 pasadas del cron.
+  const paralelo = esResumen ? await consultarParalelo() : null;
+
   const avisos = construirAvisos({
     anterior: estado.ultima,
     actual: tasa,
     historial,
     esResumen,
+    paralelo,
   });
 
   const enviados = [];

@@ -13,7 +13,9 @@ import { describe, it } from 'node:test';
 
 import {
   construirAvisos,
+  esDiaHabilVE,
   rachaDeSubidas,
+  tasaEsDeHoy,
   variacion,
   variacionEnDias,
 } from '../src/tasa.js';
@@ -196,5 +198,95 @@ describe('construirAvisos', () => {
     });
     const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
     assert.match(resumen.cuerpo, /Viene bajando/);
+  });
+});
+
+describe('esDiaHabilVE', () => {
+  // Las fechas se dan en UTC; la función resta las 4 horas de Venezuela.
+  it('de lunes a viernes sí', () => {
+    for (const dia of ['10', '11', '12', '13', '14']) {
+      const f = new Date(`2026-08-${dia}T14:00:00Z`);
+      assert.equal(esDiaHabilVE(f), true, `2026-08-${dia}`);
+    }
+  });
+
+  it('sábado y domingo no — el BCV no publica', () => {
+    assert.equal(esDiaHabilVE(new Date('2026-08-15T14:00:00Z')), false);
+    assert.equal(esDiaHabilVE(new Date('2026-08-16T14:00:00Z')), false);
+  });
+
+  it('se mide en Venezuela, no en UTC', () => {
+    // Sábado 02:00 UTC es todavía viernes 22:00 en Venezuela: sí es hábil.
+    assert.equal(esDiaHabilVE(new Date('2026-08-15T02:00:00Z')), true);
+    // Sábado 05:00 UTC ya es sábado 01:00 allá: no lo es.
+    assert.equal(esDiaHabilVE(new Date('2026-08-15T05:00:00Z')), false);
+  });
+});
+
+describe('tasaEsDeHoy', () => {
+  const martes = new Date('2026-08-11T12:00:00Z'); // 08:00 en Venezuela
+
+  it('reconoce la tasa publicada hoy', () => {
+    assert.equal(tasaEsDeHoy('2026-08-11T00:00:00-04:00', martes), true);
+  });
+
+  it('una tasa de ayer no es de hoy — el caso del feriado', () => {
+    // Feriado en día hábil: el BCV no publica y la API repite la del viernes.
+    assert.equal(tasaEsDeHoy('2026-08-10T00:00:00-04:00', martes), false);
+  });
+
+  it('sin fecha, o con una ilegible, no bloquea', () => {
+    // Callar un aviso real por no saber leer un campo seria peor que
+    // mandar uno de mas.
+    assert.equal(tasaEsDeHoy(null, martes), true);
+    assert.equal(tasaEsDeHoy('', martes), true);
+    assert.equal(tasaEsDeHoy('cualquier cosa', martes), true);
+  });
+});
+
+describe('construirAvisos · tasa paralela en el resumen', () => {
+  const base = {
+    anterior: 700,
+    actual: 700,
+    historial: historialDe([700, 700]),
+    esResumen: true,
+  };
+
+  it('el título lleva las dos tasas cuando hay paralela', () => {
+    const [resumen] = construirAvisos({ ...base, paralelo: 1234.5 });
+    assert.match(resumen.titulo, /BCV Bs 700,00/);
+    assert.match(resumen.titulo, /Paralelo Bs 1.234,50/);
+    assert.equal(resumen.datos.paralelo, '1234.5');
+  });
+
+  it('sin paralela el resumen sale igual, solo que sin ella', () => {
+    // Binance puede cortar por rate-limit: eso no puede tumbar el aviso de la
+    // tasa oficial, que es el que el usuario pidió.
+    const [resumen] = construirAvisos({ ...base, paralelo: null });
+    assert.match(resumen.titulo, /Hoy el dólar está en Bs 700,00/);
+    assert.equal(resumen.datos.paralelo, '');
+  });
+
+  it('una paralela absurda se descarta como si no hubiera', () => {
+    for (const malo of [0, -5, NaN, Infinity]) {
+      const [resumen] = construirAvisos({ ...base, paralelo: malo });
+      assert.equal(resumen.datos.paralelo, '', `paralelo=${malo}`);
+    }
+  });
+
+  it('la paralela no se cuela en los avisos de subida', () => {
+    // Los umbrales y sus topics son del BCV; mezclar la paralela ahí haria que
+    // un salto del mercado P2P disparara el aviso del dólar oficial.
+    const avisos = construirAvisos({
+      anterior: 700,
+      actual: 750,
+      historial: historialDe([700, 750]),
+      esResumen: false,
+      paralelo: 1234.5,
+    });
+    assert.ok(avisos.length > 0);
+    for (const a of avisos) {
+      assert.equal(a.datos.paralelo, undefined);
+    }
   });
 });

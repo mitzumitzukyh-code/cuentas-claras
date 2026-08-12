@@ -23,6 +23,44 @@ export const UMBRALES = [
   { id: 'cinco', pct: 5 },
 ];
 
+/**
+ * ¿El BCV publica tasa ese día?
+ *
+ * Solo de lunes a viernes. El cron corre cada hora los siete días, así que sin
+ * esto el resumen de la mañana salía sábado y domingo diciendo "el BCV sin
+ * cambios desde ayer" — que es verdad, pero es ruido: el BCV no trabaja, no ha
+ * pasado nada, y quien lo recibe dos veces cada fin de semana aprende a
+ * ignorar los avisos de tasa.
+ *
+ * Se mira en hora de Venezuela (UTC−4), no en la del servidor: a medianoche
+ * UTC del sábado en Venezuela todavía es viernes.
+ */
+export function esDiaHabilVE(ahora = new Date()) {
+  const ve = new Date(ahora.getTime() - 4 * 60 * 60 * 1000);
+  const dia = ve.getUTCDay();
+  return dia >= 1 && dia <= 5;
+}
+
+/**
+ * ¿La tasa que devolvió la API es de hoy?
+ *
+ * `fechaActualizacion` viene ya en hora de Venezuela. Un feriado no cae en fin
+ * de semana pero el BCV tampoco publica, así que [esDiaHabilVE] no lo atrapa y
+ * esto sí: la fecha se queda en el último día hábil.
+ *
+ * Ante una fecha ausente o ilegible devuelve `true` — no bloquear es preferible
+ * a callar un aviso real por no saber leer un campo.
+ */
+export function tasaEsDeHoy(fechaActualizacion, ahora = new Date()) {
+  if (!fechaActualizacion) return true;
+  const publicada = new Date(fechaActualizacion);
+  if (Number.isNaN(publicada.getTime())) return true;
+
+  const dia = (d) =>
+    new Date(d.getTime() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return dia(publicada) === dia(ahora);
+}
+
 /** Bs con formato venezolano: punto para miles, coma para decimales. */
 export function bs(valor) {
   return valor.toLocaleString('es-VE', {
@@ -98,7 +136,13 @@ export function tendencia(historial) {
  * hay nada que contar, que es lo normal: la tasa no se mueve todos los días y
  * avisar de un cambio de 0,01 % solo entrena al usuario a ignorar la app.
  */
-export function construirAvisos({ anterior, actual, historial, esResumen }) {
+export function construirAvisos({
+  anterior,
+  actual,
+  historial,
+  esResumen,
+  paralelo = null,
+}) {
   const avisos = [];
   const delta = actual - (anterior ?? actual);
   const varPct = variacion(anterior, actual);
@@ -155,11 +199,28 @@ export function construirAvisos({ anterior, actual, historial, esResumen }) {
         `${varPct > 0 ? 'subió' : 'bajó'} ${bs(Math.abs(delta))} ` +
         `(${pct(varPct)}) desde ayer`;
     }
+
+    // La paralela va aquí y no en un aviso aparte: es el sitio donde el dueño
+    // ya mira las cifras del día, y un segundo push a la misma hora diciendo
+    // otro número se lee como spam. Antes no salía en ningún lado — el Worker
+    // solo consultaba el BCV, así que la tasa de Binance que la app enseña en
+    // pantalla nunca llegaba al teléfono apagado.
+    const conParalela =
+      paralelo != null && Number.isFinite(paralelo) && paralelo > 0;
+
     avisos.push({
       topics: ['tasa-resumen'],
-      titulo: `☀️ Hoy el dólar está en Bs ${bs(actual)}`,
+      titulo: conParalela
+        ? `☀️ BCV Bs ${bs(actual)} · Paralelo Bs ${bs(paralelo)}`
+        : `☀️ Hoy el dólar está en Bs ${bs(actual)}`,
       cuerpo: `El BCV ${detalle}. ${tendencia(historial)}`,
-      datos: { ...datosBase, tipo: 'resumen' },
+      datos: {
+        ...datosBase,
+        tipo: 'resumen',
+        // Vacío y no ausente cuando Binance no respondió: el cliente
+        // distingue "no hay paralela hoy" de "esta versión no la manda".
+        paralelo: conParalela ? String(paralelo) : '',
+      },
     });
   }
 
