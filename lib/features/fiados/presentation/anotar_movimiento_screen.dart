@@ -86,7 +86,11 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
   /// pura; a quien tiene número guardado es a quien el dueño ya le escribe.
   /// Los demás se cubren desde el detalle del cliente, que ahora deja poner el
   /// teléfono.
-  Future<void> _ofrecerComprobante(String clienteId, double abono) async {
+  Future<void> _ofrecerComprobante(
+    String clienteId,
+    double abono,
+    double saldoAntes,
+  ) async {
     if (_tipo != TipoMovimientoFiado.abono) return;
 
     final cliente = ref.read(clienteFiadoPorIdProvider(clienteId));
@@ -95,10 +99,19 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
     if ((telefono ?? '').trim().isEmpty) return;
 
     final negocio = ref.read(negocioActivoProvider).valueOrNull;
-    // `cliente.saldoUSD` viene del stream y puede no haber recibido todavía el
-    // abono que se acaba de escribir. Se resta a mano: la cifra del mensaje
-    // tiene que ser la de después de pagar, no la de antes.
-    final restante = cliente.saldoUSD - abono;
+    // El saldo se calcula desde el de ANTES de escribir el movimiento y no
+    // desde `cliente.saldoUSD`, que llega por el stream.
+    //
+    // Se probó en dispositivo y salía mal: Firestore aplica `increment` en
+    // local al instante, así que para cuando se lee aquí el stream ya trae el
+    // abono descontado — restarlo otra vez lo contaba dos veces. Con un fiado
+    // de $20 y un abono de $5, el mensaje le decía al cliente que le quedaban
+    // $10 en vez de $15. Un mensaje que va por WhatsApp con el nombre del
+    // negocio encima y le perdona $5 a alguien por escrito.
+    //
+    // Desde el saldo de antes la cuenta es determinista y no depende de en qué
+    // momento emita el stream.
+    final restante = saldoAntes - abono;
     final borrador = borradorAbono(
       nombre: cliente.nombre,
       negocio: negocio?.nombre ?? 'nuestro negocio',
@@ -140,6 +153,13 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
             telefono: _telefono.text.trim().isEmpty ? null : _telefono.text.trim(),
           );
 
+      // Se lee ANTES de escribir: en cuanto el movimiento se registra, el
+      // stream ya trae el saldo nuevo y deja de servir para saber de dónde se
+      // partía.
+      final saldoAntes = ref.read(clienteFiadoPorIdProvider(clienteId))?.saldoUSD ??
+          _clienteSeleccionado?.saldoUSD ??
+          0;
+
       await repo.registrarMovimiento(
         membresia.negocioId,
         clienteId,
@@ -149,7 +169,7 @@ class _AnotarMovimientoScreenState extends ConsumerState<AnotarMovimientoScreen>
         registradoPor: user.uid,
       );
       if (!mounted) return;
-      await _ofrecerComprobante(clienteId, monto);
+      await _ofrecerComprobante(clienteId, monto, saldoAntes);
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
