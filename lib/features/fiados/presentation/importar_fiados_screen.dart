@@ -57,10 +57,15 @@ class _ImportarFiadosScreenState extends ConsumerState<ImportarFiadosScreen> {
   }
 
   Future<void> _leerFoto(ImageSource fuente) async {
+    // Más resolución que en el resto de la app: aquí lo que se fotografía es
+    // bolígrafo sobre renglón, muchas veces de noche y con la letra pequeña de
+    // un bloque de seis prendas. A 1600 px de ancho un «6» y un «5» se
+    // confunden, y el techo del Worker son 6 MB — un JPEG de 2000 px no llega
+    // ni a medio.
     final x = await ImagePicker().pickImage(
       source: fuente,
-      imageQuality: 80,
-      maxWidth: 1600,
+      imageQuality: 85,
+      maxWidth: 2000,
     );
     if (x == null || !mounted) return;
 
@@ -91,11 +96,23 @@ class _ImportarFiadosScreenState extends ConsumerState<ImportarFiadosScreen> {
         _yaTienenCuenta = existentes;
         _leyendo = false;
       });
-      if (leidas.isEmpty) _avisar('No reconocimos deudas en la foto.');
+      // Página leída pero sin deudas: lo normal es que estén todas tachadas o
+      // con un "pagó" al lado, y eso no se copia a propósito. Decirlo evita
+      // que el dueño repita la foto cuatro veces creyendo que falló la
+      // cámara.
+      if (leidas.isEmpty) {
+        _avisar(
+          'Leímos la página pero no vimos deudas pendientes. Lo tachado o '
+          'marcado «pagó» no se copia.',
+        );
+      }
     } on SinReconocer {
       if (!mounted) return;
       setState(() => _leyendo = false);
-      _avisar('No reconocimos un cuaderno de fiados en la foto.');
+      _avisar(
+        'No reconocimos deudas en la foto. Prueba con más luz y una sola '
+        'página, de frente y completa.',
+      );
     } on LimiteDiarioIA {
       if (!mounted) return;
       setState(() => _leyendo = false);
@@ -566,6 +583,23 @@ class _RenglonRevisionState extends State<_RenglonRevision> {
               ),
             ],
           ),
+          // Lo que se llevó, tal como lo leyó la IA. No se edita: está aquí
+          // para que el dueño reconozca el bloque en su cuaderno. Con una
+          // página escrita por bloques —el nombre arriba, las prendas debajo,
+          // un monto a la derecha— «Rosa E. · $3» a secas no se puede
+          // contrastar con nada; «1 suéter, 1 pantalón» sí.
+          if ((f.concepto ?? '').trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                f.concepto!.trim(),
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.3,
+                  color: t.textoMuted,
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,

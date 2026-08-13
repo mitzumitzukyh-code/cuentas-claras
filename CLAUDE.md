@@ -306,6 +306,49 @@ usan la subida de fotos a Cloudinary y las lecturas con IA.
 - **Nada se guarda sin pasar por la tabla de revisión**, con lo dudoso en ámbar.
   Una factura de compra se detecta y se avisa: trae precios de costo.
 
+## 8.c.5 Lectura del cuaderno de fiados
+
+- **Cada quien anota a su manera y el lector se adapta, no al revés.** El
+  prompt (`PROMPT_FIADOS`, en `worker/src/gemini.js`) describe tres formas y
+  las trata como iguales: un renglón por deuda; **por bloques** —el nombre solo
+  en su renglón, las prendas debajo, un único monto a la derecha unido por una
+  llave `}`—; y en columnas. La versión que solo contemplaba «nombre y monto en
+  la misma línea» devolvía "esto no es un cuaderno de fiados" ante el cuaderno
+  de una costurera, que es el caso más común fuera de una bodega.
+- **La llave `}` no es un tachado y el monto de un bloque no es un subtotal.**
+  Los dos malentendidos descartan la deuda entera; están escritos como reglas
+  aparte porque cada uno se vio fallar por su cuenta.
+- **El número que abre un renglón de artículo es cantidad, no monto**
+  («3 pantalones 6$»).
+- **Un bloque con dos montos son dos renglones del mismo nombre**; la suma la
+  hace `consolidarFiados` en Dart, no el modelo.
+- **`esCuaderno` no manda solo:** si el modelo sacó filas con nombre, las filas
+  ganan. Al revés, `esCuaderno` en true con cero filas es un resultado válido
+  —una página con todo tachado— y la app lo dice distinto de "esta foto no es
+  un cuaderno".
+- **Lo tachado o marcado «pagó» no se copia.** Revivir una deuda saldada es el
+  error más caro de esta pantalla, y por eso la regla incluye por dónde pasa la
+  raya: encima es tachado, debajo es subrayado.
+- **El concepto se enseña en la tabla de revisión.** Con un bloque, «Rosa E. ·
+  $3» no se puede contrastar con nada; «1 suéter, 1 pantalón» sí.
+- **El `$` manuscrito venezolano es una S cruzada por una raya que se estira a
+  la derecha, y el modelo la leía como tachado.** Endurecer la regla de
+  «tachado = pagado» hizo que una lista numerada de 15 deudas —el formato más
+  fácil que existe— volviera con cero filas y un «no vimos deudas
+  pendientes». Por eso el prompt trae ahora un bloque *QUÉ NO ES UN TACHADO*
+  (el signo de dólar, los renglones impresos, la línea roja del margen), ancla
+  el tachado al **nombre** y no a la cifra, y lleva un control explícito: si
+  sale que la página entera está tachada, releer. Las dos reglas —no revivir
+  una deuda pagada, no descartar una pendiente— tiran en sentidos contrarios y
+  hay que escribir las dos.
+- **El número al margen de una lista numerada (`① Aura 5$`) es el orden**, no
+  una cantidad ni parte del nombre.
+- **Cómo se prueba esto sin desplegar ni compilar:**
+  `scratchpad/probar_fiados.mjs` importa `leerFiados` de `worker/src/gemini.js`
+  y le pasa una foto, con la clave en `worker/.dev.vars` (ignorada por git).
+  Una corrida son ~25 s contra Gemini de verdad. Los nombres difíciles bailan
+  entre corridas y salen con confianza `media`; los montos, no.
+
 ## 8.d Infraestructura
 
 Cuentas de infraestructura documentadas en `INFRA.local.md` (no versionado).

@@ -320,19 +320,53 @@ describe('interpretarRespuestaFiados', () => {
     assert.equal(r.filas[0].monto, '');
   });
 
-  it('una foto que no es un cuaderno no devuelve nada', () => {
+  it('una foto sin filas no devuelve nada', () => {
     const r = interpretarRespuestaFiados(
-      respuestaDe({ esCuaderno: false, filas: [{ nombre: 'X', monto: '5' }] }),
+      respuestaDe({ esCuaderno: false, filas: [] }),
     );
     assert.equal(r.reconocido, false);
     assert.deepEqual(r.filas, []);
   });
 
-  it('un cuaderno vacío no cuenta como reconocido', () => {
+  it('si hay filas con nombre, mandan sobre esCuaderno', () => {
+    // El caso real: un cuaderno de costurera escrito por bloques —nombre
+    // arriba, prendas debajo, el monto a la derecha con una llave— se le
+    // parece a una lista de encargos, y el modelo lo marcaba esCuaderno=false
+    // aun habiendo sacado las deudas. El dueño veía "no reconocimos un
+    // cuaderno" con la página delante. Nada se guarda sin que él lo revise.
+    const r = interpretarRespuestaFiados(
+      respuestaDe({ esCuaderno: false, filas: [{ nombre: 'Auxa', monto: '5' }] }),
+    );
+    assert.equal(r.reconocido, true);
+    assert.equal(r.filas.length, 1);
+  });
+
+  it('un cuaderno con todo pagado se reconoce, aunque venga vacío', () => {
+    // Una página donde todas las deudas están tachadas es un resultado
+    // legítimo, y la app lo dice de otra manera ("no vimos deudas
+    // pendientes") que cuando la foto no es un cuaderno.
     const r = interpretarRespuestaFiados(
       respuestaDe({ esCuaderno: true, filas: [] }),
     );
-    assert.equal(r.reconocido, false);
+    assert.equal(r.reconocido, true);
+    assert.deepEqual(r.filas, []);
+  });
+
+  it('un bloque con dos montos son dos renglones del mismo nombre', () => {
+    // "3 bermudas 6$" y debajo "más viejo 2$", los dos bajo el mismo
+    // encabezado. Los suma la app (`consolidarFiados`), no el lector.
+    const r = interpretarRespuestaFiados(
+      respuestaDe({
+        esCuaderno: true,
+        filas: [
+          { nombre: 'Cleuso', monto: '6$', concepto: '3 bermudas' },
+          { nombre: 'Cleuso', monto: '2$', concepto: 'más viejo' },
+        ],
+      }),
+    );
+    assert.equal(r.filas.length, 2);
+    assert.equal(r.filas[0].monto, '6$');
+    assert.equal(r.filas[1].concepto, 'más viejo');
   });
 
   it('el mismo nombre dos veces son dos renglones', () => {

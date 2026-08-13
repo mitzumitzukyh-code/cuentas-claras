@@ -111,6 +111,39 @@ void main() {
       expect(r, hasLength(2));
     });
 
+    // Un bloque de cuaderno reparte la deuda en dos anotaciones —«3 bermudas»
+    // a un precio y «más viejo» a otro—: con el monto ya sumado, el concepto
+    // es lo único que le deja al dueño reconocer el bloque en su cuaderno.
+    test('junta los conceptos de la misma persona', () {
+      final r = consolidarFiados([
+        const FiadoLeido(idLocal: 0, nombre: 'Cleuso', montoEscrito: 6,
+            concepto: '3 bermudas'),
+        const FiadoLeido(idLocal: 1, nombre: 'Cleuso', montoEscrito: 2,
+            concepto: 'más viejo'),
+      ]);
+      expect(r.single.montoEscrito, 8);
+      expect(r.single.concepto, '3 bermudas · más viejo');
+    });
+
+    test('no repite el mismo concepto dos veces', () {
+      final r = consolidarFiados([
+        const FiadoLeido(idLocal: 0, nombre: 'Ana', montoEscrito: 1,
+            concepto: 'pantalón'),
+        const FiadoLeido(idLocal: 1, nombre: 'Ana', montoEscrito: 2,
+            concepto: 'Pantalón'),
+      ]);
+      expect(r.single.concepto, 'pantalón');
+    });
+
+    test('un renglón sin concepto no ensucia el del otro', () {
+      final r = consolidarFiados([
+        const FiadoLeido(idLocal: 0, nombre: 'Ana', montoEscrito: 1),
+        const FiadoLeido(idLocal: 1, nombre: 'Ana', montoEscrito: 2,
+            concepto: 'blusa'),
+      ]);
+      expect(r.single.concepto, 'blusa');
+    });
+
     test('descarta los renglones sin nombre', () {
       final r = consolidarFiados([_fila('   ', monto: 10)]);
       expect(r, isEmpty);

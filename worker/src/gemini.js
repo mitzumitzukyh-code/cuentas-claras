@@ -321,25 +321,85 @@ export async function leerLibreta({ apiKey, modelo, imagenBase64, mimeType }) {
 // Cuaderno de fiados
 // ---------------------------------------------------------------------------
 
-const PROMPT_FIADOS = `Estás viendo la foto de la página de un cuaderno donde
-el dueño de una tienda pequeña en Venezuela lleva a mano quién le debe plata.
-Casi siempre es letra manuscrita, a veces con columnas y a veces solo renglones
-sueltos.
+export const PROMPT_FIADOS = `Estás viendo la foto de la página de un cuaderno
+donde alguien que vende —una bodega, una costurera, una tienda de ropa— lleva a
+mano quién le debe plata. Es letra manuscrita y cada quien anota a su manera:
+tu trabajo es entender ESE cuaderno, no exigirle un formato.
 
-Cada renglón útil tiene un NOMBRE de persona y un MONTO que esa persona debe.
-Puede traer además una fecha y una nota de qué se llevó.
+CÓMO ESTÁN ARMADAS LAS PÁGINAS. Reconoce cualquiera de estas formas, y una
+misma página puede mezclarlas:
 
-Devuelve, por cada renglón legible:
+A) UN RENGLÓN POR DEUDA: el nombre y el monto en la misma línea
+   ("María 20", "Pedro — 1.500", "Sra. del kiosco 3$"). Muchas veces la lista
+   va NUMERADA, con el número al margen y a veces dentro de un círculo
+   ("① Aura 5$", "2) Rosa 3$"). Ese número es el orden de la lista: no es una
+   cantidad, no es un monto y no forma parte del nombre.
+
+B) POR BLOQUES, lo más común en un cuaderno de costura, de ropa o de encargos:
+   el NOMBRE va SOLO en su renglón —a veces con un asterisco, una cruz, un
+   guion, un punto o subrayado delante—, debajo van los artículos que se llevó,
+   uno por renglón y casi siempre empezando por la cantidad ("1 bolso",
+   "2 pantalones", "1 blusa"), y el MONTO aparece UNA sola vez a la derecha,
+   con frecuencia unido a esos renglones por una llave "}" o por unas rayas que
+   los abrazan. Ese bloque entero es UNA deuda: el nombre del encabezado, el
+   monto de la derecha, y los artículos como concepto.
+
+C) EN COLUMNAS, con o sin encabezados.
+
+CÓMO SE LEE UN BLOQUE (aquí es donde se falla):
+- La llave "}" y las rayas que agrupan renglones NO son un tachado: son el
+  gesto de "todo esto junto suma esta cifra". No descartes lo que abrazan.
+- El monto de un bloque NO es un subtotal que haya que ignorar: es la deuda de
+  esa persona, y es lo único que hay que devolver de ese bloque.
+- El número que ABRE un renglón de artículo es la CANTIDAD, no el monto. En
+  "3 pantalones 6$" se llevó 3 pantalones y debe 6.
+- Si dentro de un bloque hay más de un monto ("3 bermudas 6$" y abajo
+  "más viejo 2$"), devuelve un renglón por cada monto, los dos con el mismo
+  nombre. Es la app la que suma; tú no sumes ni restes nada.
+- Unas comillas ("), unas rayitas (//) o un "íd." debajo de un artículo
+  significan "lo mismo de arriba". Nunca son un nombre ni un monto.
+- Un bloque cuyo monto no se lee se devuelve igual, con el nombre y el monto
+  vacío: el dueño lo completa mirando su cuaderno.
+
+QUÉ NO ES UN TACHADO (léelo antes de descartar nada):
+- El signo de dólar manuscrito venezolano es una S cruzada por una o dos rayas,
+  y esa raya suele salirse de la letra y estirarse hacia la derecha del
+  renglón. Es parte del símbolo. NO es un tachado, ni cuando la cola es larga,
+  ni cuando roza la cifra.
+- Los renglones impresos del cuaderno y la línea roja del margen tampoco son
+  tachados.
+- Un tachado de verdad cruza el NOMBRE. Si el nombre está limpio y las rayas
+  están solo alrededor de la cifra, esa deuda está pendiente.
+- CONTROL: si al terminar te da que TODA la página está tachada, casi seguro
+  confundiste los signos de dólar o los renglones del papel con rayas de
+  tachado. Vuelve a mirar y devuelve las deudas.
+
+QUÉ YA ESTÁ PAGADO (eso NO se devuelve):
+- Un renglón o un bloque TACHADO —una raya larga que cruza el nombre y sigue
+  por encima de lo escrito— es una deuda ya cobrada.
+- También lo está el que tenga escrito al lado "pagó", "pago", "canceló",
+  "cancelado", "listo" o un visto bueno, aunque no esté tachado. Si eso
+  aparece junto al monto de un bloque, el bloque completo está pagado.
+- Devolver una deuda ya pagada le vuelve a cobrar al cliente algo que ya
+  saldó; descartar una pendiente le regala la plata al que sí debe. Ante la
+  duda, mira por dónde pasa la raya: por encima de las letras del NOMBRE es
+  tachado; por debajo es subrayado, y lo subrayado SÍ se devuelve.
+
+Devuelve, por cada deuda pendiente:
 - nombre: el nombre de la persona tal como está escrito, limpio y sin cifras
-  pegadas. Si solo hay un apodo ("la señora del kiosco"), ese apodo.
+  pegadas. Si solo hay un apodo ("la señora del kiosco", "abuelo"), ese apodo.
+  En un bloque es el renglón del encabezado, no el primer artículo.
 - monto: la cifra que debe, TAL COMO ESTÁ ESCRITA, como texto y sin tocarla
   ("1.500", "20,50", "3$"). No la conviertas, no le quites los puntos ni las
-  comas: de eso se encarga la app con una regla determinista.
+  comas: de eso se encarga la app con una regla determinista. El símbolo de
+  moneda puede ir después de la cifra ("5 $", "6$") o antes ("$5"); devuélvelo
+  como está o solo la cifra, pero nunca lo interpretes.
 - fecha: la fecha del renglón en formato YYYY-MM-DD si se lee completa y sin
   ambigüedad. Cadena vacía en cualquier otro caso — incluido cuando solo hay
   día y mes sin año.
-- concepto: qué se llevó, si el renglón lo dice ("2 harinas", "cerveza").
-  Cadena vacía si no.
+- concepto: qué se llevó, si el renglón lo dice ("2 harinas", "cerveza"). En un
+  bloque, junta sus artículos separados por coma ("1 bolso, 1 franela roja,
+  1 pantalón negro"). Cadena vacía si no dice nada.
 - confianzaNombre y confianzaMonto: "alta" si se lee nítido y sin ambigüedad;
   "media" si es legible pero podría confundirse; "baja" si estás adivinando.
   Es por CAMPO: en un mismo renglón el nombre puede ser claro y el monto
@@ -349,14 +409,17 @@ REGLAS DURAS:
 - NO interpretes la moneda ni la conviertas. El dueño ya le dijo a la app si su
   cuaderno está en bolívares o en dólares. Un "150" se devuelve como "150" sin
   decidir de qué moneda es: equivocarse ahí multiplica una deuda por setecientos.
-- Un renglón TACHADO es una deuda ya pagada: NO lo devuelvas. Es el error más
-  caro de esta pantalla — revive una deuda que el cliente ya salió de pagar.
 - Si un mismo nombre aparece varias veces con montos distintos, devuelve un
   renglón por cada uno. La app decide si suman o si es el saldo actualizado.
 - Nunca inventes un nombre ni un monto. Ante la duda, campo vacío.
 - Nunca uses 0 para decir "no se lee". Cero es un monto, no una ausencia.
-- Ignora totales, subtotales y encabezados.
-- esCuaderno: false si la foto no muestra una lista de deudas de personas.
+- Ignora el total de la página si lo hay, y los encabezados. Recuerda que el
+  monto de un bloque no es un total: es la deuda de esa persona.
+- esCuaderno: true si la página es una lista de personas que deben, AUNQUE esté
+  escrita por bloques, aunque no tenga columnas ni encabezados, aunque los
+  renglones sean listas de prendas o de mandados, y aunque todas las deudas ya
+  estén tachadas. false solo si la foto no muestra nada de eso (un paisaje, una
+  factura de proveedor, una lista de inventario sin personas).
 - Devuelve JSON estricto y nada más: sin markdown, sin explicaciones.`;
 
 const ESQUEMA_FIADOS = {
@@ -390,10 +453,21 @@ const ESQUEMA_FIADOS = {
  * Una fila sin monto legible se conserva: el dueño la completa en la tabla de
  * revisión. Lo que no se conserva es una fila sin nombre — sin saber de quién
  * es la deuda no hay nada que anotar.
+ *
+ * **`esCuaderno` no manda solo.** Un cuaderno de costurera escrito por bloques
+ * —el nombre arriba, las prendas debajo, un monto a la derecha con una llave—
+ * se le parece bastante a una lista de encargos, y el modelo lo descartaba
+ * entero: el dueño veía "No reconocimos un cuaderno de fiados" con la página
+ * delante. Si el modelo sacó filas con nombre, las filas mandan sobre la
+ * bandera; nada de esto se guarda sin que el dueño lo revise antes.
+ *
+ * Al revés también: `esCuaderno` en true con cero filas SÍ es un resultado
+ * —una página donde todo está tachado y pagado—, y hay que distinguirlo de
+ * "esta foto no es un cuaderno", que se responde de otra manera en la app.
  */
 export function interpretarRespuestaFiados(json) {
   const datos = extraerJson(json);
-  if (!datos.esCuaderno || !Array.isArray(datos.filas)) {
+  if (!Array.isArray(datos.filas)) {
     return { reconocido: false, filas: [] };
   }
 
@@ -408,7 +482,7 @@ export function interpretarRespuestaFiados(json) {
       confianzaMonto: confianza(f.confianzaMonto),
     }));
 
-  return { reconocido: filas.length > 0, filas };
+  return { reconocido: datos.esCuaderno === true || filas.length > 0, filas };
 }
 
 export async function leerFiados({ apiKey, modelo, imagenBase64, mimeType }) {

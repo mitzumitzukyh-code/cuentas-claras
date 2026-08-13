@@ -164,7 +164,7 @@ List<FiadoLeido> consolidarFiados(List<FiadoLeido> filas) {
       nombre: previa.nombre,
       montoEscrito: (a == null || b == null) ? null : a + b,
       fecha: fila.fecha ?? previa.fecha,
-      concepto: previa.concepto,
+      concepto: _juntarConceptos(previa.concepto, fila.concepto),
       confianzaNombre: _peor(previa.confianzaNombre, fila.confianzaNombre),
       confianzaMonto: _peor(previa.confianzaMonto, fila.confianzaMonto),
     );
@@ -175,3 +175,17 @@ List<FiadoLeido> consolidarFiados(List<FiadoLeido> filas) {
 
 Confianza _peor(Confianza a, Confianza b) =>
     a.index >= b.index ? a : b;
+
+/// Junta los conceptos de dos anotaciones de la misma persona.
+///
+/// Un cuaderno escrito por bloques trae la deuda repartida —«3 bermudas» a un
+/// precio y «más viejo» a otro—, y quedarse solo con el primero deja al dueño
+/// mirando un monto sumado sin saber de dónde salió. Es la única pista que
+/// tiene para reconocer el bloque en su cuaderno.
+String? _juntarConceptos(String? a, String? b) {
+  final uno = (a ?? '').trim();
+  final dos = (b ?? '').trim();
+  if (uno.isEmpty) return dos.isEmpty ? null : dos;
+  if (dos.isEmpty || dos.toLowerCase() == uno.toLowerCase()) return uno;
+  return '$uno · $dos';
+}
