@@ -12,6 +12,10 @@ crons = ["0 * * * *"]
 [[kv_namespaces]]
 binding = "TASAS"
 id = "3f64d5a11c704dc0837d0933f4a6cd81"
+# Namespace aparte para `wrangler dev`, que se niega a arrancar si el de
+# desarrollo es el mismo de produccion — con razon: una prueba no debe poder
+# pisar la tasa del dia ni el token OAuth cacheado de los usuarios reales.
+preview_id = "958d8318467c4984b768eb47591dcbb8"
 
 # Web API key de Firebase: NO es secreta (identifica el proyecto, no
 # autoriza nada por si sola), es la misma que ya va en firebase_options.dart.

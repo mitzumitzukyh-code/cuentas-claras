@@ -58,3 +58,8 @@ worker/.wrangler/
 
 # Referencia local de cuentas de infraestructura (no versionada a propósito).
 INFRA.local.md
+
+# Secretos locales del Worker para `wrangler dev` (la clave de Gemini de
+# pruebas). Nunca se versionan: en produccion viven como secretos de
+# Cloudflare.
+worker/.dev.vars
