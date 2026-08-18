@@ -20,13 +20,23 @@ import '../../negocio/domain/negocio.dart';
 import '../../productos/data/producto_repository.dart';
 import '../../productos/domain/producto.dart';
 import '../../ventas/domain/venta.dart';
+import '../domain/seleccion_catalogo.dart';
 
-/// Catálogo (réplica visual de `P1 · CATÁLOGO`, `Lote D · Planes y
-/// Catálogo`).
+/// Catálogo: la ventana desde la que se arma lo que se manda por WhatsApp.
 ///
-/// Se eligen productos (grilla con selección, chips de categoría) y se
-/// comparten de tres formas: texto para WhatsApp, imagen generada, o Estado.
-/// En plan gratis la imagen lleva marca de agua (CLAUDE.md §6).
+/// **No es una vitrina, es una ventana de redacción.** Nadie abre esta
+/// pantalla a contemplar su catálogo: la abre para mandarlo. Por eso todo se
+/// ordena alrededor de lo que va a salir — se eligen productos y el pie dice
+/// en todo momento qué se va a compartir («11 productos · $1,20 a $8,00»),
+/// con un único botón. Antes había dos botones compitiendo abajo, y obligaban
+/// a decidir el formato antes que el contenido; el formato se pregunta ahora
+/// al final, en una hoja: texto, imagen o Estado.
+///
+/// **La imagen se puede ver antes de mandarla.** El lienzo se pinta fuera de
+/// la pantalla porque hay que tenerlo montado para capturarlo, y durante un
+/// tiempo eso significó que el dueño compartía a ciegas algo que nunca había
+/// visto. «Vista previa» enseña exactamente el PNG que va a salir, con su
+/// marca de agua si el plan la lleva (CLAUDE.md §6).
 class CatalogoScreen extends ConsumerStatefulWidget {
   const CatalogoScreen({super.key});
 
@@ -37,10 +47,31 @@ class CatalogoScreen extends ConsumerStatefulWidget {
 class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
   final Set<String> _elegidos = {};
   final _lienzo = GlobalKey();
+  final _buscador = TextEditingController();
 
   String? _categoria;
+  String _busqueda = '';
+
+  /// Rango de precio elegido, o `null` si no se ha filtrado. Los extremos
+  /// salen del propio catálogo (ver [_rangoDe]): un filtro de $0 a $1.000 en
+  /// una bodega donde nada pasa de $8 no filtra nada.
+  RangeValues? _rangoPrecio;
+
   bool _generando = false;
   bool _sembrado = false;
+
+  @override
+  void dispose() {
+    _buscador.dispose();
+    super.dispose();
+  }
+
+  bool _pasaFiltros(Producto p) => pasaFiltros(
+        p,
+        categoria: _categoria,
+        busqueda: _busqueda,
+        rango: _rangoPrecio,
+      );
 
   /// Al entrar, todo viene marcado: es lo que casi siempre se quiere compartir.
   void _sembrar(List<Producto> productos) {
@@ -123,6 +154,73 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
     }
   }
 
+  /// Pregunta el FORMATO, ya con el contenido decidido.
+  ///
+  /// Es el orden correcto de las dos decisiones: qué mando primero, y por
+  /// dónde después. Con dos botones fijos abajo, la pantalla obligaba a
+  /// elegir el canal antes de haber terminado de marcar productos.
+  Future<void> _abrirHojaCompartir(
+    List<Producto> productos,
+    Negocio negocio,
+    double? tasa,
+  ) async {
+    final elegidos = _seleccionados(productos);
+    if (elegidos.isEmpty) return;
+
+    final forma = await showModalBottomSheet<_FormaCompartir>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _HojaCompartir(cuantos: elegidos.length),
+    );
+    if (forma == null || !mounted) return;
+
+    switch (forma) {
+      case _FormaCompartir.texto:
+        await _compartirTexto(productos, negocio, tasa);
+      case _FormaCompartir.imagen:
+        await _compartirImagen(negocio.nombre, elegidos);
+      case _FormaCompartir.estado:
+        if (mounted) context.push(Routes.estadoWhatsApp);
+    }
+  }
+
+  /// Filtro de precio, con los topes sacados del propio catálogo.
+  Future<void> _abrirFiltroPrecio(List<Producto> productos) async {
+    final topes = rangoDePrecios(productos);
+    final (min, max) = topes;
+    final elegido = await showModalBottomSheet<RangeValues?>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      // `isDismissible` deja salir sin tocar nada; quien sale sin elegir no
+      // quiere borrar el filtro que ya tenía, así que eso lo distingue el
+      // `null` de la hoja del `RangeValues` vacío que manda "quitar".
+      builder: (_) => _HojaPrecio(
+        min: min,
+        max: max,
+        inicial: _rangoPrecio ?? RangeValues(min, max),
+      ),
+    );
+    if (elegido == null || !mounted) return;
+    setState(() {
+      _rangoPrecio = filtraAlgo(elegido, topes) ? elegido : null;
+    });
+  }
+
+  /// Enseña el PNG que se va a compartir, tal cual va a salir.
+  void _abrirVistaPrevia(Negocio negocio, List<Producto> elegidos, double? tasa) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _VistaPrevia(
+        negocio: negocio,
+        productos: elegidos,
+        tasa: tasa,
+        conMarcaDeAgua: ref.read(planDelNegocioProvider).marcaDeAgua,
+      ),
+    );
+  }
+
   void _mostrar(String mensaje) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -172,9 +270,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
         if (p.categoria.isNotEmpty) p.categoria,
     }.toList()
       ..sort();
-    final visibles = _categoria == null
-        ? productos
-        : productos.where((p) => p.categoria == _categoria).toList();
+    final visibles = productos.where(_pasaFiltros).toList();
 
     final elegidos = _seleccionados(productos);
     final todosMarcados =
@@ -250,12 +346,39 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
+                      if (productos.isNotEmpty)
+                        LibretaInput(
+                          controller: _buscador,
+                          hint: 'Buscar producto',
+                          height: 44,
+                          leading: Icon(
+                            Icons.search,
+                            size: 19,
+                            color: context.libreta.textoMuted,
+                          ),
+                          suffix: _busqueda.isEmpty
+                              ? null
+                              : GestureDetector(
+                                  onTap: () {
+                                    _buscador.clear();
+                                    setState(() => _busqueda = '');
+                                  },
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: context.libreta.textoMuted,
+                                  ),
+                                ),
+                          onChanged: (v) => setState(() => _busqueda = v),
+                        ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: Text(
-                              '${elegidos.length} seleccionados',
+                              '${elegidos.length} de ${productos.length} '
+                              'marcados',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 color: context.libreta.textoMuted,
@@ -284,15 +407,19 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                     ],
                   ),
                 ),
-                if (categorias.isNotEmpty)
+                if (productos.isNotEmpty)
                   SizedBox(
                     height: 40,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       children: [
+                        // La cuenta va en el propio chip: con el catálogo
+                        // filtrado, saber cuántos hay detrás de cada categoría
+                        // evita tocarlas una por una para descubrir que están
+                        // vacías.
                         LibretaChip(
-                          label: 'Todos',
+                          label: 'Todos ${productos.length}',
                           selected: _categoria == null,
                           onTap: () => setState(() => _categoria = null),
                         ),
@@ -300,11 +427,23 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                           Padding(
                             padding: const EdgeInsets.only(left: 8),
                             child: LibretaChip(
-                              label: c,
+                              label: '$c '
+                                  '${productos.where((p) => p.categoria == c).length}',
                               selected: _categoria == c,
                               onTap: () => setState(() => _categoria = c),
                             ),
                           ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: LibretaChip(
+                            label: _rangoPrecio == null
+                                ? 'Precio'
+                                : '${MoneyFormatter.usd(_rangoPrecio!.start)}'
+                                    ' – ${MoneyFormatter.usd(_rangoPrecio!.end)}',
+                            selected: _rangoPrecio != null,
+                            onTap: () => _abrirFiltroPrecio(productos),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -332,63 +471,46 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                             ),
                           ),
                         )
-                      : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 14,
-                            crossAxisSpacing: 14,
-                            childAspectRatio: 0.86,
-                          ),
-                          itemCount: visibles.length,
-                          itemBuilder: (_, i) => _TarjetaCatalogo(
-                            producto: visibles[i],
-                            marcado: _elegidos.contains(visibles[i].id),
-                            onTap: () => setState(() {
-                              if (!_elegidos.remove(visibles[i].id)) {
-                                _elegidos.add(visibles[i].id);
-                              }
-                            }),
-                          ),
-                        ),
+                      : visibles.isEmpty
+                          ? _SinResultados(
+                              onQuitarFiltros: () => setState(() {
+                                _categoria = null;
+                                _rangoPrecio = null;
+                                _busqueda = '';
+                                _buscador.clear();
+                              }),
+                            )
+                          : GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: 0.80,
+                              ),
+                              itemCount: visibles.length,
+                              itemBuilder: (_, i) => _TarjetaCatalogo(
+                                producto: visibles[i],
+                                marcado: _elegidos.contains(visibles[i].id),
+                                onTap: () => setState(() {
+                                  if (!_elegidos.remove(visibles[i].id)) {
+                                    _elegidos.add(visibles[i].id);
+                                  }
+                                }),
+                              ),
+                            ),
                 ),
                 if (productos.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: context.libreta.renglon),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        LibretaButton(
-                          label: 'Compartir por WhatsApp',
-                          onPressed: () =>
-                              _compartirTexto(productos, negocio, tasa),
-                        ),
-                        const SizedBox(height: 10),
-                        LibretaSecondaryButton(
-                          label: _generando ? 'Generando…' : 'Compartir como imagen',
-                          icon: _generando
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : null,
-                          onPressed: elegidos.isEmpty || _generando
-                              ? null
-                              : () => _compartirImagen(
-                                    negocio.nombre,
-                                    elegidos,
-                                  ),
-                        ),
-
-                      ],
-                    ),
+                  _BarraEnvio(
+                    elegidos: elegidos,
+                    generando: _generando,
+                    onVistaPrevia: elegidos.isEmpty
+                        ? null
+                        : () => _abrirVistaPrevia(negocio, elegidos, tasa),
+                    onCompartir: elegidos.isEmpty || _generando
+                        ? null
+                        : () => _abrirHojaCompartir(productos, negocio, tasa),
                   ),
               ],
             ),
@@ -414,8 +536,21 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
   }
 }
 
-/// Tarjeta de producto de la grilla (réplica del mockup: foto + nombre +
-/// precio, con insignia de selección).
+/// Tarjeta de producto de la grilla: foto, casilla, nombre, existencias y
+/// precio.
+///
+/// Tres decisiones que se ven aquí:
+///
+/// - **La casilla es un cuadrado arriba a la IZQUIERDA.** Un círculo verde
+///   arriba a la derecha se lee como una insignia de «nuevo» o de oferta, no
+///   como algo que se puede desmarcar. El cuadrado a la izquierda es la
+///   convención de selección de cualquier galería de fotos.
+/// - **Lo no marcado se atenúa**, además de perder el check. Con doce
+///   productos y sol de mediodía, la ausencia de un check no se ve; la
+///   diferencia de luminosidad sí.
+/// - **El precio lo pinta [LibretaMonto]**, que respeta la moneda que el
+///   negocio eligió en el onboarding y la tasa activa. Escribir «$ arriba, Bs
+///   debajo» a mano le imponía dólares a una bodega que trabaja en bolívares.
 class _TarjetaCatalogo extends StatelessWidget {
   const _TarjetaCatalogo({
     required this.producto,
@@ -438,13 +573,25 @@ class _TarjetaCatalogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colores = _degradados[producto.nombre.hashCode.abs() % _degradados.length];
+    final t = context.libreta;
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: marcado,
+      label: '${producto.nombre}, ${MoneyFormatter.usd(producto.precio!)}',
+      excludeSemantics: true,
+      child: GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: marcado ? 1 : 0.55,
+        child: Container(
         decoration: BoxDecoration(
           color: context.libreta.superficie,
-          border: Border.all(color: const Color(0x141E2A38)),
+          border: Border.all(
+            color: marcado ? LibretaColors.verde : const Color(0x141E2A38),
+            width: marcado ? 1.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         clipBehavior: Clip.antiAlias,
@@ -479,14 +626,14 @@ class _TarjetaCatalogo extends StatelessWidget {
                   ),
                   Positioned(
                     top: 8,
-                    right: 8,
+                    left: 8,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
                         color: marcado ? LibretaColors.verde : Colors.white,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(7),
                         border: Border.all(
                           color: marcado ? LibretaColors.verde : context.libreta.bordeSuave,
                           width: 1.5,
@@ -502,7 +649,7 @@ class _TarjetaCatalogo extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(11, 9, 11, 10),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -513,20 +660,441 @@ class _TarjetaCatalogo extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
-                      color: context.libreta.textoFuerte,
+                      color: t.textoFuerte,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    MoneyFormatter.usd(producto.precio!),
-                    style: const TextStyle(
+                  const SizedBox(height: 4),
+                  LibretaMonto(
+                    usd: producto.precio!,
+                    maxLines: 1,
+                    estiloPrincipal: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
-                      color: LibretaColors.verde,
+                      color: t.textoFuerte,
+                    ),
+                    estiloSecundario: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: t.textoMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Ofrecer lo que ya no tienes es peor que no ofrecerlo: el
+                  // cliente lo pide y hay que decirle que no.
+                  Text(
+                    'quedan ${producto.cantidadLabel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: producto.stockBajo
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: producto.stockBajo
+                          ? LibretaColors.aviso
+                          : t.textoMuted,
                     ),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+        ),
+      ),
+      ),
+    );
+  }
+}
+
+/// Cómo se comparte lo que se eligió.
+enum _FormaCompartir { texto, imagen, estado }
+
+/// Barra oscura del pie: qué se va a mandar, y un solo botón.
+///
+/// El resumen no es un contador de casillas —«12 seleccionados» no dice
+/// nada—, es la descripción del mensaje: cuántos productos y entre qué
+/// precios. Es lo último que el dueño lee antes de mandarle algo a un
+/// cliente.
+class _BarraEnvio extends StatelessWidget {
+  const _BarraEnvio({
+    required this.elegidos,
+    required this.generando,
+    required this.onVistaPrevia,
+    required this.onCompartir,
+  });
+
+  final List<Producto> elegidos;
+  final bool generando;
+  final VoidCallback? onVistaPrevia;
+  final VoidCallback? onCompartir;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: LibretaColors.tarjetaOscura,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  resumenSeleccion(elegidos),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (onVistaPrevia != null)
+                Semantics(
+                  button: true,
+                  child: GestureDetector(
+                    onTap: onVistaPrevia,
+                    behavior: HitTestBehavior.opaque,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      child: Text(
+                        'Vista previa',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF9FE1CB),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LibretaButton(
+            label: generando ? 'Generando…' : 'Compartir',
+            loading: generando,
+            icon: generando
+                ? null
+                : const Icon(Icons.ios_share, size: 18, color: Colors.white),
+            onPressed: onCompartir,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hoja donde se elige el formato, ya con el contenido decidido.
+class _HojaCompartir extends StatelessWidget {
+  const _HojaCompartir({required this.cuantos});
+
+  final int cuantos;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: t.papel,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: Text(
+                'Compartir $cuantos ${cuantos == 1 ? "producto" : "productos"}',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: t.textoFuerte,
+                ),
+              ),
+            ),
+            _OpcionCompartir(
+              icono: Icons.chat_outlined,
+              titulo: 'Como texto',
+              detalle: 'Lista de precios y formas de pago',
+              onTap: () => Navigator.of(context).pop(_FormaCompartir.texto),
+            ),
+            _OpcionCompartir(
+              icono: Icons.image_outlined,
+              titulo: 'Como imagen',
+              detalle: 'Una tarjeta con hasta 6 productos',
+              onTap: () => Navigator.of(context).pop(_FormaCompartir.imagen),
+            ),
+            _OpcionCompartir(
+              icono: Icons.auto_stories_outlined,
+              titulo: 'Publicar en Estado',
+              detalle: 'Formato vertical para WhatsApp',
+              onTap: () => Navigator.of(context).pop(_FormaCompartir.estado),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpcionCompartir extends StatelessWidget {
+  const _OpcionCompartir({
+    required this.icono,
+    required this.titulo,
+    required this.detalle,
+    required this.onTap,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final String detalle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: LibretaColors.verde.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.center,
+        child: Icon(icono, size: 20, color: LibretaColors.verde),
+      ),
+      title: Text(
+        titulo,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: t.textoFuerte,
+        ),
+      ),
+      subtitle: Text(
+        detalle,
+        style: TextStyle(fontSize: 12.5, color: t.textoMuted),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// Filtro de precio. Los topes salen del catálogo, no de una escala inventada.
+class _HojaPrecio extends StatefulWidget {
+  const _HojaPrecio({
+    required this.min,
+    required this.max,
+    required this.inicial,
+  });
+
+  final double min;
+  final double max;
+  final RangeValues inicial;
+
+  @override
+  State<_HojaPrecio> createState() => _HojaPrecioState();
+}
+
+class _HojaPrecioState extends State<_HojaPrecio> {
+  late RangeValues _valores = widget.inicial;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        decoration: BoxDecoration(
+          color: t.papel,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Mostrar productos entre',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: t.textoFuerte,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${MoneyFormatter.usd(_valores.start)} y '
+              '${MoneyFormatter.usd(_valores.end)}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: LibretaColors.verde,
+              ),
+            ),
+            RangeSlider(
+              values: _valores,
+              min: widget.min,
+              max: widget.max,
+              activeColor: LibretaColors.verde,
+              labels: RangeLabels(
+                MoneyFormatter.usd(_valores.start),
+                MoneyFormatter.usd(_valores.end),
+              ),
+              onChanged: (v) => setState(() => _valores = v),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: LibretaSecondaryButton(
+                    label: 'Quitar filtro',
+                    onPressed: () => Navigator.of(context).pop(
+                      RangeValues(widget.min, widget.max),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: LibretaButton(
+                    label: 'Aplicar',
+                    onPressed: () => Navigator.of(context).pop(_valores),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// La imagen que se va a compartir, a tamaño de pantalla.
+///
+/// Es el mismo widget que se captura a PNG, no una aproximación: lo que se ve
+/// aquí es lo que le llega al cliente, marca de agua incluida.
+class _VistaPrevia extends StatelessWidget {
+  const _VistaPrevia({
+    required this.negocio,
+    required this.productos,
+    required this.tasa,
+    required this.conMarcaDeAgua,
+  });
+
+  final Negocio negocio;
+  final List<Producto> productos;
+  final double? tasa;
+  final bool conMarcaDeAgua;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    final sobran = productos.length - _LienzoCatalogo._destacados;
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        decoration: BoxDecoration(
+          color: t.papel,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Así lo verá tu cliente',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: t.textoFuerte,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 20),
+                  ),
+                ),
+              ],
+            ),
+            if (sobran > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'La imagen muestra 6 productos; los otros $sobran van '
+                  'nombrados al pie.',
+                  style: TextStyle(fontSize: 12.5, color: t.textoMuted),
+                ),
+              ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Center(
+                  child: _LienzoCatalogo(
+                    negocio: negocio,
+                    productos: productos,
+                    tasa: tasa,
+                    conMarcaDeAgua: conMarcaDeAgua,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Cuando los filtros no dejan nada a la vista.
+///
+/// Distinto del catálogo vacío de verdad: aquí sí hay productos, y lo que hace
+/// falta es una salida, no una invitación a crear el primero.
+class _SinResultados extends StatelessWidget {
+  const _SinResultados({required this.onQuitarFiltros});
+
+  final VoidCallback onQuitarFiltros;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.libreta;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 34, color: t.textoMuted),
+            const SizedBox(height: 12),
+            Text(
+              'Ningún producto encaja con lo que buscas',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: t.textoFuerte,
+              ),
+            ),
+            const SizedBox(height: 12),
+            LibretaSecondaryButton(
+              label: 'Quitar filtros',
+              onPressed: onQuitarFiltros,
             ),
           ],
         ),
