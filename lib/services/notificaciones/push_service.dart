@@ -47,6 +47,21 @@ const AndroidNotificationChannel canalStock = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
+/// Cortes de luz. Vive aquí, con los demás canales de push, porque estos
+/// avisos también los manda el Worker: el teléfono solo se suscribe al topic
+/// de su bloque (ver `LuzService`).
+///
+/// Interrumpe, a diferencia de los recordatorios: llega media hora antes de
+/// que se vaya la luz y lo que se hace con él —cobrar lo que falta, cargar el
+/// teléfono, cerrar la nevera— no espera.
+const AndroidNotificationChannel canalLuz = AndroidNotificationChannel(
+  'cortes_luz',
+  'Cortes de luz',
+  description: 'Aviso antes de que se vaya la luz en tu bloque, y cuándo '
+      'debería volver.',
+  importance: Importance.high,
+);
+
 /// Recibe los push en segundo plano.
 ///
 /// Tiene que ser una función de nivel superior: Android arranca un isolate
@@ -251,6 +266,7 @@ class PushService {
         'stock' => (canalStock, IdsNotificacion.stock),
         'resumen_ventas' ||
         'recordatorio_ventas' => (canalVentas, IdsNotificacion.resumenVentas),
+        'luz' => (canalLuz, IdsNotificacion.luz),
         _ => (canalTasa, IdsNotificacion.tasa),
       };
 

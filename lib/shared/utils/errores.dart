@@ -19,9 +19,18 @@ String mensajeDeError(Object? e, {String accion = 'completar la acción'}) {
 
   final detalle = e.toString().toLowerCase();
 
+  // --- Tardó demasiado ---
+  //
+  // Separado de "sin red" porque no es lo mismo, y confundirlos se vio en
+  // dispositivo: una lectura con IA que se pasó del límite mostraba «revisa tu
+  // internet» con el wifi perfecto, y el dueño se puso a reiniciar el router.
+  // Un tiempo agotado casi siempre es que la otra punta va lenta.
+  if (e is TimeoutException) {
+    return 'Tardamos demasiado al $accion. Intenta de nuevo en un momento.';
+  }
+
   // --- Sin internet, DNS caído, servidor inalcanzable ---
   final sinRed = e is SocketException ||
-      e is TimeoutException ||
       detalle.contains('socketexception') ||
       detalle.contains('failed host lookup') ||
       detalle.contains('connection closed') ||

@@ -27,6 +27,7 @@ import '../../../shared/presentation/estado_carga.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
 import '../../negocio/data/negocio_repository.dart';
 import '../../negocio/domain/negocio.dart';
+import '../../luz/presentation/cortes_luz_seccion.dart';
 import '../../notificaciones/presentation/avisos_tasa_seccion.dart';
 import '../../../shared/utils/errores.dart';
 
@@ -665,6 +666,15 @@ class _AjustesScreenState extends ConsumerState<AjustesScreen> {
                                 14,
                               ),
                               child: const AvisosTasaSeccion(),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                0,
+                                16,
+                                14,
+                              ),
+                              child: const CortesLuzSeccion(),
                             ),
                           ],
                         ),

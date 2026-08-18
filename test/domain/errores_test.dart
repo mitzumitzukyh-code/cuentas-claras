@@ -29,9 +29,15 @@ void main() {
       expect(m, contains('internet'));
     });
 
-    test('un timeout se trata como problema de conexión', () {
+    // Antes se trataba como "sin internet", y en dispositivo eso mandó al
+    // dueño a reiniciar el router con el wifi perfecto: lo que se había
+    // agotado era el límite de espera de una lectura con IA, que tarda entre 8
+    // y 39 segundos y más con el modelo saturado. Un tiempo agotado es que la
+    // otra punta va lenta, no que aquí no haya señal.
+    test('un timeout no culpa a la conexión del dueño', () {
       final m = mensajeDeError(TimeoutException('x'), accion: 'guardar');
-      expect(m, contains('Revisa tu internet'));
+      expect(m, 'Tardamos demasiado al guardar. Intenta de nuevo en un momento.');
+      expect(m, isNot(contains('internet')));
     });
 
     test('cualquier excepción rara cae en una frase genérica y limpia', () {

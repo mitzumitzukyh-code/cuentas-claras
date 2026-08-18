@@ -117,6 +117,14 @@ class _ImportarFiadosScreenState extends ConsumerState<ImportarFiadosScreen> {
       if (!mounted) return;
       setState(() => _leyendo = false);
       _avisar('Se agotaron las lecturas con IA por hoy. Vuelve mañana.');
+    } on LectorOcupado {
+      // Saturado, no roto: la foto y la conexión están bien y lo
+      // único que hace falta es esperar.
+      if (!mounted) return;
+      setState(() => _leyendo = false);
+      _avisar(
+        'El lector está ocupado ahora mismo. Espera un momento y vuelve a intentarlo.',
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _leyendo = false);

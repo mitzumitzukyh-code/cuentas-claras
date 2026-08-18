@@ -66,6 +66,7 @@ dependencies:
   local_auth: ^2.3.0
   archive: ^3.6.1                # respaldo del negocio en .zip
   flutter_svg: ^2.0.17           # iconos e ilustraciones de marca (assets/svg)
+  firebase_app_check: ^0.3.2+10  # atestacion del dispositivo (antibot)
 
 dev_dependencies:
   flutter_test:

@@ -35,6 +35,27 @@ abstract final class IdsNotificacion {
   /// estén programadas en dispositivos con la versión anterior instalada.
   static const recordatorioBase = 9100;
 
+  // --- 9200: avisos de corte de luz, programados día por día ---
+
+  /// Base de los avisos del cronograma eléctrico. Cada día programado ocupa
+  /// dos ids consecutivos —el aviso antes del corte y el de la vuelta—, así
+  /// que una semana cabe en `9200..9213` y el rango llega hasta 9299.
+  ///
+  /// Van en su propia familia y no colgando de [recordatorioBase] porque se
+  /// cancelan y reprograman en bloque cada vez que se abre la app: mezclarlos
+  /// con los recordatorios haría que apagar unos borrara los otros.
+  /// Aviso de corte de luz que llega por push mientras la app está en
+  /// pantalla. Id fijo como los demás: el aviso de la vuelta reemplaza al de
+  /// «se va la luz», que es el mismo asunto en su siguiente estado.
+  static const luz = 1004;
+
+  // --- 9200: avisos de luz locales (solo la prueba de «así se verá») ---
+
+  /// El aviso de prueba del botón de Ajustes. Los avisos de verdad ya no se
+  /// programan en el teléfono —los manda el Worker por push—, así que de esta
+  /// familia solo queda este.
+  static const luzPrueba = 9298;
+
   /// Grupo bajo el que Android junta todo lo que manda Cuenta Clara.
   ///
   /// Con el mismo `groupKey`, aunque lleguen varios avisos seguidos el sistema

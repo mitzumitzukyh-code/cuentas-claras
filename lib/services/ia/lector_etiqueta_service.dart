@@ -200,6 +200,21 @@ class SinReconocer implements Exception {}
 /// Se agotó la cuota diaria de lecturas con IA (el Worker devuelve 429).
 class LimiteDiarioIA implements Exception {}
 
+/// El modelo está saturado (503), incluso después de que el Worker reintentara.
+///
+/// Se distingue de un fallo de red porque hay que decirlo distinto: la foto
+/// está bien, la conexión está bien, y solo hace falta esperar. Mandar a
+/// «revisar tu internet» a quien tiene wifi lo pone a reiniciar el router.
+class LectorOcupado implements Exception {}
+
+/// Cuánto se espera una lectura antes de darla por perdida.
+///
+/// 30 s se quedaban cortos. Medido contra Gemini de verdad, leer una foto
+/// densa —una factura de doce renglones, la página de un cuaderno— tarda entre
+/// 8 y 39 segundos, y con el modelo saturado más. Al agotarse el límite, la
+/// app culpaba a la conexión del usuario.
+const Duration _esperaLectura = Duration(seconds: 90);
+
 /// Lecturas con IA (vía el Worker; la clave de Gemini nunca viaja en el APK).
 ///
 /// La sugerencia NUNCA se guarda sola: solo rellena campos para que el dueño
@@ -338,8 +353,11 @@ class LectorEtiquetaService {
     };
 
     // Mismo criterio que la subida de fotos: un bache de red no puede costarle
-    // al dueño volver a tomar la foto.
+    // al dueño volver a tomar la foto. Dos intentos y no tres: cada uno puede
+    // durar [_esperaLectura], y encadenar tres deja al dueño más de cuatro
+    // minutos mirando una ruleta.
     final respuesta = await conReintentos(
+      intentos: 2,
       () => _cliente
           .post(
             Uri.parse('$_baseUrl$ruta'),
@@ -353,10 +371,11 @@ class LectorEtiquetaService {
               ...extras,
             }),
           )
-          .timeout(const Duration(seconds: 30)),
+          .timeout(_esperaLectura),
     );
 
     if (respuesta.statusCode == 429) throw LimiteDiarioIA();
+    if (respuesta.statusCode == 503) throw LectorOcupado();
     if (respuesta.statusCode != 200) {
       throw Exception(
         'No se pudo leer la foto (código ${respuesta.statusCode}).',

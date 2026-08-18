@@ -167,7 +167,7 @@ export async function leerEtiqueta({
 }) {
   const prompt = armarPromptEtiqueta({ categorias, rubro });
 
-  const json = await llamarGemini({
+  const json = await llamarGeminiConReintentos({
     apiKey,
     modelo,
     prompt,
@@ -306,7 +306,7 @@ export function interpretarRespuestaLibreta(json) {
 
 /** Lee la foto de una libreta de inventario y devuelve sus filas. */
 export async function leerLibreta({ apiKey, modelo, imagenBase64, mimeType }) {
-  const json = await llamarGemini({
+  const json = await llamarGeminiConReintentos({
     apiKey,
     modelo,
     prompt: PROMPT_LIBRETA,
@@ -486,7 +486,7 @@ export function interpretarRespuestaFiados(json) {
 }
 
 export async function leerFiados({ apiKey, modelo, imagenBase64, mimeType }) {
-  const json = await llamarGemini({
+  const json = await llamarGeminiConReintentos({
     apiKey,
     modelo,
     prompt: PROMPT_FIADOS,
@@ -557,7 +557,7 @@ export function interpretarRespuestaRecibo(json) {
 
 /** Lee la foto de un recibo y devuelve monto/fecha/categoría sugeridos. */
 export async function leerRecibo({ apiKey, modelo, imagenBase64, mimeType }) {
-  const json = await llamarGemini({
+  const json = await llamarGeminiConReintentos({
     apiKey,
     modelo,
     prompt: PROMPT_RECIBO,
@@ -604,9 +604,46 @@ async function llamarGemini({
   });
 
   if (!resp.ok) {
-    throw new Error(`Gemini respondió ${resp.status}: ${await resp.text()}`);
+    const cuerpo = await resp.text();
+    const error = new Error(`Gemini respondió ${resp.status}: ${cuerpo}`);
+    error.estado = resp.status;
+    throw error;
   }
   return resp.json();
+}
+
+/**
+ * Códigos que mejoran esperando: el modelo está saturado o nos está frenando.
+ *
+ * `503` es el que se ve en la práctica —«the model is overloaded»— y llega en
+ * rachas de varios minutos. Sin reintentar, esa racha es una lectura fallida
+ * para el dueño, que ya tomó la foto y no entiende por qué no sirve.
+ */
+const CODIGOS_QUE_VALE_REINTENTAR = new Set([429, 500, 502, 503, 504]);
+
+/** `true` si el fallo es "vuelve a intentarlo", no "esto está mal". */
+export function esModeloOcupado(e) {
+  return CODIGOS_QUE_VALE_REINTENTAR.has(e?.estado);
+}
+
+/**
+ * Llama a Gemini reintentando lo que solo depende de que descongestione.
+ *
+ * Tres intentos con 1 s y 3 s de espera. No más: al otro lado hay un dueño
+ * mirando una ruleta con la factura en la mano, y el Worker tiene su propio
+ * límite de tiempo. Un 400 —imagen inválida, prompt mal armado— se propaga al
+ * primer intento, porque fallaría igual las tres veces.
+ */
+async function llamarGeminiConReintentos(args, { esperas = [1000, 3000] } = {}) {
+  for (let i = 0; ; i++) {
+    try {
+      return await llamarGemini(args);
+    } catch (e) {
+      if (i >= esperas.length || !esModeloOcupado(e)) throw e;
+      console.warn(`Gemini ${e.estado}, reintento ${i + 1}`);
+      await new Promise((r) => setTimeout(r, esperas[i]));
+    }
+  }
 }
 
 function extraerJson(json) {

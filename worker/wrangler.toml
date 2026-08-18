@@ -2,9 +2,14 @@ name = "cuenta-clara-tasa"
 main = "src/index.js"
 compatibility_date = "2026-07-19"
 
-# Cada hora en punto. Los Cron Triggers estan incluidos en el plan gratuito.
+# Cada media hora. Los Cron Triggers estan incluidos en el plan gratuito.
+#
+# Era cada hora en punto, y pasó a media hora por los avisos de corte de luz:
+# el aviso sale 30 minutos antes del corte y las franjas empiezan en hora en
+# punto, así que el momento que hay que acertar es y media. Lo demás —tasa,
+# resumen de ventas, stock— sigue corriendo solo en la pasada del minuto 0.
 [triggers]
-crons = ["0 * * * *"]
+crons = ["0,30 * * * *"]
 
 # Guarda la ultima tasa, el historial de 14 dias y el token OAuth cacheado.
 # El id real se rellena al crear el namespace:

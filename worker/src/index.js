@@ -13,6 +13,7 @@ import { usuarioAutenticado } from './auth.js';
 import { carpetaValida, subirFotoFirmada } from './cloudinary.js';
 import { enviarAToken, enviarATopic, obtenerToken } from './fcm.js';
 import {
+  esModeloOcupado,
   leerEtiqueta,
   leerFiados,
   leerLibreta,
@@ -26,6 +27,13 @@ import {
   ventasDesde,
 } from './firestore.js';
 import { paginaEliminarCuenta, paginaPrivacidad, paginaTerminos } from './legal.js';
+import {
+  avisosDeCorte,
+  avisosDePrueba,
+  cronogramaResuelto,
+  enHoraVenezuela,
+  estadosConCronograma,
+} from './luz.js';
 import { construirAvisoStock } from './stock.js';
 import {
   DIAS_HISTORIAL,
@@ -252,6 +260,57 @@ async function revisarResumenVentas(env, { ahora = new Date(), forzar = false } 
  * `forzar` (prueba manual) ignora el dedup —avisa de todos los bajos actuales—
  * y NO guarda el estado, para no alterar el dedup real de ese negocio.
  */
+/**
+ * Avisos de corte de luz.
+ *
+ * Se manda desde el Worker y no con alarmas en el teléfono porque las alarmas
+ * locales no sobrevivieron en el dispositivo de pruebas: la ROM las registra
+ * —se ven en `dumpsys alarm`— y luego no las dispara. Es la forma más cara de
+ * fallar, porque el código parece correcto. Este es el mismo camino que ya
+ * funciona todos los días para la tasa del dólar.
+ *
+ * **Solo lo recibe quien lo pidió.** Va por topic (`luz-barinas-a`), y a ese
+ * topic solo se suscribe la app que tiene el interruptor puesto y ese bloque
+ * elegido. Al que no lo activó no le llega nada, porque no está suscrito.
+ *
+ * `forzar` manda el corte de hoy de cada bloque sin esperar a la hora, para
+ * probar la entrega de punta a punta.
+ */
+async function revisarCortesLuz(env, { ahora = new Date(), forzar = false } = {}) {
+  const avisos = forzar
+    ? avisosDePrueba(ahora)
+    : avisosDeCorte(ahora, { estado: 'barinas' });
+  if (!avisos.length) return { enviados: 0 };
+
+  const cuenta = cuentaDeServicio(env);
+  const token = await obtenerToken(cuenta, env.TASAS);
+  const { fecha, hora, minuto } = enHoraVenezuela(ahora);
+
+  const enviados = [];
+  for (const aviso of avisos) {
+    // Dedup por topic y minuto: Cloudflare puede reintentar una pasada del
+    // cron, y el mismo aviso no debe salir dos veces.
+    const clave = `luzAvisado:${aviso.topic}:${fecha}:${hora}:${minuto}`;
+    if (!forzar && (await env.TASAS.get(clave))) continue;
+
+    await enviarATopic({
+      cuenta,
+      token,
+      topic: aviso.topic,
+      titulo: aviso.titulo,
+      cuerpo: aviso.cuerpo,
+      datos: aviso.datos,
+      canal: 'cortes_luz',
+    });
+
+    // Dos días de vida: cubre un reintento tardío sin dejar basura en KV.
+    if (!forzar) await env.TASAS.put(clave, '1', { expirationTtl: 172800 });
+    enviados.push(aviso.topic);
+  }
+
+  return { enviados: enviados.length, topics: enviados };
+}
+
 async function revisarStockBajo(env, { forzar = false } = {}) {
   const cuenta = cuentaDeServicio(env);
   const tokenOAuth = await obtenerToken(cuenta, env.TASAS);
@@ -421,26 +480,79 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
   };
 }
 
+/**
+ * Cabeceras de seguridad de las páginas públicas.
+ *
+ * Las tres páginas del Worker son HTML estático con un `<style>` dentro: no
+ * cargan scripts, ni imágenes, ni tipografías, ni piden nada de fuera. La CSP
+ * lo dice tal cual —`default-src 'none'`— para que si un día alguien mete una
+ * etiqueta que traiga algo de otro dominio, el navegador la bloquee en vez de
+ * ejecutarla.
+ *
+ * `style-src 'unsafe-inline'` es lo único que se abre, y solo porque el CSS va
+ * incrustado en la propia página. Nada de esto interpola datos del usuario
+ * hoy; estas cabeceras son la red por si eso cambia.
+ */
+const CABECERAS_SEGURIDAD = {
+  'Content-Security-Policy':
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; " +
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  // Sin esto, un navegador puede "adivinar" que un texto es HTML y ejecutarlo.
+  'X-Content-Type-Options': 'nosniff',
+  // Para navegadores viejos que no entienden `frame-ancestors`.
+  'X-Frame-Options': 'DENY',
+  // La URL de la política de privacidad no tiene por qué viajar a terceros.
+  'Referrer-Policy': 'no-referrer',
+  // El Worker solo se sirve por https; esto impide siquiera el primer intento
+  // en claro durante un año.
+  'Strict-Transport-Security': 'max-age=31536000',
+};
+
+/** Una página HTML con sus cabeceras de seguridad puestas. */
+function paginaHtml(html) {
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      ...CABECERAS_SEGURIDAD,
+    },
+  });
+}
+
 export default {
   /** Disparo programado (ver el cron en wrangler.toml). */
   async scheduled(evento, env, ctx) {
     const ahora = new Date(evento.scheduledTime);
+
+    // El cron pasó a correr cada media hora por los avisos de corte de luz,
+    // que tienen que caer a y media —el aviso sale 30 minutos antes y las
+    // franjas empiezan en hora en punto—. Lo demás sigue siendo horario:
+    // correrlo el doble de veces no lo mejora y sí duplica las consultas al
+    // BCV y a Firestore.
+    if (ahora.getUTCMinutes() === 0) {
+      ctx.waitUntil(
+        revisarTasa(env, { ahora }).then(
+          (r) => console.log('revisión', JSON.stringify(r)),
+          (e) => console.error('falló la revisión:', e.message),
+        ),
+      );
+      ctx.waitUntil(
+        revisarResumenVentas(env, { ahora }).then(
+          (r) => console.log('resumen de ventas', JSON.stringify(r)),
+          (e) => console.error('falló el resumen de ventas:', e.message),
+        ),
+      );
+      ctx.waitUntil(
+        revisarStockBajo(env).then(
+          (r) => console.log('stock bajo', JSON.stringify(r)),
+          (e) => console.error('falló el stock bajo:', e.message),
+        ),
+      );
+    }
+
     ctx.waitUntil(
-      revisarTasa(env, { ahora }).then(
-        (r) => console.log('revisión', JSON.stringify(r)),
-        (e) => console.error('falló la revisión:', e.message),
-      ),
-    );
-    ctx.waitUntil(
-      revisarResumenVentas(env, { ahora }).then(
-        (r) => console.log('resumen de ventas', JSON.stringify(r)),
-        (e) => console.error('falló el resumen de ventas:', e.message),
-      ),
-    );
-    ctx.waitUntil(
-      revisarStockBajo(env).then(
-        (r) => console.log('stock bajo', JSON.stringify(r)),
-        (e) => console.error('falló el stock bajo:', e.message),
+      revisarCortesLuz(env, { ahora }).then(
+        (r) => console.log('cortes de luz', JSON.stringify(r)),
+        (e) => console.error('falló el aviso de luz:', e.message),
       ),
     );
   },
@@ -450,29 +562,17 @@ export default {
 
     if (url.pathname === '/revisar') return manejarRevisar(peticion, env, url);
 
-    if (url.pathname === '/descargar') {
-      return new Response(paginaDescargar(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
-    }
+    if (url.pathname === '/descargar') return paginaHtml(paginaDescargar());
 
     // Política de privacidad y términos de uso: públicos, sin autenticación
     // — Play Store exige que la política sea accesible por cualquiera antes
     // de dejar publicar la app.
     if (url.pathname === '/legal/privacidad') {
-      return new Response(paginaPrivacidad(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+      return paginaHtml(paginaPrivacidad());
     }
-    if (url.pathname === '/legal/terminos') {
-      return new Response(paginaTerminos(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
-    }
+    if (url.pathname === '/legal/terminos') return paginaHtml(paginaTerminos());
     if (url.pathname === '/legal/eliminar-cuenta') {
-      return new Response(paginaEliminarCuenta(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+      return paginaHtml(paginaEliminarCuenta());
     }
 
     // Lecturas con Gemini. Comparten autenticación, límite diario y
@@ -485,6 +585,26 @@ export default {
     };
     if (lectores[url.pathname] && peticion.method === 'POST') {
       return manejarLecturaIA(peticion, env, lectores[url.pathname]);
+    }
+
+    // Cronograma de cortes de luz. Público y sin sesión: es información que
+    // Corpoelec publica en la calle, no lleva ni un dato del negocio, y la
+    // app tiene que poder leerlo aunque no haya sesión abierta todavía.
+    if (url.pathname === '/cronograma-luz') {
+      const estado = url.searchParams.get('estado') ?? 'barinas';
+      const cronograma = cronogramaResuelto(estado);
+      if (!cronograma) {
+        return Response.json(
+          { error: 'sin cronograma', estados: estadosConCronograma() },
+          { status: 404 },
+        );
+      }
+      return Response.json(cronograma, {
+        headers: {
+          'Cache-Control': 'public, max-age=86400',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
     }
 
     if (url.pathname === '/subir-foto' && peticion.method === 'POST') {
@@ -536,6 +656,13 @@ async function manejarRevisar(peticion, env, url) {
 
     // `probarStock=1` avisa de todos los productos bajos actuales sin importar
     // el dedup — para probar la entrega sin tener que agotar algo a propósito.
+    // `probarLuz=1` manda el corte de hoy a los cuatro topics de bloque sin
+    // esperar a la hora, para probar la entrega de verdad.
+    if (url.searchParams.get('probarLuz') === '1') {
+      const resultado = await revisarCortesLuz(env, { forzar: true });
+      return Response.json(resultado);
+    }
+
     if (url.searchParams.get('probarStock') === '1') {
       const resultado = await revisarStockBajo(env, { forzar: true });
       return Response.json(resultado);
@@ -622,7 +749,20 @@ async function manejarLecturaIA(peticion, env, lector) {
     await registrarUso(env, clave, usados);
     return Response.json(resultado);
   } catch (e) {
-    return new Response(`Error: ${e.message}\n`, { status: 500 });
+    // El modelo saturado no es un fallo de la app ni de la foto: se
+    // distingue con un 503 para que la app pueda decir «está ocupado,
+    // intenta en un minuto» en vez de «revisa tu internet», que es lo que
+    // se vio en dispositivo con una factura densa.
+    if (esModeloOcupado(e)) {
+      console.warn('Gemini saturado:', e.message);
+      return new Response('El lector está ocupado ahora mismo\n', {
+        status: 503,
+      });
+    }
+    // El detalle va al log y no al cliente: `e.message` puede traer la
+    // respuesta cruda de Gemini.
+    console.error('lectura con IA falló:', e.message);
+    return new Response('No se pudo leer la foto\n', { status: 500 });
   }
 }
 
