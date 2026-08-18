@@ -41,6 +41,18 @@ class _EntradaAnimadaState extends State<EntradaAnimada>
     vsync: this,
     duration: widget.duracion,
   );
+
+  /// La curva se crea UNA vez, no en cada `build`.
+  ///
+  /// Un `CurvedAnimation` se suscribe a su controller al nacer, así que uno
+  /// nuevo por fotograma deja detrás una cadena de oyentes que nadie
+  /// desengancha — es una fuga, y el rastreo de fugas de Flutter la señala en
+  /// debug. Por eso también se desecha en [dispose].
+  late final CurvedAnimation _curva = CurvedAnimation(
+    parent: _c,
+    curve: widget.curva,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -63,25 +75,34 @@ class _EntradaAnimadaState extends State<EntradaAnimada>
 
   @override
   void dispose() {
+    _curva.dispose();
     _c.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final curva = CurvedAnimation(parent: _c, curve: widget.curva);
-    return AnimatedBuilder(
-      animation: curva,
-      builder: (context, child) {
-        return Opacity(
-          opacity: curva.value,
-          child: Transform.translate(
-            offset: Offset(0, (1 - curva.value) * widget.desplazamiento),
-            child: child,
-          ),
-        );
-      },
-      child: widget.child,
+    // El fundido va por `FadeTransition` y no por `Opacity`: escucha la
+    // animación desde el render object y solo REPINTA, sin reconstruir el
+    // widget en cada fotograma.
+    //
+    // El empuje sigue con `Transform.translate` dentro de un `AnimatedBuilder`
+    // porque [desplazamiento] son píxeles fijos. `SlideTransition` mueve una
+    // fracción del tamaño del hijo, y con eso una tarjeta alta saltaría
+    // muchísimo más que una baja — que es justo lo que no se quiere en una
+    // cascada de elementos de alturas distintas. El `child` va fuera del
+    // `builder`, así que lo que se reconstruye por fotograma es el `Transform`
+    // y nada de lo que hay debajo.
+    return FadeTransition(
+      opacity: _curva,
+      child: AnimatedBuilder(
+        animation: _curva,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, (1 - _curva.value) * widget.desplazamiento),
+          child: child,
+        ),
+        child: widget.child,
+      ),
     );
   }
 }
