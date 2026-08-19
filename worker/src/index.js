@@ -37,7 +37,7 @@ import {
 import { construirAvisoStock } from './stock.js';
 import {
   DIAS_HISTORIAL,
-  construirAvisos,
+  construirAviso,
   esDiaHabilVE,
   tasaEsDeHoy,
 } from './tasa.js';
@@ -72,8 +72,17 @@ const API_TASA = 'https://ve.dolarapi.com/v1/dolares/oficial';
  */
 const API_PARALELO = 'https://ve.dolarapi.com/v1/dolares/paralelo';
 
-/** Hora local de Venezuela (UTC−4) a la que sale el resumen de la mañana. */
-const HORA_RESUMEN = 8;
+/**
+ * Horas a las que sale el aviso de tasa: apertura, mediodía y tarde.
+ *
+ * El dólar se avisa en franjas fijas y nada más (ver tasa.js): un aviso por
+ * cada una de estas tres horas, y el resumen de ventas a las 9 pm cierra el
+ * día. En cualquier otra hora el cron solo actualiza el historial en silencio.
+ */
+const HORAS_TASA = [8, 12, 15];
+
+/** Nombre del momento del día para cada hora de aviso. */
+const MOMENTO_POR_HORA = { 8: 'manana', 12: 'mediodia', 15: 'tarde' };
 
 /** Hora local de Venezuela a la que sale el resumen de ventas del día. */
 const HORA_RESUMEN_VENTAS = 21;
@@ -420,38 +429,54 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
   }
   while (historial.length > DIAS_HISTORIAL) historial.shift();
 
-  // El resumen sale una vez al día, a la hora fijada.
-  const esResumen =
-    horaEnVenezuela(ahora) === HORA_RESUMEN && estado.ultimoResumen !== hoy;
+  // Solo se avisa en las tres franjas del día; el resto de pasadas del cron
+  // solo mantiene el historial al día. Un mismo checkpoint no sale dos veces:
+  // Cloudflare puede reintentar una pasada del cron, y el segundo envío sería
+  // un duplicado exacto.
+  const hora = horaEnVenezuela(ahora);
+  const momento = MOMENTO_POR_HORA[hora] ?? null;
+  const ultimoCheckpoint = estado.ultimoCheckpoint ?? null;
+  const yaSalioEsteCheckpoint =
+    momento != null &&
+    ultimoCheckpoint?.fecha === hoy &&
+    ultimoCheckpoint?.hora === hora;
 
-  // La paralela solo hace falta para el resumen, asi que no se consulta en las
+  // La paralela solo hace falta en la mañana, asi que no se consulta en las
   // otras 23 pasadas del cron.
-  const paralelo = esResumen ? await consultarParalelo() : null;
+  const paralelo =
+    momento === 'manana' && !yaSalioEsteCheckpoint
+      ? await consultarParalelo()
+      : null;
 
-  const avisos = construirAvisos({
-    anterior: estado.ultima,
-    actual: tasa,
-    historial,
-    esResumen,
-    paralelo,
-  });
+  const aviso =
+    momento && !yaSalioEsteCheckpoint
+      ? construirAviso({
+          // `anteriorCheckpoint` es la tasa del aviso anterior del mismo día;
+          // la de ayer no sirve para decir "desde la mañana".
+          anteriorCheckpoint:
+            ultimoCheckpoint?.fecha === hoy ? ultimoCheckpoint.tasa : null,
+          anterior: estado.ultima,
+          actual: tasa,
+          historial,
+          momento,
+          paralelo,
+        })
+      : null;
 
   const enviados = [];
-  if (avisos.length) {
+  if (aviso) {
     const token = await obtenerToken(cuenta, env.TASAS);
-    for (const aviso of avisos) {
-      for (const topic of aviso.topics) {
-        await enviarATopic({
-          cuenta,
-          token,
-          topic,
-          titulo: aviso.titulo,
-          cuerpo: aviso.cuerpo,
-          datos: aviso.datos,
-          validar,
-        });
-        enviados.push(topic);
-      }
+    for (const topic of aviso.topics) {
+      await enviarATopic({
+        cuenta,
+        token,
+        topic,
+        titulo: aviso.titulo,
+        cuerpo: aviso.cuerpo,
+        datos: aviso.datos,
+        validar,
+      });
+      enviados.push(topic);
     }
   }
 
@@ -464,7 +489,11 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
       JSON.stringify({
         ultima: tasa,
         historial,
-        ultimoResumen: esResumen ? hoy : estado.ultimoResumen,
+        // Solo se marca el checkpoint cuando salió; si el envío falló, el
+        // siguiente momento del día podrá salir con su propio texto.
+        ultimoCheckpoint: aviso
+          ? { fecha: hoy, hora, tasa }
+          : estado.ultimoCheckpoint,
         revisadoEn: ahora.toISOString(),
       }),
     );
@@ -474,7 +503,8 @@ export async function revisarTasa(env, { validar = false, ahora = new Date() } =
     tasa,
     anterior: estado.ultima,
     fuente,
-    avisos: avisos.map((a) => a.titulo),
+    avisos: aviso ? [aviso.titulo] : [],
+    momento,
     topics: enviados,
     validar,
   };

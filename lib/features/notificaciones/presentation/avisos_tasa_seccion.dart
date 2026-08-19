@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../services/bcv/bcv_rate_service.dart';
 import '../../../services/notificaciones/push_service.dart';
 import '../../../shared/presentation/libreta/libreta.dart';
-import '../domain/preferencias_tasa.dart';
 
 /// Sección de Ajustes con los avisos de la tasa BCV.
 ///
@@ -28,18 +26,6 @@ class AvisosTasaSeccion extends ConsumerWidget {
         );
       }
     }
-
-    final filas = <_FilaAviso>[
-      for (final tipo in TipoAvisoTasa.values)
-        _FilaAviso(
-          tipo: tipo,
-          activo: prefs.estaActivo(tipo),
-          habilitado: prefs.permisoConcedido,
-          onChanged: (v) => conAviso(() => notifier.alternar(tipo, v)),
-        ),
-    ];
-    final mostrarUmbral = prefs.permisoConcedido &&
-        TipoAvisoTasa.values.where((t) => t.usaUmbral).any(prefs.estaActivo);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,7 +51,6 @@ class AvisosTasaSeccion extends ConsumerWidget {
             children: [
               if (!prefs.permisoConcedido)
                 _PedirPermiso(
-                  ultima: filas.isEmpty && !mostrarUmbral,
                   onPedir: () => conAviso(() async {
                     final ok = await notifier.pedirPermiso();
                     if (!context.mounted || ok) return;
@@ -79,22 +64,14 @@ class AvisosTasaSeccion extends ConsumerWidget {
                     );
                   }),
                 ),
-
-              for (var i = 0; i < filas.length; i++)
-                _EnvolverFila(
-                  ultima: i == filas.length - 1 && !mostrarUmbral,
-                  child: filas[i],
+              _EnvolverFila(
+                ultima: true,
+                child: _FilaAviso(
+                  activo: prefs.activos,
+                  habilitado: prefs.permisoConcedido,
+                  onChanged: (v) => conAviso(() => notifier.alternar(v)),
                 ),
-
-              if (mostrarUmbral)
-                _EnvolverFila(
-                  ultima: true,
-                  child: _SelectorUmbral(
-                    umbral: prefs.umbral,
-                    onCambiar: (u) => conAviso(() => notifier.cambiarUmbral(u)),
-                    tasaActual: ref.watch(bcvRateProvider).valueOrNull?.tasa,
-                  ),
-                ),
+              ),
             ],
           ),
         ),
@@ -123,17 +100,16 @@ class _EnvolverFila extends StatelessWidget {
   }
 }
 
-/// Aviso previo: sin el permiso del sistema, los interruptores no sirven.
+/// Aviso previo: sin el permiso del sistema, el interruptor no sirve.
 class _PedirPermiso extends StatelessWidget {
-  const _PedirPermiso({required this.onPedir, required this.ultima});
+  const _PedirPermiso({required this.onPedir});
 
   final Future<void> Function() onPedir;
-  final bool ultima;
 
   @override
   Widget build(BuildContext context) {
     return _EnvolverFila(
-      ultima: ultima,
+      ultima: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -147,7 +123,7 @@ class _PedirPermiso extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            'Necesitamos tu permiso para avisarte cuando el dólar se mueva.',
+            'Necesitamos tu permiso para avisarte la tasa del día.',
             style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
           ),
           const SizedBox(height: 10),
@@ -160,13 +136,11 @@ class _PedirPermiso extends StatelessWidget {
 
 class _FilaAviso extends StatelessWidget {
   const _FilaAviso({
-    required this.tipo,
     required this.activo,
     required this.habilitado,
     required this.onChanged,
   });
 
-  final TipoAvisoTasa tipo;
   final bool activo;
   final bool habilitado;
   final ValueChanged<bool> onChanged;
@@ -177,14 +151,14 @@ class _FilaAviso extends StatelessWidget {
       opacity: habilitado ? 1 : 0.45,
       child: Row(
         children: [
-          Text(tipo.emoji, style: const TextStyle(fontSize: 20)),
+          const Text('☀️', style: TextStyle(fontSize: 20)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tipo.titulo,
+                  'Tasa del día',
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
@@ -193,8 +167,12 @@ class _FilaAviso extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  tipo.detalle,
-                  style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
+                  'La tasa del dólar a las 8 am, 12 pm y 3 pm. '
+                  'A las 9 pm llega el resumen de tus ventas.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: context.libreta.textoMuted,
+                  ),
                 ),
               ],
             ),
@@ -206,64 +184,6 @@ class _FilaAviso extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SelectorUmbral extends StatelessWidget {
-  const _SelectorUmbral({
-    required this.umbral,
-    required this.onCambiar,
-    this.tasaActual,
-  });
-
-  final UmbralTasa umbral;
-  final ValueChanged<UmbralTasa> onCambiar;
-
-  /// Para traducir el porcentaje a bolívares. `null` mientras carga la tasa.
-  final double? tasaActual;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '¿Desde cuánto te avisamos?',
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-            color: context.libreta.textoFuerte,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          umbral.descripcionCorta,
-          style: TextStyle(fontSize: 11.5, color: context.libreta.textoMuted),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final u in UmbralTasa.values)
-              LibretaChip(
-                label: u.etiqueta,
-                selected: u == umbral,
-                onTap: () => onCambiar(u),
-              ),
-          ],
-        ),
-        if (tasaActual != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Con la tasa de hoy son unos '
-            'Bs ${(tasaActual! * umbral.porcentaje / 100).toStringAsFixed(2)} '
-            'por dólar.',
-            style: const TextStyle(fontSize: 11, color: LibretaColors.verde),
-          ),
-        ],
-      ],
     );
   }
 }

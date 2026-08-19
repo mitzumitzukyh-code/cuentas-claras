@@ -23,7 +23,7 @@ import 'ids_notificacion.dart';
 const AndroidNotificationChannel canalTasa = AndroidNotificationChannel(
   'tasa_bcv',
   'Tasa del dólar',
-  description: 'Avisos cuando el dólar BCV sube, baja o se acelera.',
+  description: 'La tasa del día a las 8 am, 12 pm y 3 pm.',
   importance: Importance.high,
 );
 
@@ -132,11 +132,41 @@ class PushService {
     return ruta;
   }
 
-  static const _claveUmbral = 'aviso_tasa_umbral';
+  static const _claveActivos = 'aviso_tasa_activos';
   static const _clavePermiso = 'aviso_tasa_permiso';
   static const _claveTopics = 'aviso_tasa_topics_suscritos';
   static const _clavePreguntoAuto = 'aviso_tasa_pregunto_auto';
   static const _claveAvisoDescartado = 'aviso_notif_descartado';
+
+  /// Clave del interruptor "Resumen de la mañana" de la versión anterior.
+  ///
+  /// La nueva preferencia es un solo interruptor para los avisos de tasa. Quien
+  /// ya tenía apagado el resumen de la mañana apagó el único aviso que existía;
+  /// respetarlo es lo mismo que respetar su decisión, y encenderle los tres de
+  /// golpe sin preguntar seria exactamente el tipo de sorpresa que desinstala
+  /// una app de notificaciones.
+  static const _claveLegadoResumen = 'aviso_tasa_resumen';
+
+  /// Topics que la versión anterior pudo dejar suscritos y que ya no existen.
+  ///
+  /// El Worker ya no publica en umbrales (subida/bajada por porcentaje) ni en
+  /// el ritmo: solo quedó el topic de tasa. Estos nombres se mantienen solo
+  /// para dar de baja lo que hayan quedado huérfanos en dispositivos viejos
+  /// — una baja que falló en silencio dejaría al teléfono escuchando un topic
+  /// muerto, que es inofensivo pero no hay razón para conservarlo.
+  static const _topicsLegadosDeTasa = {
+    'tasa-subida-minimo',
+    'tasa-subida-medio',
+    'tasa-subida-uno',
+    'tasa-subida-tres',
+    'tasa-subida-cinco',
+    'tasa-bajada-minimo',
+    'tasa-bajada-medio',
+    'tasa-bajada-uno',
+    'tasa-bajada-tres',
+    'tasa-bajada-cinco',
+    'tasa-ritmo',
+  };
 
   /// Cada cuánto vuelve a asomar el aviso de "activa las notificaciones" tras
   /// descartarlo: ni molesto (no sale en cada apertura) ni resignado (no se
@@ -221,7 +251,7 @@ class PushService {
     // dispositivo escuchando un umbral viejo además del actual, repitiendo el
     // mismo aviso varias veces. Sin bloquear el arranque de la app.
     if (permisoConcedido) {
-      unawaited(_repararUmbralesViejos(leerPreferencias()));
+      unawaited(_repararTopicsViejos());
     }
 
     // Solo en depuración: sin el token no hay forma de comprobar desde fuera a
@@ -393,25 +423,20 @@ class PushService {
   // --- Preferencias ---
 
   PreferenciasTasa leerPreferencias() {
-    final activos = <TipoAvisoTasa>{};
-    for (final tipo in TipoAvisoTasa.values) {
-      // Por defecto todo encendido: quien abre la app ya dijo que quiere los
-      // avisos al conceder el permiso.
-      if (_prefs.getBool(tipo.clavePref) ?? true) activos.add(tipo);
-    }
     return PreferenciasTasa(
-      activos: activos,
-      umbral: UmbralTasa.desdeId(_prefs.getString(_claveUmbral)),
+      // Por defecto encendido. Si la instalación viene de la versión anterior,
+      // respeta lo que el dueño decidió sobre el resumen de la mañana — el
+      // único aviso de tasa que existía entonces.
+      activos:
+          _prefs.getBool(_claveActivos) ??
+          (_prefs.getBool(_claveLegadoResumen) ?? true),
       permisoConcedido: permisoConcedido,
     );
   }
 
   /// Guarda las preferencias y reconcilia las suscripciones de FCM.
   Future<void> guardarPreferencias(PreferenciasTasa nuevas) async {
-    for (final tipo in TipoAvisoTasa.values) {
-      await _prefs.setBool(tipo.clavePref, nuevas.estaActivo(tipo));
-    }
-    await _prefs.setString(_claveUmbral, nuevas.umbral.id);
+    await _prefs.setBool(_claveActivos, nuevas.activos);
     await sincronizarTopics(nuevas);
   }
 
@@ -421,20 +446,6 @@ class PushService {
   /// y es la única referencia fiable para saber de qué hay que darse de baja.
   Set<String> get _topicsSuscritos =>
       (_prefs.getStringList(_claveTopics) ?? const []).toSet();
-
-  /// Todos los topics de umbral posibles para subida y bajada, sin importar
-  /// cuál esté elegido hoy.
-  ///
-  /// Se usa para dar de baja a la fuerza cualquier umbral viejo al
-  /// sincronizar, en vez de confiar solo en [_topicsSuscritos]: si una baja
-  /// falló en silencio en el pasado (Play Services dañado), el registro local
-  /// puede seguir creyendo que ya no está suscrito a un topic que el
-  /// dispositivo, de hecho, nunca dejó de escuchar — y entonces un mismo
-  /// cambio de tasa llega repetido, uno por cada umbral que el Worker cruza.
-  Set<String> get _todosLosTopicsDeUmbral => {
-    for (final u in UmbralTasa.values) TipoAvisoTasa.subida.topic(u),
-    for (final u in UmbralTasa.values) TipoAvisoTasa.bajada.topic(u),
-  };
 
   /// Cuánto se espera a `subscribeToTopic`/`unsubscribeFromTopic` antes de
   /// darlas por colgadas.
@@ -462,7 +473,9 @@ class PushService {
   Future<void> sincronizarTopics(PreferenciasTasa prefs) async {
     // Sin permiso no se recibe nada: se sale de todo para no gastar envíos en
     // un dispositivo que no los va a mostrar.
-    final deseados = prefs.permisoConcedido ? prefs.topicsDeseados : <String>{};
+    final deseados = prefs.permisoConcedido && prefs.activos
+        ? {topicAvisoTasa}
+        : <String>{};
     final suscritos = Set<String>.from(_topicsSuscritos);
     final fallidos = <String>[];
 
@@ -492,19 +505,19 @@ class PushService {
     }
   }
 
-  /// Limpieza preventiva en segundo plano: da de baja cualquier umbral de
-  /// subida/bajada que hoy no toque, sin importar si [_topicsSuscritos] sabe
-  /// de él o no.
+  /// Limpieza preventiva en segundo plano: da de baja los topics de la
+  /// versión anterior (umbrales y ritmo) sin importar si [_topicsSuscritos]
+  /// sabe de ellos o no.
   ///
   /// Separado de [sincronizarTopics] a propósito: en un dispositivo con Play
   /// Services dañado (visto en el ZTE de pruebas), cada baja de más puede
-  /// tardar hasta [_timeoutTopic] en agotarse, y aquí se intentan hasta ocho
+  /// tardar hasta [_timeoutTopic] en agotarse, y aquí se intentan hasta once
   /// de una vez — mezclarlo con el guardado interactivo de Ajustes dejaría el
   /// botón "Guardando…" colgado casi un minuto. Se llama sola al arrancar y
   /// nadie espera su resultado.
-  Future<void> _repararUmbralesViejos(PreferenciasTasa prefs) async {
-    if (!prefs.permisoConcedido) return;
-    for (final topic in _todosLosTopicsDeUmbral.difference(prefs.topicsDeseados)) {
+  Future<void> _repararTopicsViejos() async {
+    if (!permisoConcedido) return;
+    for (final topic in _topicsLegadosDeTasa) {
       try {
         await _messaging.unsubscribeFromTopic(topic).timeout(_timeoutTopic);
       } catch (_) {
@@ -555,14 +568,9 @@ class PreferenciasTasaNotifier extends StateNotifier<PreferenciasTasa> {
 
   final PushService _servicio;
 
-  Future<void> alternar(TipoAvisoTasa tipo, bool activo) async {
-    final activos = Set<TipoAvisoTasa>.from(state.activos);
-    activo ? activos.add(tipo) : activos.remove(tipo);
-    await _aplicar(state.copyWith(activos: activos));
+  Future<void> alternar(bool activo) async {
+    await _aplicar(state.copyWith(activos: activo));
   }
-
-  Future<void> cambiarUmbral(UmbralTasa umbral) =>
-      _aplicar(state.copyWith(umbral: umbral));
 
   /// Pide el permiso del sistema y, si lo dan, suscribe a los topics elegidos.
   Future<bool> pedirPermiso() async {

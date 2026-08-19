@@ -3,7 +3,12 @@
  *
  * Lo que se está protegiendo es la confianza del usuario: un aviso de más
  * entrena a ignorar la app, y uno de menos le hace perder plata. Por eso el
- * grueso de los casos son de "aquí NO se avisa".
+ * grueso de los casos son de "aquí NO se avisa" y de "el texto dice lo que
+ * pasó de verdad".
+ *
+ * El dólar se avisa en tres franjas fijas (8 am, 12 pm, 3 pm), un aviso por
+ * franja, salga la tasa igual o movida: el dueño espera el aviso a esa hora,
+ * y que no llegue le parece que la app se rompió.
  *
  * Ejecutar:  npm test
  */
@@ -12,7 +17,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  construirAvisos,
+  MOMENTOS,
+  TOPIC_TASA,
+  construirAviso,
   esDiaHabilVE,
   rachaDeSubidas,
   tasaEsDeHoy,
@@ -63,141 +70,203 @@ describe('variacionEnDias', () => {
   });
 });
 
-describe('construirAvisos', () => {
-  const base = { historial: historialDe([700, 700]), esResumen: false };
+describe('construirAviso', () => {
+  const base = { actual: 700, anterior: 700, historial: historialDe([700, 700]) };
 
-  it('no avisa nada si la tasa no se movió', () => {
-    const avisos = construirAvisos({ ...base, anterior: 700, actual: 700 });
-    assert.equal(avisos.length, 0);
+  it('con un momento desconocido no manda nada', () => {
+    assert.equal(
+      construirAviso({ ...base, momento: 'medianoche' }),
+      null,
+    );
   });
 
-  it('no avisa por un cambio por debajo del umbral más bajo', () => {
-    // 0,05 % está por debajo del 0,1 % mínimo.
-    const avisos = construirAvisos({ ...base, anterior: 700, actual: 700.35 });
-    assert.equal(avisos.length, 0);
+  it('siempre sale por el topic de tasa', () => {
+    for (const momento of MOMENTOS) {
+      const aviso = construirAviso({ ...base, momento });
+      assert.deepEqual(aviso.topics, [TOPIC_TASA], `momento=${momento}`);
+      assert.equal(aviso.datos.tipo, 'resumen', `momento=${momento}`);
+      assert.equal(aviso.datos.momento, momento, `momento=${momento}`);
+    }
   });
 
-  it('no avisa en la primera ejecución, sin tasa previa', () => {
-    // Sin `anterior` no hay variación que contar: avisar aquí seria ruido.
-    const avisos = construirAvisos({ ...base, anterior: null, actual: 700 });
-    assert.equal(avisos.length, 0);
+  it('la mañana dice la tasa en el título', () => {
+    const aviso = construirAviso({ ...base, actual: 732.48, momento: 'manana' });
+    assert.match(aviso.titulo, /Hoy el dólar está en Bs 732,48/);
   });
 
-  it('avisa de subida y acierta el texto', () => {
-    const [aviso] = construirAvisos({
+  it('la mañana no avisa del cambio cuando la tasa sigue igual', () => {
+    const aviso = construirAviso({ ...base, momento: 'manana' });
+    assert.match(aviso.cuerpo, /sin cambios desde ayer/);
+  });
+
+  it('la mañana cuenta el movimiento y su porcentaje', () => {
+    const aviso = construirAviso({
       ...base,
-      anterior: 732.48,
-      actual: 745.2,
-    });
-    assert.equal(aviso.titulo, '📈 El dólar subió');
-    assert.match(aviso.cuerpo, /Bs 745,20/);
-    assert.match(aviso.cuerpo, /\+12,72/);
-    assert.match(aviso.cuerpo, /\+1,74%/);
-    assert.equal(aviso.datos.tipo, 'subida');
-  });
-
-  it('avisa de bajada con el signo correcto', () => {
-    const [aviso] = construirAvisos({ ...base, anterior: 700, actual: 686 });
-    assert.equal(aviso.titulo, '📉 El dólar bajó');
-    assert.match(aviso.cuerpo, /−14,00/);
-    assert.match(aviso.cuerpo, /-2,00%/);
-  });
-
-  it('publica en todos los umbrales que la variación supera', () => {
-    // +3,4 % alcanza minimo, medio, uno y tres, pero no cinco.
-    const [aviso] = construirAvisos({ ...base, anterior: 700, actual: 723.8 });
-    assert.deepEqual(aviso.topics, [
-      'tasa-subida-minimo',
-      'tasa-subida-medio',
-      'tasa-subida-uno',
-      'tasa-subida-tres',
-    ]);
-  });
-
-  it('un cambio pequeño solo alcanza el umbral más bajo', () => {
-    // 0,3 % supera "minimo" (0,1 %) pero no "medio" (0,5 %).
-    const [aviso] = construirAvisos({ ...base, anterior: 700, actual: 702.1 });
-    assert.deepEqual(aviso.topics, ['tasa-subida-minimo']);
-  });
-
-  it('avisa del ritmo tras varios días seguidos subiendo', () => {
-    const avisos = construirAvisos({
-      anterior: 730,
-      actual: 740,
-      historial: historialDe([700, 710, 720, 730, 740]),
-      esResumen: false,
-    });
-    const ritmo = avisos.find((a) => a.datos.tipo === 'ritmo');
-    assert.ok(ritmo, 'esperaba un aviso de ritmo');
-    assert.match(ritmo.cuerpo, /días seguidos subiendo/);
-    assert.deepEqual(ritmo.topics, ['tasa-ritmo']);
-  });
-
-  it('no avisa del ritmo por un salto aislado', () => {
-    // Un solo día fuerte ya lo cubre el aviso de subida; repetirlo como
-    // "ritmo" seria mandar dos notificaciones por el mismo hecho.
-    const avisos = construirAvisos({
-      anterior: 700,
-      actual: 730,
-      historial: historialDe([700, 700, 700, 730]),
-      esResumen: false,
-    });
-    assert.equal(avisos.filter((a) => a.datos.tipo === 'ritmo').length, 0);
-  });
-
-  it('el resumen sale aunque no haya cambio', () => {
-    const avisos = construirAvisos({
-      anterior: 732.48,
-      actual: 732.48,
-      historial: historialDe([732.48, 732.48]),
-      esResumen: true,
-    });
-    assert.equal(avisos.length, 1);
-    assert.match(avisos[0].titulo, /Hoy el dólar está en Bs 732,48/);
-    assert.match(avisos[0].cuerpo, /sin cambios desde ayer/);
-  });
-
-  it('el resumen cuenta el movimiento cuando lo hubo', () => {
-    const avisos = construirAvisos({
       anterior: 700,
       actual: 714,
-      historial: historialDe([700, 714]),
-      esResumen: true,
+      momento: 'manana',
     });
-    const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
-    assert.match(resumen.cuerpo, /subió 14,00/);
+    assert.match(aviso.cuerpo, /subió 14,00/);
+    assert.match(aviso.cuerpo, /\+2,00%/);
   });
 
-  it('el resumen dice "estable" cuando la semana estuvo quieta', () => {
-    const avisos = construirAvisos({
-      anterior: 732.48,
-      actual: 732.48,
+  it('la mañana dice "estable" cuando la semana estuvo quieta', () => {
+    const aviso = construirAviso({
+      ...base,
       historial: historialDe([732.48, 732.48, 732.48]),
-      esResumen: true,
+      momento: 'manana',
     });
-    assert.match(avisos[0].cuerpo, /estable esta semana/);
+    assert.match(aviso.cuerpo, /estable esta semana/);
   });
 
-  it('el resumen anticipa la subida cuando viene acelerando', () => {
-    const avisos = construirAvisos({
+  it('la mañana anticipa la subida cuando viene acelerando', () => {
+    const aviso = construirAviso({
       anterior: 730,
       actual: 740,
       historial: historialDe([700, 710, 720, 730, 740]),
-      esResumen: true,
+      momento: 'manana',
     });
-    const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
-    assert.match(resumen.cuerpo, /apunta a seguir subiendo/);
+    assert.match(aviso.cuerpo, /apunta a seguir subiendo/);
   });
 
-  it('el resumen menciona la bajada semanal', () => {
-    const avisos = construirAvisos({
+  it('la mañana menciona la bajada semanal', () => {
+    const aviso = construirAviso({
       anterior: 700,
       actual: 700,
       historial: historialDe([710, 705, 700]),
-      esResumen: true,
+      momento: 'manana',
     });
-    const resumen = avisos.find((a) => a.datos.tipo === 'resumen');
-    assert.match(resumen.cuerpo, /Viene bajando/);
+    assert.match(aviso.cuerpo, /Viene bajando/);
+  });
+
+  it('el mediodía y la tarde no traen tendencia ni referencia', () => {
+    for (const momento of ['mediodia', 'tarde']) {
+      const aviso = construirAviso({ ...base, momento, paralelo: 1234.5 });
+      assert.doesNotMatch(aviso.cuerpo, /acelerando|estable|referencia|P2P/);
+    }
+  });
+
+  it('el mediodía cuenta el cambio desde la mañana', () => {
+    const aviso = construirAviso({
+      actual: 704.2,
+      anteriorCheckpoint: 700,
+      anterior: 700,
+      historial: historialDe([700, 700]),
+      momento: 'mediodia',
+    });
+    assert.match(aviso.titulo, /🕛 El dólar al mediodía: Bs 704,20/);
+    assert.match(aviso.cuerpo, /subió 4,20 \(\+0,60%\) desde la mañana/);
+  });
+
+  it('el mediodía dice sin cambios desde la mañana', () => {
+    const aviso = construirAviso({
+      ...base,
+      anteriorCheckpoint: 700,
+      momento: 'mediodia',
+    });
+    assert.match(aviso.cuerpo, /Sin cambios desde la mañana/);
+  });
+
+  it('la tarde cuenta el cambio desde el mediodía', () => {
+    const aviso = construirAviso({
+      actual: 690,
+      anteriorCheckpoint: 700,
+      anterior: 700,
+      historial: historialDe([700, 700]),
+      momento: 'tarde',
+    });
+    assert.match(aviso.titulo, /🕒 El dólar en la tarde: Bs 690,00/);
+    assert.match(aviso.cuerpo, /bajó 10,00 \(-1,43%\) desde el mediodía/);
+  });
+
+  it('la tarde dice sin cambios desde el mediodía', () => {
+    const aviso = construirAviso({
+      ...base,
+      anteriorCheckpoint: 700,
+      momento: 'tarde',
+    });
+    assert.match(aviso.cuerpo, /Sin cambios desde el mediodía/);
+  });
+
+  it('sin checkpoint previo mide contra la última tasa conocida', () => {
+    // El de las 8 no salió (falló, o la app se instaló a media mañana): el
+    // mediodía sale igual, contra la tasa más reciente que se tenga.
+    const aviso = construirAviso({
+      actual: 704.2,
+      anteriorCheckpoint: null,
+      anterior: 700,
+      historial: historialDe([700, 700]),
+      momento: 'mediodia',
+    });
+    assert.match(aviso.cuerpo, /desde la mañana/);
+    assert.equal(aviso.datos.anterior, '700');
+  });
+
+  it('sin ninguna tasa previa sale el primer aviso del día', () => {
+    const aviso = construirAviso({
+      actual: 700,
+      anterior: null,
+      anteriorCheckpoint: null,
+      historial: historialDe([700]),
+      momento: 'tarde',
+    });
+    assert.match(aviso.cuerpo, /Primer aviso del día/);
+  });
+});
+
+describe('construirAviso · tasa paralela en la mañana', () => {
+  const base = {
+    anterior: 700,
+    actual: 700,
+    historial: historialDe([700, 700]),
+    momento: 'manana',
+  };
+
+  it('el título lleva las dos tasas cuando hay paralela', () => {
+    const aviso = construirAviso({ ...base, paralelo: 1234.5 });
+    assert.match(aviso.titulo, /BCV Bs 700,00/);
+    assert.match(aviso.titulo, /Paralelo Bs 1.234,50/);
+    assert.equal(aviso.datos.paralelo, '1234.5');
+  });
+
+  it('sin paralela la mañana sale igual, solo que sin ella', () => {
+    // La fuente de la paralela puede caerse: eso no puede tumbar el aviso de
+    // la tasa oficial, que es el que el usuario pidió.
+    const aviso = construirAviso({ ...base, paralelo: null });
+    assert.match(aviso.titulo, /Hoy el dólar está en Bs 700,00/);
+    assert.equal(aviso.datos.paralelo, '');
+  });
+
+  it('el cuerpo dice de dónde sale la paralela', () => {
+    // El push y la app usan fuentes distintas y las cifras no coinciden. Sin
+    // esta frase, el dueño abre la app tras el push, ve otro número y da por
+    // hecho que una de las dos está mal.
+    const aviso = construirAviso({ ...base, paralelo: 1234.5 });
+    assert.match(aviso.cuerpo, /referencia/);
+    assert.match(aviso.cuerpo, /mercado P2P/);
+  });
+
+  it('sin paralela el cuerpo no explica ninguna fuente', () => {
+    const aviso = construirAviso({ ...base, paralelo: null });
+    assert.doesNotMatch(aviso.cuerpo, /referencia/);
+    assert.doesNotMatch(aviso.cuerpo, /P2P/);
+  });
+
+  it('una paralela absurda se descarta como si no hubiera', () => {
+    for (const malo of [0, -5, NaN, Infinity]) {
+      const aviso = construirAviso({ ...base, paralelo: malo });
+      assert.equal(aviso.datos.paralelo, '', `paralelo=${malo}`);
+    }
+  });
+
+  it('la paralela no se cuela en el mediodía ni en la tarde', () => {
+    // La paralela solo se consulta en la mañana; si alguien la pasara igual,
+    // no debe colarse en el aviso de las otras franjas.
+    for (const momento of ['mediodia', 'tarde']) {
+      const aviso = construirAviso({ ...base, momento, paralelo: 1234.5 });
+      assert.equal(aviso.datos.paralelo, '', `momento=${momento}`);
+      assert.doesNotMatch(aviso.titulo, /Paralelo/);
+    }
   });
 });
 
@@ -241,67 +310,5 @@ describe('tasaEsDeHoy', () => {
     assert.equal(tasaEsDeHoy(null, martes), true);
     assert.equal(tasaEsDeHoy('', martes), true);
     assert.equal(tasaEsDeHoy('cualquier cosa', martes), true);
-  });
-});
-
-describe('construirAvisos · tasa paralela en el resumen', () => {
-  const base = {
-    anterior: 700,
-    actual: 700,
-    historial: historialDe([700, 700]),
-    esResumen: true,
-  };
-
-  it('el título lleva las dos tasas cuando hay paralela', () => {
-    const [resumen] = construirAvisos({ ...base, paralelo: 1234.5 });
-    assert.match(resumen.titulo, /BCV Bs 700,00/);
-    assert.match(resumen.titulo, /Paralelo Bs 1.234,50/);
-    assert.equal(resumen.datos.paralelo, '1234.5');
-  });
-
-  it('sin paralela el resumen sale igual, solo que sin ella', () => {
-    // La fuente de la paralela puede caerse: eso no puede tumbar el aviso de
-    // la tasa oficial, que es el que el usuario pidió.
-    const [resumen] = construirAvisos({ ...base, paralelo: null });
-    assert.match(resumen.titulo, /Hoy el dólar está en Bs 700,00/);
-    assert.equal(resumen.datos.paralelo, '');
-  });
-
-  it('el cuerpo dice de dónde sale la paralela', () => {
-    // El push y la app usan fuentes distintas y las cifras no coinciden. Sin
-    // esta frase, el dueño abre la app tras el push, ve otro número y da por
-    // hecho que una de las dos está mal.
-    const [resumen] = construirAvisos({ ...base, paralelo: 1234.5 });
-    assert.match(resumen.cuerpo, /referencia/);
-    assert.match(resumen.cuerpo, /mercado P2P/);
-  });
-
-  it('sin paralela el cuerpo no explica ninguna fuente', () => {
-    const [resumen] = construirAvisos({ ...base, paralelo: null });
-    assert.doesNotMatch(resumen.cuerpo, /referencia/);
-    assert.doesNotMatch(resumen.cuerpo, /P2P/);
-  });
-
-  it('una paralela absurda se descarta como si no hubiera', () => {
-    for (const malo of [0, -5, NaN, Infinity]) {
-      const [resumen] = construirAvisos({ ...base, paralelo: malo });
-      assert.equal(resumen.datos.paralelo, '', `paralelo=${malo}`);
-    }
-  });
-
-  it('la paralela no se cuela en los avisos de subida', () => {
-    // Los umbrales y sus topics son del BCV; mezclar la paralela ahí haria que
-    // un salto del mercado P2P disparara el aviso del dólar oficial.
-    const avisos = construirAvisos({
-      anterior: 700,
-      actual: 750,
-      historial: historialDe([700, 750]),
-      esResumen: false,
-      paralelo: 1234.5,
-    });
-    assert.ok(avisos.length > 0);
-    for (const a of avisos) {
-      assert.equal(a.datos.paralelo, undefined);
-    }
   });
 });

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuenta Clara · Mapa del sitio web</title>
+<style>
+  :root {
+    --verde: #0F9D82;
+    --verde-osc: #0B7A66;
+    --azul: #1B3A4B;
+    --fondo: #F7F9F7;
+    --ambar: #F2A93B;
+    --gris: #8A9A96;
+    --blanco: #ffffff;
+    --borde: #E2EAE6;
+    --rojo: #C4574E;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+    background: var(--fondo);
+    color: var(--azul);
+    padding: 24px 16px 60px;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto 28px;
+  }
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.3px; }
+  h1 span { color: var(--verde); }
+  .sub { color: var(--gris); font-size: 14px; margin-top: 4px; }
+  .leyenda {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px;
+    font-size: 12px;
+  }
+  .leyenda .item {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--blanco); border: 1px solid var(--borde);
+    border-radius: 999px; padding: 4px 12px;
+  }
+  .punto { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .p.publico { background: var(--gris); }
+  .p.onboarding { background: var(--ambar); }
+  .p.nucleo { background: var(--verde); }
+  .p.perfil { background: var(--azul); }
+
+  .mapa {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 26px;
+  }
+  .nivel {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 16px;
+    padding: 18px 20px 22px;
+  }
+  .nivel-titulo {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--gris);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .nivel-titulo::after {
+    content: ""; flex: 1; height: 1px; background: var(--borde);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .seccion { display: flex; flex-direction: column; }
+  .nodo {
+    position: relative;
+    border: 1.5px solid var(--borde);
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: var(--fondo);
+    font-size: 13.5px; font-weight: 600;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    cursor: default;
+  }
+  .nodo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(27,58,75,.12);
+    border-color: var(--verde);
+  }
+  .nodo.principal { border-color: var(--verde); background: var(--verde); color: var(--blanco); }
+  .nodo.principal .badge { background: rgba(255,255,255,.22); color: var(--blanco); }
+  .nodo .nombre { display: block; }
+  .nodo .detalle {
+    display: block; font-weight: 400; font-size: 11.5px;
+    color: var(--gris); margin-top: 2px; line-height: 1.35;
+  }
+  .nodo.principal .detalle { color: rgba(255,255,255,.85); }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    border-radius: 6px; padding: 1px 6px; margin-left: 4px;
+    vertical-align: 1px; letter-spacing: 0.2px;
+  }
+  .b-dueno { background: var(--azul); color: var(--blanco); }
+  .b-premium { background: var(--ambar); color: var(--azul); }
+  .b-nuevo { background: var(--verde); color: var(--blanco); }
+  .b-note { background: #EEE6FB; color: #6A4FB3; }
+
+  .hijos {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 8px; padding-left: 14px;
+    border-left: 2px solid var(--borde);
+  }
+  .hijos .nodo { background: var(--blanco); font-size: 12.5px; }
+
+  .flecha {
+    text-align: center; color: var(--gris); font-size: 18px;
+    line-height: 1; margin: -6px 0;
+  }
+  .flecha::before { content: "▼"; }
+  @media (min-width: 900px) {
+    .nivel-doble { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  }
+  footer {
+    max-width: 1200px; margin: 26px auto 0;
+    font-size: 12px; color: var(--gris); line-height: 1.6;
+  }
+  footer strong { color: var(--azul); }
+  .nota {
+    background: #FFF8EC; border: 1px solid #F3DFBC; border-radius: 12px;
+    padding: 12px 16px; font-size: 12.5px; color: #6E5A2E; line-height: 1.55;
+    margin-top: 14px;
+  }
+  .nota b { color: #8A6D1F; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cuenta Clara <span>· Mapa del sitio web</span></h1>
+  <div class="sub">Versión web (PWA) basada en la app Flutter · 51 pantallas de la app → 47 páginas web · Navegación lateral en desktop, bottom bar en móvil</div>
+  <div class="leyenda">
+    <span class="item"><span class="punto p publico"></span> Público / acceso</span>
+    <span class="item"><span class="punto p onboarding"></span> Primeros pasos</span>
+    <span class="item"><span class="punto p nucleo"></span> Operación diaria</span>
+    <span class="item"><span class="punto p perfil"></span> Perfil y administración</span>
+    <span class="item"><span class="badge b-dueno">DUEÑO</span> Solo dueño</span>
+    <span class="item"><span class="badge b-premium">PREMIUM</span> Plan pago $5/mes</span>
+    <span class="item"><span class="badge b-nuevo">NUEVO WEB</span> No existe en la app</span>
+    <span class="item"><span class="badge b-note">ADAPTADO</span> Requiere adaptación a escritorio</span>
+  </div>
+</header>
+
+<main class="mapa">
+
+  <!-- NIVEL 0: PÚBLICO -->
+  <section class="nivel">
+    <div class="nivel-titulo">Nivel 0 · Público (sin sesión)</div>
+    <div class="grid">
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Landing / Inicio</span><span class="detalle">Presentación, precios, descarga de la app, FAQ</span></div>
+        <div class="hijos">
+          <div class="nodo"><span class="nombre">Características <span class="badge b-nuevo">NUEVO</span></span></div>
+          <div class="nodo"><span class="nombre">Precios (gratis vs Premium)</span></div>
+          <div class="nodo"><span class="nombre">Blog / Ayuda pública <span class="badge b-nuevo">NUEVO</span></span></div>
+        </div>
+      </div>
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Login</span><span class="detalle">Teléfono + SMS, o correo</span></div>
+        <div class="hijos">
+          <div class="nodo"><span class="nombre">Registro</span></div>
+          <div class="nodo"><span class="nombre">Recuperar contraseña</span></div>
+          <div class="nodo"><span class="nombre">Sesión expirada / Error de sesión</span></div>
+        </div>
+      </div>
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Onboarding · Rubro</span><span class="detalle">bodega · ropa · belleza · quincallería · comida rápida · otro</span></div>
+        <div class="hijos">
+          <div class="nodo"><span class="nombre">Tutorial de bienvenida</span></div>
+          <div class="nodo"><span class="nombre">Unirse con código de invitación</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="nota"><b>Adaptación web:</b> el login con SMS autofill se sustituye por OTP por SMS con formulario estándar; el onboarding de rubro se mantiene igual (define el perfil de negocio completo).</div>
+  </section>
+
+  <div class="flecha"></div>
+
+  <!-- NIVEL 1: APP -->
+  <section class="nivel">
+    <div class="nivel-titulo">Nivel 1 · Aplicación (con sesión)</div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+      <div class="seccion">
+        <div class="nodo principal"><span class="nombre">Dashboard / Inicio</span><span class="detalle">Tasa BCV · ventas del día · ganancia · stock bajo · atajos</span></div>
+      </div>
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Cobrar</span><span class="detalle">Carrito, venta o cotización, escáner de barras</span></div>
+      </div>
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Mis negocios</span><span class="detalle">Selector de sucursales <span class="badge b-premium">PREMIUM</span></span></div>
+      </div>
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Planes</span><span class="detalle">Suscripción $5/mes <span class="badge b-premium">PREMIUM</span></span></div>
+      </div>
+      <div class="seccion">
+        <div class="nodo"><span class="nombre">Notificaciones</span><span class="detalle">Eventos en tiempo real, recordatorios</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flecha"></div>
+
+  <!-- NIVEL 2: MÓDULOS -->
+  <section class="nivel nivel-doble">
+    <!-- Operación -->
+    <div>
+      <div class="nivel-titulo">Operación</div>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Productos</span><span class="detalle">Lista con stock, categorías por rubro, buscador</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Nuevo / Editar producto <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">foto, variantes, receta, serial, precio USD</span></div>
+            <div class="nodo"><span class="nombre">Contar inventario (arqueo) <span class="badge b-dueno">DUEÑO</span></span></div>
+            <div class="nodo"><span class="nombre">Insumos <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">solo comida rápida</span></div>
+            <div class="nodo"><span class="nombre">Importar (Excel / foto IA)</span></div>
+            <div class="nodo"><span class="nombre">Migrar de otra app</span></div>
+          </div>
+        </div>
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Ventas</span><span class="detalle">Historial con filtros por fecha/vendedor</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Detalle de venta</span><span class="detalle">Anular (restituye inventario) <span class="badge b-dueno">DUEÑO</span></span></div>
+            <div class="nodo"><span class="nombre">Ventas pendientes</span><span class="detalle">por cobrar, sin conexión</span></div>
+          </div>
+        </div>
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Cierre de caja <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">Arqueo: métodos de pago, efectivo, descuadre</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Resumen del día</span><span class="detalle">ventas, gastos, fiados, neto</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dinero -->
+    <div>
+      <div class="nivel-titulo">Dinero y cuentas</div>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Gastos <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">Por mes · mercancía, transporte, servicios, otro</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Registrar gasto <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">foto de recibo + IA</span></div>
+            <div class="nodo"><span class="nombre">Detalle / Editar / Eliminar</span></div>
+          </div>
+        </div>
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Fiados</span><span class="detalle">Clientes con saldo USD</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Detalle de cliente</span><span class="detalle">libro mayor de movimientos</span></div>
+            <div class="nodo"><span class="nombre">Anotar fiado / abono</span></div>
+            <div class="nodo"><span class="nombre">Importar cuaderno (foto IA)</span></div>
+          </div>
+        </div>
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Proveedores</span><span class="detalle">Cuentas por pagar</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Detalle de proveedor</span><span class="detalle">libro mayor de compras y pagos</span></div>
+            <div class="nodo"><span class="nombre">Anotar compra / pago</span></div>
+          </div>
+        </div>
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Reportes <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">Gráficos por día, semana, mes, año · top productos · ganancia</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Exportar Excel / PDF <span class="badge b-premium">PREMIUM</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flecha"></div>
+
+  <!-- NIVEL 3: CATÁLOGO + PERFIL -->
+  <section class="nivel nivel-doble">
+    <!-- Catálogo -->
+    <div>
+      <div class="nivel-titulo">Catálogo y marketing</div>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Catálogo</span><span class="detalle">Grid público con filtros por categoría y precio</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Compartir por WhatsApp</span><span class="detalle">marca de agua en gratis <span class="badge b-note">ADAPTADO</span></span></div>
+            <div class="nodo"><span class="nombre">Publicar en estado (9:16)</span><span class="detalle">plantillas de color · web = exportar imagen <span class="badge b-note">ADAPTADO</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Perfil -->
+    <div>
+      <div class="nivel-titulo">Perfil y administración</div>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="seccion">
+          <div class="nodo"><span class="nombre">Perfil</span><span class="detalle">Ajustes del negocio y del usuario</span></div>
+          <div class="hijos">
+            <div class="nodo"><span class="nombre">Mi perfil</span></div>
+            <div class="nodo"><span class="nombre">Ajustes del negocio</span><span class="detalle">rubro, moneda, redondeo Bs, notificaciones</span></div>
+            <div class="nodo"><span class="nombre">Empleados <span class="badge b-dueno">DUEÑO</span></span><span class="detalle">roles y permisos → detalle de empleado</span></div>
+            <div class="nodo"><span class="nombre">Auditoría <span class="badge b-dueno">DUEÑO</span></span></div>
+            <div class="nodo"><span class="nombre">Métodos de pago</span></div>
+            <div class="nodo"><span class="nombre">Impresora térmica <span class="badge b-note">ADAPTADO</span></span><span class="detalle">web = PDF / ticket virtual</span></div>
+            <div class="nodo"><span class="nombre">Centro de ayuda</span></div>
+            <div class="nodo"><span class="nombre">Legal (privacidad y términos)</span></div>
+            <div class="nodo"><span class="nombre">Eliminar cuenta</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flecha"></div>
+
+  <!-- CROSS-CUTTING -->
+  <section class="nivel">
+    <div class="nivel-titulo">Reglas transversales (heredadas de la app)</div>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+      <div class="nodo"><span class="nombre">Roles y permisos</span><span class="detalle">Empleado: vende y ve inventario · Dueño: todo (reportes, gastos, anular ventas, arqueos). Reglas de Firestore verifican membresía en cada lectura.</span></div>
+      <div class="nodo"><span class="nombre">Moneda dual</span><span class="detalle">Precios en USD; Bs se calculan con tasa BCV cacheada 1×/día. Redondeo configurable.</span></div>
+      <div class="nodo"><span class="nombre">Nada se borra</span><span class="detalle">Ventas se anulan, gastos se marcan eliminados, fiados/proveedores son libros mayores inmutables, cierres nunca se editan.</span></div>
+      <div class="nodo"><span class="nombre">Plan gratis vs Premium</span><span class="detalle">Gratis: 1 negocio, 50 productos, historial 30 días · Premium: ilimitado, exportación, multi-moneda, sin marca de agua.</span></div>
+      <div class="nodo"><span class="nombre">Sincronización en tiempo real</span><span class="detalle">Firestore stream + FCM push: ventas de empleados, stock bajo, recordatorios diarios.</span></div>
+      <div class="nodo"><span class="nombre">Tecnologías no aplicables al navegador</span><span class="detalle">Escáner de barras, biometría, notificaciones locales, impresora térmica, captura de cámara → alternativas web (escáner por cámara en PWA, exportar PDF).</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <strong>Fuente:</strong> rutas de <code>lib/app/router/routes.dart</code> (51 rutas) + 54 pantallas en <code>lib/features/**/presentation/</code>.<br>
+  <strong>Recomendación técnica para la web:</strong> PWA con el mismo backend Firebase (Firestore + Auth + FCM Web) · framework: React/Next.js o Flutter Web con el mismo <code>go_router</code> · plantillas de rubro reutilizables desde <code>lib/core/business/business_presets.dart</code>.
+</footer>
+
+</body>
+</html>

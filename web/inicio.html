@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuenta Clara · Diseño web — Inicio (Dashboard)</title>
+<style>
+  :root {
+    --verde: #0F9D82;
+    --verde-claro: #0B7A66;
+    --verde-teñido: rgba(15,157,130,.10);
+    --azul: #1B3A4B;
+    --fondo: #F7F9F7;
+    --ambar: #F2A93B;
+    --ambar-suave: #FFF3DC;
+    --gris: #8A9A96;
+    --blanco: #ffffff;
+    --borde: #E2EAE6;
+    --pista: rgba(30,42,56,.06);
+    --rojo: #C4574E;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+    background: var(--fondo); color: var(--azul);
+    padding: 24px 16px 64px;
+  }
+  header { max-width: 1280px; margin: 0 auto 22px; }
+  h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.3px; }
+  h1 span { color: var(--verde); }
+  .sub { color: var(--gris); font-size: 13.5px; margin-top: 4px; }
+  .marco {
+    max-width: 1280px; margin: 0 auto;
+    border: 1px solid var(--borde); border-radius: 18px;
+    overflow: hidden; background: var(--blanco);
+    box-shadow: 0 10px 40px rgba(27,58,75,.10);
+  }
+  .barra-navegador { display: flex; align-items: center; gap: 10px; background: var(--azul); padding: 9px 14px; }
+  .punto { width: 11px; height: 11px; border-radius: 50%; }
+  .p1 { background: #FF5F57; } .p2 { background: #FEBC2E; } .p3 { background: #28C840; }
+  .direccion {
+    flex: 1; background: rgba(255,255,255,.12); border-radius: 8px;
+    padding: 5px 12px; font-size: 12px; color: rgba(255,255,255,.85);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .app { display: grid; grid-template-columns: 210px 1fr; min-height: 760px; }
+
+  /* ── Sidebar (mismo sistema que Cobrar) ── */
+  .sidebar { background: var(--azul); color: #fff; padding: 18px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .logo { display: flex; align-items: center; gap: 9px; padding: 0 8px 16px; }
+  .logo-cuaderno { width: 34px; height: 34px; border-radius: 9px; background: var(--verde); position: relative; flex: none; }
+  .logo-cuaderno::before {
+    content: ""; position: absolute; inset: 8px 7px;
+    background: repeating-linear-gradient(to bottom, #fff 0 2px, transparent 2px 5px);
+    border-radius: 3px;
+  }
+  .logo-cuaderno::after {
+    content: "✓"; position: absolute; right: -5px; bottom: -5px;
+    width: 16px; height: 16px; background: var(--azul); border: 2px solid #fff;
+    border-radius: 50%; font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo b { font-size: 15px; letter-spacing: -0.2px; }
+  .logo small { display: block; color: rgba(255,255,255,.55); font-size: 10px; font-weight: 500; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,.78); cursor: pointer;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); }
+  .nav-item.activo { background: var(--verde); color: #fff; }
+  .nav-item .ico { width: 18px; text-align: center; font-size: 14px; }
+  .nav-item .badge { margin-left: auto; font-size: 10px; background: var(--ambar); color: var(--azul); border-radius: 6px; padding: 1px 6px; font-weight: 800; }
+  .nav-sep { border-top: 1px solid rgba(255,255,255,.10); margin: 10px 6px; }
+  .sidebar .pie { margin-top: auto; padding: 12px 10px 2px; border-top: 1px solid rgba(255,255,255,.10); font-size: 11.5px; color: rgba(255,255,255,.7); }
+
+  /* ── Contenido principal ── */
+  .principal { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 22px; border-bottom: 1px solid var(--borde); background: var(--blanco);
+  }
+  .saludo { flex: 1; min-width: 0; }
+  .saludo .hola { font-size: 12.5px; font-weight: 600; color: var(--gris); }
+  .saludo .negocio { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .saludo .negocio .chev { font-size: 14px; color: var(--gris); }
+  .campana {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--fondo);
+    border: 1px solid var(--borde); display: flex; align-items: center; justify-content: center;
+    font-size: 17px; cursor: pointer; position: relative;
+  }
+  .campana .punto-rojo {
+    position: absolute; top: 7px; right: 8px; width: 8px; height: 8px;
+    background: var(--rojo); border-radius: 50%; border: 2px solid var(--blanco);
+  }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--azul); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; cursor: pointer;
+  }
+
+  .contenido { display: grid; grid-template-columns: 1fr 330px; gap: 0; flex: 1; }
+  .izquierda { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .derecha {
+    border-left: 1px solid var(--borde); background: var(--fondo);
+    padding: 20px 18px; display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* ── Botón Cobrar héroe ── */
+  .hero {
+    display: flex; align-items: center; gap: 18px; cursor: pointer;
+    background: var(--verde); border-radius: 22px; padding: 20px 24px;
+    color: #fff; box-shadow: 0 16px 32px rgba(15,157,130,.32);
+    transition: transform .12s ease;
+  }
+  .hero:hover { transform: translateY(-2px); }
+  .hero .icono {
+    width: 56px; height: 56px; border-radius: 18px; background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center; font-size: 26px; flex: none;
+  }
+  .hero .txt { flex: 1; }
+  .hero .txt b { font-size: 24px; font-weight: 800; letter-spacing: -0.4px; display: block; }
+  .hero .txt small { font-size: 13px; color: rgba(255,255,255,.85); font-weight: 600; }
+  .hero .flecha { font-size: 22px; color: rgba(255,255,255,.9); }
+
+  /* ── Atajos ── */
+  .atajos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .atajo {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    background: var(--blanco); border: 1px solid var(--borde); border-radius: 14px;
+    padding: 13px 14px; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .atajo:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(27,58,75,.10); border-color: var(--verde); }
+  .atajo .ico {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--verde-teñido);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; flex: none;
+  }
+  .atajo b { font-size: 13px; font-weight: 700; }
+  .atajo small { display: block; font-size: 11px; color: var(--gris); font-weight: 600; margin-top: 1px; }
+
+  /* ── Tarjeta ventas de hoy ── */
+  .tarjeta { background: var(--blanco); border: 1px solid var(--borde); border-radius: 16px; padding: 16px 18px; }
+  .tarjeta-titulo {
+    font-size: 11.5px; font-weight: 800; letter-spacing: .8px; color: var(--gris);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tarjeta-titulo .verde { color: var(--verde); font-size: 11.5px; letter-spacing: 0; }
+  .ventas-hoy .monto { font-size: 40px; font-weight: 800; letter-spacing: -1.2px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .ventas-hoy .bs { font-size: 13px; font-weight: 700; color: var(--gris); }
+  .comparativo {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px;
+    padding-top: 12px; border-top: 1px solid var(--borde);
+    font-size: 12.5px; font-weight: 700;
+  }
+  .comparativo .up { color: var(--verde); }
+  .comparativo .down { color: var(--ambar); }
+  .ritmo { display: flex; align-items: flex-end; gap: 5px; height: 44px; margin-top: 12px; }
+  .ritmo .barra {
+    flex: 1; background: var(--verde-teñido); border-radius: 4px 4px 0 0;
+    display: flex; align-items: flex-end; justify-content: center;
+    font-size: 9px; font-weight: 800; color: var(--verde);
+  }
+  .ritmo .hoy { background: var(--verde); }
+  .ritmo .ayer { background: rgba(138,154,150,.18); }
+
+  /* ── Columna derecha ── */
+  .tasa {
+    display: flex; align-items: center; gap: 9px; cursor: pointer;
+    background: var(--blanco); border: 1px solid var(--borde); border-radius: 12px;
+    padding: 10px 13px;
+  }
+  .tasa .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); flex: none; }
+  .tasa .txt { flex: 1; font-size: 12.5px; font-weight: 700; }
+  .tasa .valor { font-size: 11.5px; font-weight: 800; color: var(--gris); background: var(--pista); border-radius: 6px; padding: 2px 8px; }
+  .racha {
+    display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+    background: var(--verde-teñido); border-radius: 999px; padding: 6px 13px;
+    font-size: 12px; font-weight: 800; color: var(--verde-claro);
+  }
+  .racha .fuego {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--verde);
+    color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px;
+  }
+  .pendientes { display: flex; flex-direction: column; gap: 8px; }
+  .pendiente {
+    display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+    background: var(--blanco); border: 1px solid var(--borde); border-radius: 12px;
+    padding: 11px 13px; transition: border-color .12s ease, box-shadow .12s ease;
+  }
+  .pendiente:hover { border-color: var(--verde); box-shadow: 0 3px 10px rgba(27,58,75,.08); }
+  .pendiente.grave { border-color: rgba(242,169,59,.55); background: var(--ambar-suave); }
+  .pendiente .ico { flex: none; font-size: 16px; width: 22px; text-align: center; }
+  .pendiente .txt { flex: 1; min-width: 0; }
+  .pendiente .txt b { font-size: 12.5px; display: block; }
+  .pendiente .txt small { font-size: 11.5px; color: var(--gris); font-weight: 600; }
+  .pendiente .flecha { color: var(--gris); font-size: 13px; align-self: center; }
+  .seccion-titulo { font-size: 11.5px; font-weight: 800; letter-spacing: .8px; color: var(--gris); text-transform: uppercase; }
+  .todos {
+    font-size: 12px; font-weight: 800; color: var(--verde); cursor: pointer;
+    background: none; border: none; text-align: left;
+  }
+
+  /* ── Estado alterno: urgencia destacada ── */
+  .estado-alterno { max-width: 1280px; margin: 30px auto 0; }
+  .estado-alterno h2 { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
+  .marco-alterno { max-width: 1280px; margin: 0 auto; border: 1px solid var(--borde); border-radius: 18px; overflow: hidden; background: var(--blanco); box-shadow: 0 10px 40px rgba(27,58,75,.10); }
+  .al-layout { display: grid; grid-template-columns: 210px 1fr; }
+  .al-hero {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 18px 22px;
+  }
+  .urgencia-destacada {
+    background: var(--azul); border-radius: 20px; padding: 16px 20px; color: #fff;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .urgencia-destacada .etiqueta {
+    font-size: 11px; font-weight: 800; letter-spacing: .9px; color: var(--ambar);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .urgencia-destacada b { font-size: 16px; }
+  .urgencia-destacada small { font-size: 12.5px; color: rgba(255,255,255,.75); font-weight: 600; }
+  .urgencia-destacada .accion {
+    margin-top: 8px; align-self: flex-start; background: var(--ambar); color: var(--azul);
+    border: none; border-radius: 10px; padding: 9px 16px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+  }
+  .cobrar-compacto {
+    display: flex; align-items: center; gap: 12px; cursor: pointer;
+    background: var(--blanco); border: 1.5px solid rgba(15,157,130,.35); border-radius: 18px;
+    padding: 14px 18px;
+  }
+  .cobrar-compacto .icono {
+    width: 42px; height: 42px; border-radius: 13px; background: var(--verde-teñido);
+    display: flex; align-items: center; justify-content: center; font-size: 19px; flex: none;
+  }
+  .cobrar-compacto b { font-size: 16px; display: block; }
+  .cobrar-compacto small { font-size: 12px; color: var(--gris); font-weight: 600; }
+  .cobrar-compacto .flecha { color: var(--verde); margin-left: auto; font-size: 18px; }
+
+  /* ── Especificación ── */
+  .spec { max-width: 1280px; margin: 34px auto 0; }
+  .spec h2 { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
+  .spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .spec-card { background: var(--blanco); border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; }
+  .spec-card h3 { font-size: 13.5px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
+  .spec-card h3 .num {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--verde); color: #fff;
+    font-size: 11px; display: flex; align-items: center; justify-content: center; flex: none;
+  }
+  .spec-card ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .spec-card li { font-size: 12.5px; color: #44586a; line-height: 1.5; }
+  .spec-card li b { color: var(--azul); }
+  .spec-card li .tipo { display: block; font-size: 11px; font-weight: 800; color: var(--verde-claro); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 1px; }
+  .alerta { background: #FFF8EC; border: 1px solid #F3DFBC; border-radius: 14px; padding: 14px 18px; font-size: 12.5px; color: #6E5A2E; line-height: 1.6; margin-top: 16px; }
+  .alerta b { color: #8A6D1F; }
+</style>
+</head>
+<body><header>
+  <h1>Cuenta Clara <span>· Diseño web — Inicio (Dashboard)</span></h1>
+  <div class="sub">Recreación del Dashboard actual (dashboard_screen.dart + urgencias.dart + grid_atajos.dart) adaptado a escritorio · Sidebar + 2 columnas: acción a la izquierda, pendientes a la derecha</div>
+</header>
+
+<div class="marco">
+  <div class="barra-navegador">
+    <span class="punto p1"></span><span class="punto p2"></span><span class="punto p3"></span>
+    <div class="direccion"><span class="lock">🔒</span> app.cuentaclara.com/</div>
+  </div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-cuaderno"></div>
+        <div><b>Cuenta Clara</b><small>Bodega El Progreso</small></div>
+      </div>
+      <div class="nav-item activo"><span class="ico">🏠</span> Inicio</div>
+      <div class="nav-item"><span class="ico">💵</span> Cobrar <span style="margin-left:auto; font-size:10px;">↵</span></div>
+      <div class="nav-item"><span class="ico">📦</span> Productos</div>
+      <div class="nav-item"><span class="ico">🧾</span> Ventas</div>
+      <div class="nav-item"><span class="ico">💸</span> Gastos</div>
+      <div class="nav-item"><span class="ico">📒</span> Fiados</div>
+      <div class="nav-item"><span class="ico">🚚</span> Proveedores</div>
+      <div class="nav-item"><span class="ico">📊</span> Reportes <span class="badge">DUEÑO</span></div>
+      <div class="nav-sep"></div>
+      <div class="nav-item"><span class="ico">🛍️</span> Catálogo</div>
+      <div class="nav-item"><span class="ico">⚙️</span> Ajustes</div>
+      <div class="pie">
+        <div style="font-size:11px; opacity:.6;">Bodega El Progreso · 2 negocios</div>
+      </div>
+    </aside>
+
+    <main class="principal">
+      <div class="topbar">
+        <div class="saludo">
+          <div class="hola">Buenas tardes 🌤</div>
+          <div class="negocio">Bodega El Progreso <span class="chev">▾</span></div>
+        </div>
+        <div class="campana">🔔<span class="punto-rojo"></span></div>
+        <div class="avatar">EP</div>
+      </div>
+
+      <div class="contenido">
+        <div class="izquierda">
+          <div class="hero">
+            <div class="icono">💵</div>
+            <div class="txt"><b>Cobrar</b><small>hoy: $142,50 · 12 ventas</small></div>
+            <div class="flecha">›</div>
+          </div>
+
+          <div class="atajos">
+            <div class="atajo"><span class="ico">📦</span><div><b>Productos</b><small>Quedan 3 bajos</small></div></div>
+            <div class="atajo"><span class="ico">📒</span><div><b>Fiados</b><small>2 cuentas vencidas</small></div></div>
+            <div class="atajo"><span class="ico">💸</span><div><b>Gastos</b><small>2 días sin anotar</small></div></div>
+            <div class="atajo"><span class="ico">🚚</span><div><b>Proveedores</b><small>$86,00 por pagar</small></div></div>
+            <div class="atajo"><span class="ico">📊</span><div><b>Reportes</b><small>Semana completa</small></div></div>
+            <div class="atajo"><span class="ico">🧾</span><div><b>Ventas</b><small>Historial y filtros</small></div></div>
+          </div>
+
+          <div class="tarjeta ventas-hoy">
+            <div class="tarjeta-titulo">VENTAS DE HOY <span class="verde">12 ventas</span></div>
+            <div class="monto">$142,50</div>
+            <div class="bs">Bs 5.874,00 · BCV</div>
+            <div class="comparativo"><span class="up">▲</span> Ayer a esta hora ibas por $118,00</div>
+            <div class="ritmo">
+              <div class="barra ayer" style="height:20%">8</div>
+              <div class="barra ayer" style="height:30%">11</div>
+              <div class="barra ayer" style="height:45%">16</div>
+              <div class="barra ayer" style="height:35%">13</div>
+              <div class="barra hoy" style="height:55%">21</div>
+              <div class="barra hoy" style="height:70%">27</div>
+              <div class="barra hoy" style="height:50%">19</div>
+              <div class="barra hoy" style="height:80%">32</div>
+              <div class="barra hoy" style="height:40%">15</div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="derecha">
+          <div class="seccion-titulo">Día</div>
+          <div class="tasa">
+            <span class="punto"></span>
+            <span class="txt">Tasa de hoy</span>
+            <span class="valor">BCV · Bs 41,20</span>
+          </div>
+          <div class="racha"><span class="fuego">🔥</span> Racha de 5 días al día</div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="seccion-titulo">Pendientes</div>
+            <button class="todos">Ver todos ›</button>
+          </div>
+          <div class="pendientes">
+            <div class="pendiente grave">
+              <span class="ico">⚠️</span>
+              <div class="txt"><b>Te falta cerrar la caja de hoy</b><small>Llevas $142,50 sin cuadrar</small></div>
+              <span class="flecha">›</span>
+            </div>
+            <div class="pendiente grave">
+              <span class="ico">📅</span>
+              <div class="txt"><b>2 fiados vencidos</b><small>$38,00 por cobrar · el más viejo, 21 días</small></div>
+              <span class="flecha">›</span>
+            </div>
+            <div class="pendiente">
+              <span class="ico">🚚</span>
+              <div class="txt"><b>Le debes a Distribuidora La Paz</b><small>$86,00</small></div>
+              <span class="flecha">›</span>
+            </div>
+            <div class="pendiente">
+              <span class="ico">📦</span>
+              <div class="txt"><b>Se está acabando Harina PAN 1kg</b><small>quedan 3</small></div>
+              <span class="flecha">›</span>
+            </div>
+            <div class="pendiente">
+              <span class="ico">✏️</span>
+              <div class="txt"><b>Anota lo que compraste</b><small>llevas 2 días sin registrar gastos</small></div>
+              <span class="flecha">›</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+<!-- Estado alterno: urgencia destacada -->
+<div class="estado-alterno">
+  <h2>Estado alterno · hay una urgencia grave ("Antes de cerrar")</h2>
+</div>
+<div class="marco-alterno">
+  <div class="barra-navegador">
+    <span class="punto p1"></span><span class="punto p2"></span><span class="punto p3"></span>
+    <div class="direccion"><span class="lock">🔒</span> app.cuentaclara.com/</div>
+  </div>
+  <div class="al-layout">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-cuaderno"></div>
+        <div><b>Cuenta Clara</b><small>Bodega El Progreso</small></div>
+      </div>
+      <div class="nav-item activo"><span class="ico">🏠</span> Inicio</div>
+      <div class="nav-item"><span class="ico">💵</span> Cobrar</div>
+      <div class="nav-item"><span class="ico">📦</span> Productos</div>
+      <div class="nav-item"><span class="ico">🧾</span> Ventas</div>
+      <div class="nav-item"><span class="ico">💸</span> Gastos</div>
+      <div class="nav-item"><span class="ico">📒</span> Fiados</div>
+      <div class="nav-item"><span class="ico">🚚</span> Proveedores</div>
+      <div class="nav-item"><span class="ico">📊</span> Reportes <span class="badge">DUEÑO</span></div>
+    </aside>
+    <div class="al-hero">
+      <div class="urgencia-destacada">
+        <div class="etiqueta">⚠️ ANTES DE CERRAR</div>
+        <b>Te falta cerrar la caja de hoy</b>
+        <small>Llevas $142,50 sin cuadrar. La venta de hoy queda pendiente de cierre.</small>
+        <button class="accion">Cerrar caja ahora</button>
+      </div>
+      <div class="cobrar-compacto">
+        <div class="icono">💵</div>
+        <div><b>Cobrar</b><small>anotar una venta</small></div>
+        <div class="flecha">›</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Especificación -->
+<div class="spec">
+  <h2>Especificación del diseño</h2>
+  <div class="spec-grid">
+    <div class="spec-card">
+      <h3><span class="num">1</span> Estructura: sidebar + topbar + 2 columnas</h3>
+      <ul>
+        <li><span class="tipo">Topbar</span><b>Saludo y nombre del negocio</b> (toca → Mis negocios, con chevron), campana de notificaciones con punto de no leídas y avatar del negocio — mismo encabezado que la app, en una franja horizontal.</li>
+        <li><span class="tipo">Izquierda (acción)</span><b>El protagonista sigue siendo Cobrar</b>: botón héroe verde con el resumen del día ("hoy: $142,50 · 12 ventas") — la app propone acciones, no reporta números.</li>
+        <li><span class="tipo">Derecha (estado)</span><b>Columna fija de 330px</b> con tasa de hoy, racha y pendientes siempre visibles. En móvil esto está abajo, en el scroll; en escritorio el dueño ve su día completo sin bajar.</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">2</span> Lo que cambia vs. la app móvil</h3>
+      <ul>
+        <li><span class="tipo">Atajos de 2 → 3 columnas</span>El grid del perfil del rubro gana una columna y muestra un subtítulo contextual (stock bajo, fiados vencidos, días sin gastos) — los mismos datos de `urgenciasProvider`, como micro-resumen.</li>
+        <li><span class="tipo">Pendientes al lado</span>`ListaPendientes` pasa de lista bajo el scroll a columna permanente, con las graves en ámbar (plata en juego) exactamente como en la app.</li>
+        <li><span class="tipo">Ritmo del día (nuevo)</span>Mini-gráfico de barras por hora en la tarjeta Ventas de hoy, comparando con ayer (barras grises vs verdes). Es el único dato nuevo: en una pantalla ancha el comparativo de la app se queda corto.</li>
+        <li><span class="tipo">Hoja en blanco</span>Si no hay ventas, la tarjeta se sustituye por la hoja en blanco punteada con la libretita dibujada — se conserva la personalidad.</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">3</span> Estados que manda la app (todos se conservan)</h3>
+      <ul>
+        <li><span class="tipo">Urgencia grave</span>La tarjeta navy "ANTES DE CERRAR" ocupa el lugar del héroe y Cobrar se degrada a su variante compacta (mockup de abajo) — misma jerarquía que `urgenciaPrincipalProvider`.</li>
+        <li><span class="tipo">Tasa vencida</span>Tarjeta de tasa vencida en lugar de "Tasa de hoy", avisando que se cobra con la vieja.</li>
+        <li><span class="tipo">Sin conexión</span>Franja navy pegada arriba del topbar ("Sin internet · sigues vendiendo · N movimientos sin sincronizar"), fuera del scroll.</li>
+        <li><span class="tipo">Sin permiso</span>El banner de error se muestra bajo el topbar con el botón Reintentar (`LibretaErrorCarga`).</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">4</span> Atajos de teclado</h3>
+      <ul>
+        <li><span class="tipo">Enter</span>Desde cualquier parte del Inicio, <kbd style="background:var(--pista);border:1px solid var(--borde);border-radius:5px;padding:1px 6px;font-size:10px;font-weight:700;">Enter</kbd> abre Cobrar (el cajero llega y empieza a vender sin mouse).</li>
+        <li><span class="tipo">N</span>Abre notificaciones · <span style="font-weight:700;">P</span> va a Productos.</li>
+        <li><span class="tipo">R</span>Refresca tasas y datos (equivale al pull-to-refresh del móvil, `RefreshIndicator`).</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">5</span> Responsive</h3>
+      <ul>
+        <li><span class="tipo">≥1200px</span>Sidebar + topbar + 2 columnas (mockup de arriba).</li>
+        <li><span class="tipo">900–1199px</span>La columna derecha baja debajo de la izquierda (2 filas); los atajos vuelven a 2 columnas.</li>
+        <li><span class="tipo">&lt;900px</span>Layout móvil 1:1: bottom nav, todo en un scroll, atajos 2 columnas — el código de la app sin cambios.</li>
+        <li><span class="tipo">Un solo código</span>`LayoutBuilder` en `DashboardScreen`: la columna derecha, el ritmo del día y los subtítulos de atajos solo se dibujan desde el breakpoint de escritorio.</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">6</span> Implementación sugerida</h3>
+      <ul>
+        <li><span class="tipo">Widgets reutilizados tal cual</span>`_Encabezado`, `_BotonCobrarHero`, `TarjetaUrgencia`, `_TarjetaVentasDeHoy`, `_HojaEnBlanco`, `GridAtajos`, `ListaPendientes` — solo cambia el contenedor (`ListView` → `Row` con columnas).</li>
+        <li><span class="tipo">Ritmo del día</span>Nuevo provider derivado de `ventasDelDiaProvider` + `ventasDeAyerProvider` (ya existen), agrupando por hora.</li>
+        <li><span class="tipo">Subtítulos de atajos</span>Reutilizan `urgenciasProvider` filtrado por `ruta` — cero lógica nueva.</li>
+        <li><span class="tipo">Sin imágenes ni fuentes externas</span>Todo CSS, mismo sistema de tokens (`libreta_tokens.dart`) que el mockup de Cobrar.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="alerta"><b>Decisión pendiente:</b> los subtítulos de los atajos (ej. "2 cuentas vencidas") duplican a la columna de Pendientes de la derecha. Propongo mostrarlos solo en pantallas donde la columna derecha no se ve (móvil) o quitarlos si se siente redundancia — el mismo dato, una sola fuente (`urgenciasProvider`).</div>
+</div>
+
+</body>
+</html>

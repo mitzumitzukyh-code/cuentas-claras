@@ -1,0 +1,409 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiados · Cuenta Clara (web)</title>
+<style>
+  :root {
+    --verde: #0F9D82; --verde-claro: #0B7A66; --verde-teñido: rgba(15,157,130,.10);
+    --azul: #1B3A4B; --ambar: #F2A93B; --ambar-suave: #FFF3DC; --gris: #8A9A96;
+    --blanco: #fff; --borde: #E2EAE6; --pista: rgba(30,42,56,.06);
+    --rojo: #C4574E; --rojo-suave: #FBE9E7; --texto: #44586a; --fondo: #F7F9F7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Inter", "Segoe UI", system-ui, sans-serif; background: #EAEEEA; color: var(--texto); }
+
+  /* ── Marco de navegador (solo para el mockup) ── */
+  .navegador { background: var(--blanco); border-bottom: 1px solid var(--borde); padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+  .puntos { display: flex; gap: 7px; }
+  .p1 { background: #FF5F57; } .p2 { background: #FEBC2E; } .p3 { background: #28C840; }
+  .puntos i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .direccion {
+    flex: 1; background: var(--fondo); border-radius: 8px; padding: 5px 12px;
+    font-size: 12px; color: var(--gris); display: flex; align-items: center; gap: 8px;
+  }
+
+  .app { display: grid; grid-template-columns: 210px 1fr; min-height: 800px; }
+
+  /* ── Sidebar (mismo sistema que Inicio/Cobrar) ── */
+  .sidebar { background: var(--azul); color: #fff; padding: 18px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .logo { display: flex; align-items: center; gap: 9px; padding: 0 8px 16px; }
+  .logo-cuaderno { width: 34px; height: 34px; border-radius: 9px; background: var(--verde); position: relative; flex: none; }
+  .logo-cuaderno::before {
+    content: ""; position: absolute; inset: 8px 7px;
+    background: repeating-linear-gradient(to bottom, #fff 0 2px, transparent 2px 5px); border-radius: 3px;
+  }
+  .logo-cuaderno::after {
+    content: "✓"; position: absolute; right: -5px; bottom: -5px; width: 16px; height: 16px;
+    background: var(--azul); border: 2px solid #fff; border-radius: 50%; font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo b { font-size: 15px; letter-spacing: -0.2px; }
+  .logo small { display: block; color: rgba(255,255,255,.55); font-size: 10px; font-weight: 500; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; color: rgba(255,255,255,.78); cursor: pointer;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); }
+  .nav-item.activo { background: var(--verde); color: #fff; }
+  .nav-item .ico { width: 18px; text-align: center; font-size: 14px; }
+  .nav-item .badge { margin-left: auto; font-size: 10px; background: var(--ambar); color: var(--azul); border-radius: 6px; padding: 1px 6px; font-weight: 800; }
+  .nav-sep { border-top: 1px solid rgba(255,255,255,.10); margin: 10px 6px; }
+  .sidebar .pie { margin-top: auto; padding: 12px 10px 2px; border-top: 1px solid rgba(255,255,255,.10); font-size: 11.5px; color: rgba(255,255,255,.7); }
+
+  /* ── Área principal ── */
+  .principal { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; padding: 15px 22px;
+    border-bottom: 1px solid var(--borde); background: var(--blanco);
+  }
+  .saludo { flex: 1; min-width: 0; }
+  .saludo .hola { font-size: 12.5px; font-weight: 600; color: var(--gris); }
+  .saludo .negocio { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .campana {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--fondo);
+    border: 1px solid var(--borde); display: flex; align-items: center; justify-content: center;
+    font-size: 17px; cursor: pointer; position: relative;
+  }
+  .campana .punto-rojo { position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; background: var(--rojo); border-radius: 50%; border: 2px solid var(--blanco); }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--azul); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; cursor: pointer;
+  }
+
+  .contenido { display: grid; grid-template-columns: 1fr 330px; gap: 0; flex: 1; }
+  .izquierda { padding: 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .derecha { border-left: 1px solid var(--borde); background: var(--fondo); padding: 22px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── Encabezado de pantalla ── */
+  .encabezado { display: flex; align-items: center; gap: 12px; }
+  .miga { font-size: 11.5px; font-weight: 600; color: var(--gris); margin-bottom: 2px; }
+  .encabezado h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; color: var(--azul); }
+  .encabezado .spacer { flex: 1; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 100px; font-size: 11.5px; font-weight: 800; }
+  .pill-ambar { background: var(--ambar-suave); color: #A5711C; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; border-radius: 11px; padding: 10px 16px;
+    font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid transparent; font-family: inherit;
+  }
+  .btn-primario { background: var(--verde); color: #fff; }
+  .btn-primario:hover { background: var(--verde-claro); }
+  .btn-contorno { background: var(--blanco); border-color: var(--borde); color: var(--azul); }
+  .btn-contorno:hover { border-color: var(--verde); }
+  .btn-verde-suave { background: var(--verde-teñido); color: var(--verde-claro); }
+  .btn-verde-suave:hover { background: rgba(15,157,130,.18); }
+
+  /* ── Total por cobrar (hero navy) ── */
+  .total-card {
+    background: var(--azul); border-radius: 18px; padding: 20px 24px; color: #fff;
+    border: 1.5px solid var(--verde);
+  }
+  .total-card .etiqueta { font-size: 11px; font-weight: 800; letter-spacing: .6px; color: rgba(255,255,255,.62); }
+  .total-card .monto { font-size: 38px; font-weight: 800; letter-spacing: -1.2px; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+  .total-card .bs { font-size: 13.5px; font-weight: 700; color: rgba(255,255,255,.82); }
+  .total-card .bs b { color: #fff; }
+
+  /* ── Buscador ── */
+  .buscador { display: flex; align-items: center; gap: 9px; background: var(--blanco); border: 1px solid var(--borde); border-radius: 12px; padding: 0 14px; }
+  .buscador input { flex: 1; border: none; outline: none; font-size: 14px; font-family: inherit; padding: 12px 0; background: transparent; color: var(--texto); }
+  .buscador .ico { font-size: 15px; color: var(--gris); }
+
+  /* ── TUS CLIENTES ── */
+  .seccion-titulo { font-size: 11.5px; font-weight: 800; letter-spacing: .8px; color: var(--gris); }
+  .lista-clientes { background: var(--blanco); border: 1px solid var(--borde); border-radius: 16px; padding: 4px 18px; overflow: hidden; }
+  .fila-cliente {
+    display: flex; align-items: center; gap: 13px; padding: 13px 0; cursor: pointer;
+    border-bottom: 1px solid var(--borde); transition: background .1s ease;
+  }
+  .fila-cliente:last-child { border-bottom: none; }
+  .fila-cliente:hover { background: var(--verde-teñido); margin: 0 -10px; padding-left: 10px; padding-right: 10px; }
+  .av {
+    width: 42px; height: 42px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+  }
+  .av.oscuro { background: var(--azul); color: #fff; }
+  .av.claro { background: var(--pista); color: var(--azul); }
+  .fila-cliente .nombre { flex: 1; min-width: 0; }
+  .fila-cliente .nombre b { font-size: 15px; font-weight: 700; color: var(--azul); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fila-cliente .nombre small { font-size: 12px; font-weight: 700; color: var(--gris); }
+  .fila-cliente .nombre small.vencido { color: #A5711C; }
+  .fila-cliente .saldo { text-align: right; flex: none; }
+  .fila-cliente .saldo .usd { font-size: 15px; font-weight: 800; color: var(--azul); font-variant-numeric: tabular-nums; }
+  .fila-cliente .saldo .bs { font-size: 11px; font-weight: 600; color: var(--gris); font-variant-numeric: tabular-nums; }
+  .fila-cliente .saldo .pill-al-dia { display: inline-flex; background: var(--verde-teñido); color: var(--verde-claro); padding: 3px 10px; border-radius: 100px; font-size: 11.5px; font-weight: 800; }
+  .fila-cliente .saldo .a-favor { display: block; font-size: 11px; font-weight: 800; color: var(--verde); }
+  .fila-cliente .chev { color: var(--gris); font-size: 16px; flex: none; }
+
+  /* ── Columna derecha ── */
+  .tarjeta-der { background: var(--blanco); border: 1px solid var(--borde); border-radius: 16px; padding: 16px; }
+  .tarjeta-der .tt { font-size: 11px; font-weight: 800; letter-spacing: .7px; color: var(--gris); margin-bottom: 8px; }
+
+  /* Recordatorio (verde = oportunidad de cobrar, no alarma) */
+  .recordatorio {
+    background: var(--verde-teñido); border: 1.5px solid rgba(15,157,130,.35); border-radius: 16px; padding: 16px;
+  }
+  .recordatorio .cabeza { display: flex; gap: 11px; align-items: center; }
+  .recordatorio .icono {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--verde); color: #fff; flex: none;
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+  }
+  .recordatorio b { font-size: 14px; font-weight: 800; color: var(--azul); line-height: 1.3; display: block; }
+  .recordatorio .sub { font-size: 12px; font-weight: 600; color: var(--verde-claro); margin-top: 2px; }
+  .recordatorio .btn-enviar {
+    margin-top: 12px; width: 100%; justify-content: center; background: var(--verde); color: #fff;
+  }
+
+  /* Pasar tu cuaderno */
+  .cuaderno { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .cuaderno .icono {
+    width: 38px; height: 38px; border-radius: 11px; background: var(--verde-teñido); flex: none;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .cuaderno .txt { flex: 1; min-width: 0; }
+  .cuaderno .txt b { font-size: 13.5px; font-weight: 800; color: var(--azul); display: block; }
+  .cuaderno .txt small { font-size: 11.5px; color: var(--gris); display: block; line-height: 1.4; }
+  .cuaderno .chev { color: var(--gris); }
+
+  /* Anotar */
+  .anotar { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .anotar .btn { justify-content: center; padding: 12px 8px; font-size: 12.5px; }
+  .nota { font-size: 11.5px; color: var(--gris); line-height: 1.5; }
+  .nota b { color: var(--azul); }
+
+  /* ── Especificación ── */
+  .spec { border-top: 2px dashed var(--borde); padding: 26px 22px; background: var(--blanco); }
+  .spec h2 { font-size: 18px; font-weight: 800; color: var(--azul); margin-bottom: 16px; }
+  .spec-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .spec-card { border: 1px solid var(--borde); border-radius: 14px; padding: 16px 18px; background: var(--fondo, #F7F9F7); }
+  .spec-card h3 { font-size: 13.5px; font-weight: 800; color: var(--azul); margin-bottom: 10px; }
+  .spec-card h3 .num {
+    display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+    background: var(--verde); color: #fff; border-radius: 6px; font-size: 11px; margin-right: 7px;
+  }
+  .spec-card ul { list-style: none; }
+  .spec-card li { font-size: 12.5px; line-height: 1.55; margin-bottom: 8px; }
+  .spec-card .tipo { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .4px; color: var(--verde-claro); background: var(--verde-teñido); padding: 2px 7px; border-radius: 6px; margin-right: 6px; }
+  .alerta {
+    margin-top: 16px; background: var(--ambar-suave); border: 1px solid rgba(242,169,59,.4);
+    border-radius: 12px; padding: 12px 16px; font-size: 12.5px; color: var(--texto); line-height: 1.55;
+  }
+  .alerta b { color: #A5711C; }
+  kbd { background: var(--pista); border: 1px solid var(--borde); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="navegador">
+  <div class="puntos"><i class="p1"></i><i class="p2"></i><i class="p3"></i></div>
+  <div class="direccion">🔒 cuentaclara.app/bodega-el-progreso/fiados</div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-cuaderno"></div>
+      <div><b>Cuenta Clara</b><small>Bodega El Progreso</small></div>
+    </div>
+    <div class="nav-item"><span class="ico">🏠</span> Inicio</div>
+    <div class="nav-item"><span class="ico">💵</span> Cobrar</div>
+    <div class="nav-item"><span class="ico">📦</span> Productos</div>
+    <div class="nav-item"><span class="ico">🧾</span> Ventas</div>
+    <div class="nav-item"><span class="ico">💸</span> Gastos</div>
+    <div class="nav-item activo"><span class="ico">📒</span> Fiados <span class="badge">2</span></div>
+    <div class="nav-item"><span class="ico">🚚</span> Proveedores</div>
+    <div class="nav-item"><span class="ico">🔒</span> Cierre de caja</div>
+    <div class="nav-item"><span class="ico">📊</span> Reportes <span class="badge">DUEÑO</span></div>
+    <div class="nav-sep"></div>
+    <div class="nav-item"><span class="ico">🛍️</span> Catálogo</div>
+    <div class="nav-item"><span class="ico">⚙️</span> Perfil</div>
+    <div class="pie">Bodega El Progreso · 2 negocios</div>
+  </aside>
+
+  <div class="principal">
+    <div class="topbar">
+      <div class="saludo">
+        <div class="hola">Buenas tardes</div>
+        <div class="negocio">Bodega El Progreso <span style="font-size:14px;color:var(--gris);">▾</span></div>
+      </div>
+      <div class="campana">🔔<span class="punto-rojo"></span></div>
+      <div class="avatar">EP</div>
+    </div>
+
+    <div class="contenido">
+      <!-- ── Columna principal: total + clientes ── -->
+      <div class="izquierda">
+        <div class="encabezado">
+          <div>
+            <div class="miga">Inicio / Fiados</div>
+            <h1>Fiados</h1>
+          </div>
+          <span class="pill pill-ambar">2 vencidos</span>
+          <div class="spacer"></div>
+          <button class="btn btn-contorno">📷 Pasar tu cuaderno</button>
+          <button class="btn btn-primario">+ Nuevo fiado</button>
+        </div>
+
+        <div class="total-card">
+          <div class="etiqueta">TOTAL POR COBRAR</div>
+          <div class="monto">$61,00</div>
+          <div class="bs"><b>Bs 2.513,20</b> · BCV 41,20 · 4 clientes</div>
+        </div>
+
+        <div class="buscador">
+          <span class="ico">🔍</span>
+          <input placeholder="Buscar cliente…">
+        </div>
+
+        <div class="seccion-titulo">TUS CLIENTES</div>
+        <div class="lista-clientes">
+          <!-- Vencida >14 días: avatar navy + fecha ámbar -->
+          <div class="fila-cliente">
+            <div class="av oscuro">RR</div>
+            <div class="nombre"><b>Rosa E. de Rodríguez</b><small class="vencido">hace 21 días</small></div>
+            <div class="saldo"><div class="usd">$26,00</div><div class="bs">Bs 1.071,20</div></div>
+            <div class="chev">›</div>
+          </div>
+          <div class="fila-cliente">
+            <div class="av oscuro">LG</div>
+            <div class="nombre"><b>Luis Gómez</b><small class="vencido">hace 16 días</small></div>
+            <div class="saldo"><div class="usd">$8,00</div><div class="bs">Bs 329,60</div></div>
+            <div class="chev">›</div>
+          </div>
+          <div class="fila-cliente">
+            <div class="av claro">JS</div>
+            <div class="nombre"><b>José Sánchez</b><small>hace 3 días</small></div>
+            <div class="saldo"><div class="usd">$12,00</div><div class="bs">Bs 494,40</div></div>
+            <div class="chev">›</div>
+          </div>
+          <div class="fila-cliente">
+            <div class="av claro">CP</div>
+            <div class="nombre"><b>Carmen Pérez</b><small>hace 6 días</small></div>
+            <div class="saldo"><div class="usd">$15,00</div><div class="bs">Bs 618,00</div></div>
+            <div class="chev">›</div>
+          </div>
+          <!-- A favor: saldo en verde -->
+          <div class="fila-cliente">
+            <div class="av claro">PR</div>
+            <div class="nombre"><b>Pedro Rivas</b><small>hace 2 días</small></div>
+            <div class="saldo"><div class="usd">$0,00</div><span class="a-favor">$4,00 a favor</span></div>
+            <div class="chev">›</div>
+          </div>
+          <!-- Saldada: se queda al final con "Al día", no desaparece -->
+          <div class="fila-cliente">
+            <div class="av claro">AM</div>
+            <div class="nombre"><b>Ana Mendoza</b><small>hace 1 día</small></div>
+            <div class="saldo"><span class="pill-al-dia">Al día</span></div>
+            <div class="chev">›</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Columna derecha: acciones y recordatorio ── -->
+      <div class="derecha">
+        <!-- El recordatorio señala solo la deuda más vieja: la app lo trata
+             como una oportunidad de cobrar (verde), no como una alarma (ámbar). -->
+        <div class="recordatorio">
+          <div class="cabeza">
+            <div class="icono">📨</div>
+            <div>
+              <b>Rosa E. de Rodríguez lleva 21 días vencida</b>
+              <div class="sub">Recordatorio automático listo para enviar</div>
+            </div>
+          </div>
+          <button class="btn btn-enviar">Enviar por WhatsApp</button>
+        </div>
+
+        <div class="tarjeta-der">
+          <div class="tt">PASAR TU CUADERNO</div>
+          <div class="cuaderno">
+            <div class="icono">📷</div>
+            <div class="txt">
+              <b>Pasar tu cuaderno</b>
+              <small>¿Ya tienes deudas anotadas en papel? Fotografía la página y las pasamos.</small>
+            </div>
+            <div class="chev">›</div>
+          </div>
+        </div>
+
+        <div class="tarjeta-der">
+          <div class="tt">ANOTAR</div>
+          <div class="anotar">
+            <button class="btn btn-primario">+ Nuevo fiado</button>
+            <button class="btn btn-contorno">+ Anotar abono</button>
+          </div>
+        </div>
+
+        <div class="nota">
+          <b>Libro mayor.</b> Un fiado o un abono no se edita ni se borra: cada
+          movimiento queda registrado con su fecha y quién lo anotó.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Especificación -->
+<div class="spec">
+  <h2>Especificación del diseño — Fiados</h2>
+  <div class="spec-grid">
+    <div class="spec-card">
+      <h3><span class="num">1</span> Estructura: sidebar + topbar + 2 columnas</h3>
+      <ul>
+        <li><span class="tipo">Izquierda (lectura)</span><b>TOTAL POR COBRAR</b> arriba en la tarjeta navy con borde verde (el mismo color de "plata en juego"), seguido del buscador y de <b>TUS CLIENTES</b> como lista con renglones — la pantalla de la app tal cual, en columna ancha.</li>
+        <li><span class="tipo">Derecha (acción)</span><b>Columna fija de 330px</b> con el recordatorio listo, "Pasar tu cuaderno" y las anotaciones. En móvil esto vive abajo del scroll y en la pantalla de detalle; en escritorio el dueño no baja para cobrar lo pendiente.</li>
+        <li><span class="tipo">Header</span>El FAB "Nuevo fiado" de la app se vuelve botón del encabezado, con "Pasar tu cuaderno" a su lado (la puerta de entrada de quien ya lleva los fiados en papel).</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">2</span> Cómo leer cada renglón (manda la app)</h3>
+      <ul>
+        <li><span class="tipo">Deuda vieja (&gt;14 días)</span>Avatar navy con iniciales blancas + fecha en ámbar. En una lista de seis, el que hay que atender primero se reconoce sin leer fechas.</li>
+        <li><span class="tipo">Saldo</span>USD en negrita y la conversión en Bs debajo (tasa cacheada), tabular-nums para que no baile la cifra.</li>
+        <li><span class="tipo">A favor</span>"$4,00 a favor" en verde bajo un saldo en cero: el cliente te dejó de más.</li>
+        <li><span class="tipo">Saldada</span>Píldora verde "Al día" y el cliente se va <b>al final</b> de la lista — no desaparece, el dueño la abre para mandar comprobante o ver qué le pagaron.</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">3</span> Reglas de negocio que se conservan</h3>
+      <ul>
+        <li><span class="tipo">Total</span>Suma solo de los saldos positivos: lo que tiene "a favor" o está "al día" no infla el total por cobrar.</li>
+        <li><span class="tipo">Recordatorio único</span>El banner verde señala <b>solo la deuda más vieja</b> (≥15 días) — una lista de morosos convierte Fiados en un tablero de reclamos. Verde, no ámbar: es oportunidad de cobrar.</li>
+        <li><span class="tipo">Borrador</span>El botón "Enviar" abre WhatsApp con el borrador editable, el mismo texto que el "Recordar" del detalle (una sola voz, una sola fuente).</li>
+        <li><span class="tipo">Libro mayor</span>Fiados y abonos nunca se editan ni se borran: se anota otro movimiento en contra, con fecha y usuario.</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">4</span> Estados que manda la app</h3>
+      <ul>
+        <li><span class="tipo">Vacío</span>"Nadie te debe… por ahora" con la ilustración de la libreta y el botón "Anotar un fiado" (no es "nadie te debe": los clientes al día también cuentan).</li>
+        <li><span class="tipo">Sin resultados</span>"Ningún cliente coincide con «…»" cuando el buscador no encuentra.</li>
+        <li><span class="tipo">Error de carga</span>Tarjeta con Reintentar (LibretaErrorCarga), nunca el error crudo en pantalla.</li>
+        <li><span class="tipo">Offline</span>Franja navy pegada arriba del topbar: "Sin internet · sigues vendiendo · N movimientos sin sincronizar".</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">5</span> Atajos de teclado</h3>
+      <ul>
+        <li><span class="tipo">N</span>Abre "Nuevo fiado" (anotar movimiento).</li>
+        <li><span class="tipo">A</span>Abre "Anotar abono".</li>
+        <li><span class="tipo">F</span>Enfoca el buscador de clientes.</li>
+        <li><span class="tipo">C</span>Va a "Pasar tu cuaderno" (importar foto de libreta).</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h3><span class="num">6</span> Responsive e implementación</h3>
+      <ul>
+        <li><span class="tipo">≥1200px</span>Sidebar + topbar + 2 columnas (mockup de arriba).</li>
+        <li><span class="tipo">900–1199px</span>La columna derecha baja debajo de la lista; los botones del header se reordenan.</li>
+        <li><span class="tipo">&lt;900px</span>Layout móvil 1:1: la pantalla de la app sin cambios, con su FAB.</li>
+        <li><span class="tipo">Un solo código</span><code>LayoutBuilder</code> en <code>FiadosScreen</code>: la columna derecha y el hero total solo se dibujan desde el breakpoint de escritorio. Widgets reutilizados tal cual: <code>_FilaCliente</code>, <code>_RecordatorioVencido</code>, <code>_AtajoCuaderno</code>, <code>LibretaEstadoVacio</code>.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="alerta"><b>Decisiones pendientes:</b> 1) en la web, "Pasar tu cuaderno" es <b>subir un archivo</b> en vez de foto de cámara (mismo flujo de revisión, cambia la captura). 2) El atajo "Pasar tu cuaderno" en la columna derecha y el botón del header dicen lo mismo — propongo dejar el del header (primera vez) y el de la columna como acceso permanente. 3) La columna derecha duplica el recordatorio que también aparece en el Inicio; es el mismo dato (urgencia grave) en dos lugares, ¿se muestra solo cuando el Inicio no lo tiene?</div>
+</div>
+
+</body>
+</html>
